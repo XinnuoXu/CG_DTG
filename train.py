@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
     parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs'])
-    parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree'])
+    parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')

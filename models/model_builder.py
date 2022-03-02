@@ -104,12 +104,15 @@ class AbsSummarizer(nn.Module):
                                                 args.ext_ff_size, 
                                                 args.ext_dropout, 
                                                 args.ext_layers)
-        else:
+        elif args.content_planning_model == 'transformer':
             self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
                                                          args.ext_ff_size, 
                                                          args.ext_heads, 
                                                          args.ext_dropout, 
                                                          args.ext_layers)
+        else:
+            self.planning_layer = None 
+
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
         self.generator[0].weight = self.decoder.embed_tokens.weight
@@ -149,14 +152,19 @@ class AbsSummarizer(nn.Module):
 
     def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection):
 
-        # Get sentence importance
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
-        sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
-        sents_vec = sents_vec * mask_cls[:, :, None].float()
-        sent_scores = self.planning_layer(sents_vec, mask_cls)
-        # Weight input tokens
-        content_selection_weights = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
+
+        if self.planning_layer != None:
+            # Get sentence importance
+            sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
+            sents_vec = sents_vec * mask_cls[:, :, None].float()
+            sent_scores = self.planning_layer(sents_vec, mask_cls)
+            # Weight input tokens
+            content_selection_weights = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
+        else:
+            content_selection_weights = mask_src
+
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
                                        attention_mask=mask_tgt,
