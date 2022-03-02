@@ -7,6 +7,7 @@ import os
 import argparse
 from others.logging import init_logger
 from train_extractive import train_ext, validate_ext, test_ext
+from train_abstractive import train_abs, validate_abs, test_abs
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -21,6 +22,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs'])
+    parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree'])
+
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')
     parser.add_argument("-result_path", default='../results/cnndm')
@@ -33,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("-max_tgt_len", default=250, type=int)
     parser.add_argument("-use_interval", type=str2bool, nargs='?',const=True,default=True)
 
-    # model parameters
+    # planning parameters
     parser.add_argument("-large", type=str2bool, nargs='?',const=True,default=False)
     parser.add_argument("-param_init", default=0, type=float)
     parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
@@ -43,7 +47,13 @@ if __name__ == '__main__':
     parser.add_argument("-ext_hidden_size", default=768, type=int)
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
-    parser.add_argument("-ext_model", default='', type=str, choices=['transformer', 'tree'])
+    parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
+
+    # generation parameters
+    parser.add_argument("-label_smoothing", default=0.1, type=float)
+    parser.add_argument("-generator_shard_size", default=32, type=int)
+    parser.add_argument("-alpha",  default=0.6, type=float)
+    parser.add_argument("-beam_size", default=5, type=int)
 
     # traning parameters
     parser.add_argument("-optim", default='adam', type=str)
@@ -82,14 +92,28 @@ if __name__ == '__main__':
     device_id = 0 if device == "cuda" else -1
 
 
-    if (args.mode == 'train'):
-        train_ext(args, device_id)
-    elif (args.mode == 'validate'):
-        validate_ext(args, device_id)
-    if (args.mode == 'test'):
-        cp = args.test_from
-        try:
-            step = int(cp.split('.')[-2].split('_')[-1])
-        except:
-            step = 0
-        test_ext(args, device_id, cp, step)
+    if args.ext_or_abs == 'ext':
+        if (args.mode == 'train'):
+            train_ext(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_ext(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_ext(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'abs':
+        if (args.mode == 'train'):
+            train_abs(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_abs(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_abs(args, device_id, cp, step)

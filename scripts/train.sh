@@ -6,10 +6,12 @@ MODEL_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/models/
 mkdir ${MODEL_PATH}
 
 python train.py  \
-	-mode train \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
-	-ext_model tree \
+	-mode train \
+	-ext_or_abs abs \
+	-content_planning_model tree \
+	-tree_gumbel_softmax_tau 0.2 \
 	-log_file ./logs/train.log \
 	-train_steps 30000 \
 	-save_checkpoint_steps 5000 \

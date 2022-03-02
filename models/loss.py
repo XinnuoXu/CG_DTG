@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.reporter import Statistics
+from models.reporter_abs import Statistics
 
 
 def abs_loss(generator, symbols, vocab_size, device, train=True, label_smoothing=0.0):
@@ -207,10 +207,8 @@ class NMTLossCompute(LossComputeBase):
             )
 
     def _make_shard_state(self, batch, output):
-        return {
-            "output": output,
-            "target": batch.tgt[:,1:],
-        }
+        return {"output": output[:, :-1, :],
+            "target": batch.tgt[:,1:],}
 
     def _compute_loss(self, batch, output, target):
         bottled_output = self._bottle(output)
@@ -218,7 +216,6 @@ class NMTLossCompute(LossComputeBase):
         gtruth =target.contiguous().view(-1)
 
         loss = self.criterion(scores, gtruth)
-
         stats = self._stats(loss.clone(), scores, gtruth)
 
         return loss, stats

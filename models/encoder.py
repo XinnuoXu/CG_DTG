@@ -153,7 +153,6 @@ class StructuredAttention(nn.Module):
         if mask is not None:
             mask = mask.expand_as(scores).bool()
             attn = attn.masked_fill(mask, 0)
-
         return attn, d0
 
 
