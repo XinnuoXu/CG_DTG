@@ -13,9 +13,9 @@ python train.py  \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.2 \
 	-log_file ./logs/train.log \
-	-train_steps 200000 \
-	-save_checkpoint_steps 20000 \
-	-warmup_steps 20000 \
+	-train_steps 30000 \
+	-save_checkpoint_steps 5000 \
+	-warmup_steps 10000 \
 	-batch_size 3000 \
 	-report_every 50 \
 	-max_pos 1024 \
