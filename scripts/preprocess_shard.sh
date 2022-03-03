@@ -1,7 +1,9 @@
 #!/bin/bash
 
-RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.oracle/
-JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/jsons/
+#RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.oracle/
+#JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/jsons/
+RAW_PATH=../Plan_while_Generate/Content_Selection/xsum_origin_greedy_sent.oracle/
+JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/jsons/
 
 mkdir ${JSON_PATH}
 rm -rf ${JSON_PATH}/*

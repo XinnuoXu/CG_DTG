@@ -1,7 +1,7 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/data/
-MODEL_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/models/
+BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/data/
+MODEL_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/models/
 
 mkdir ${MODEL_PATH}
 
