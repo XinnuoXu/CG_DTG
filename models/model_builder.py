@@ -131,7 +131,7 @@ class AbsSummarizer(nn.Module):
     def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block):
         root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = root_probs * mask_block
-        #root_probs = nn.functional.gumbel_softmax(root_probs * mask_block, tau=self.tree_gumbel_softmax_tau, hard=False)
+        root_probs = nn.functional.gumbel_softmax(root_probs * mask_block, tau=self.tree_gumbel_softmax_tau, hard=False)
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
         content_selection_weights = []
@@ -143,7 +143,8 @@ class AbsSummarizer(nn.Module):
             weights = root_probs[i, :]
             content_selection = []
             for j in range(len(sep_indices)-1):
-                content_selection.append(weights[j].expand(sep_indices[j+1]-sep_indices[j]))
+                #content_selection.append(weights[j].expand(sep_indices[j+1]-sep_indices[j]))
+                content_selection.append(weights[j].repeat(sep_indices[j+1]-sep_indices[j]))
             content_selection_weights.append(torch.cat(content_selection))
         content_selection_weights = torch.stack(content_selection_weights)
         content_selection_weights = content_selection_weights * attention_mask
