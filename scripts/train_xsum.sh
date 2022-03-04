@@ -1,7 +1,8 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/data/
-MODEL_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/models/
+BERT_DATA_PATH=/disk/scratch/s1687314/Planning/xsum/data/ 
+MODEL_PATH=/disk/scratch/s1687314/Planning/xsum/models/
+LOG_PATH=/disk/scratch/s1687314/Planning/xsum/logs/
 
 mkdir ${MODEL_PATH}
 
@@ -11,8 +12,8 @@ python train.py  \
 	-mode train \
 	-ext_or_abs abs \
 	-content_planning_model tree \
-	-tree_gumbel_softmax_tau 0.2 \
-	-log_file ./logs/train.log \
+	-tree_gumbel_softmax_tau 0.7 \
+	-log_file ${LOG_PATH}/train.log \
 	-train_steps 30000 \
 	-save_checkpoint_steps 5000 \
 	-warmup_steps 10000 \
@@ -24,4 +25,4 @@ python train.py  \
 	-ext_dropout 0.1 \
 	-lr 2e-3 \
 	-accum_count 5 \
-	-visible_gpus 0,1,2,3 
+	-visible_gpus 0

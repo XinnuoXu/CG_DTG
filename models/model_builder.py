@@ -128,10 +128,24 @@ class AbsSummarizer(nn.Module):
         self.to(device)
 
 
+    def gumbel_softmax_function(self, scores, tau, top_k):
+        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
+        gumbels = (scores + gumbels) / tau
+        y_soft = gumbels.softmax(-1)
+        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
+        value = 1 / top_k
+        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
+        ret = y_hard - y_soft.detach() + y_soft
+        ret = ret == value
+        return ret
+
+
     def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block):
         root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = root_probs * mask_block
-        root_probs = nn.functional.gumbel_softmax(root_probs * mask_block, tau=self.tree_gumbel_softmax_tau, hard=False)
+        #root_probs = nn.functional.gumbel_softmax(root_probs, tau=self.tree_gumbel_softmax_tau, hard=False)
+        root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, 3)
+
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
         content_selection_weights = []
