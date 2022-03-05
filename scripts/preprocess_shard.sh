@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.oracle/
-#JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/jsons/
-RAW_PATH=/disk/scratch/s1687314/Planning/xsum/xsum_origin_greedy_sent.oracle/
-JSON_PATH=/disk/scratch/s1687314/Planning/xsum/jsons/
-LOG_PATH=/disk/scratch/s1687314/Planning/xsum/logs/
+# RAW_DATA_NAME=xsum_origin_greedy_sent.oracle/
+RAW_PATH=${BASE_DIR}/${RAW_DATA_NAME}/
+JSON_PATH=${BASE_DIR}/jsons/
+LOG_PATH=${BASE_DIR}/logs/
 
+mkdir ${LOG_PATH}
 mkdir ${JSON_PATH}
 rm -rf ${JSON_PATH}/*
 
