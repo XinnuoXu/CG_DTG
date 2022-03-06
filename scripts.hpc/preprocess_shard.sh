@@ -4,7 +4,8 @@ RAW_PATH=/home/hpcxu1/Planning//Plan_while_Generate/Content_Selection/xsum_origi
 JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/jsons/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
 
-mkdir ${JSON_PATH}
+mkdir -p ${LOG_PATH}
+mkdir -p ${JSON_PATH}
 rm -rf ${JSON_PATH}/*
 
 python preprocess.py \

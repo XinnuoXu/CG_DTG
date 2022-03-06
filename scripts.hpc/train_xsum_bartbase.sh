@@ -1,17 +1,18 @@
 #!/bin/bash
 
-BERT_DATA_PATH=${BASE_DIR}/data/ 
-MODEL_PATH=${BASE_DIR}/models/
-LOG_PATH=${BASE_DIR}/logs/
+BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
+MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models.xsum.bartbase/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs.xsum.bartbase/
 
-mkdir ${MODEL_PATH}
+mkdir -p ${MODEL_PATH}
+mkdir -p ${LOG_PATH}
 
 python train.py  \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
 	-mode train \
 	-ext_or_abs abs \
-	-content_planning_model tree \
+	-content_planning_model none \
 	-tree_gumbel_softmax_tau 0.7 \
 	-log_file ${LOG_PATH}/train.log \
 	-train_steps 30000 \
@@ -25,4 +26,4 @@ python train.py  \
 	-ext_dropout 0.1 \
 	-lr 2e-3 \
 	-accum_count 5 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2

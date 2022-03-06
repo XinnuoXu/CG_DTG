@@ -4,7 +4,8 @@ BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
 MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
 
-mkdir ${MODEL_PATH}
+mkdir -p ${LOG_PATH}
+mkdir -p ${MODEL_PATH}
 
 python train.py  \
 	-input_path ${BERT_DATA_PATH} \
@@ -25,4 +26,4 @@ python train.py  \
 	-ext_dropout 0.1 \
 	-lr 2e-3 \
 	-accum_count 5 \
-	-visible_gpus 0,1,2,3
+	-visible_gpus 0,1,2

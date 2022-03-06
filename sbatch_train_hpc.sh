@@ -31,20 +31,21 @@ source /home/hpcxu1/miniconda3/bin/activate Plan
 # Run training. Here we use src/gpu.py
 # ====================
 echo "Creating directory to save model weights"
-BASE_DIR=/home/hpcxu1/Planning/Tree_enc_dec/outputs/
-JSONS_DIR=${BASE_DIR}/jsons/
-DATA_DIR=${BASE_DIR}/data/
-MODEL_DIR=${BASE_DIR}/models/
-LOG_DIR=${BASE_DIR}/logs/
-mkdir -p ${BASE_DIR}
-mkdir -p ${JSONS_DIR}
-mkdir -p ${DATA_DIR}
-mkdir -p ${MODEL_DIR}
-mkdir -p ${LOG_DIR}
+#BASE_DIR=/home/hpcxu1/Planning/Tree_enc_dec/outputs/
+#JSONS_DIR=${BASE_DIR}/jsons/
+#DATA_DIR=${BASE_DIR}/data/
+#MODEL_DIR=${BASE_DIR}/models/
+#LOG_DIR=${BASE_DIR}/logs/
+#mkdir -p ${BASE_DIR}
+#mkdir -p ${JSONS_DIR}
+#mkdir -p ${DATA_DIR}
+#mkdir -p ${MODEL_DIR}
+#mkdir -p ${LOG_DIR}
 
 # This script does not actually do very much. But it does demonstrate the principles of training
 #sh ./scripts.hpc/preprocess_shard.sh
 #sh ./scripts.hpc/preprocess.sh
-sh ./scripts.hpc/train_xsum.sh
+#sh ./scripts.hpc/train_xsum.sh
+sh ./scripts.hpc/train_xsum_bartbase.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

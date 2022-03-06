@@ -4,7 +4,8 @@ JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/jsons/
 BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
 
-mkdir ${BERT_DATA_PATH}
+mkdir -p ${LOG_PATH}
+mkdir -p ${BERT_DATA_PATH}
 rm -rf ${BERT_DATA_PATH}/*
 
 python preprocess.py \
