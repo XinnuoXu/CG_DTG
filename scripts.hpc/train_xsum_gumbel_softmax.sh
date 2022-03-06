@@ -1,8 +1,8 @@
 #!/bin/bash
 
 BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
+MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models.gumbel_softmax/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs.gumbel_softmax/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${MODEL_PATH}
@@ -13,11 +13,11 @@ python train.py  \
 	-mode train \
 	-ext_or_abs abs \
 	-content_planning_model tree \
-	-tree_gumbel_softmax_tau 0.7 \
+	-tree_gumbel_softmax_tau 0.5 \
 	-log_file ${LOG_PATH}/train.log \
-	-train_steps 30000 \
-	-save_checkpoint_steps 5000 \
-	-warmup_steps 10000 \
+	-train_steps 70000 \
+	-save_checkpoint_steps 10000 \
+	-warmup_steps 20000 \
 	-batch_size 3000 \
 	-report_every 50 \
 	-max_pos 1024 \

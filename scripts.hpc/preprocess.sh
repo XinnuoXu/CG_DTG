@@ -1,8 +1,14 @@
 #!/bin/bash
 
-JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/jsons/
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
+# Setup for Xsum
+#JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/jsons/
+#BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
+#LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
+
+# Setup for CNN
+JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/jsons/
+BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/data/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${BERT_DATA_PATH}

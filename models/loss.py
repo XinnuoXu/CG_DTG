@@ -153,10 +153,12 @@ class LossComputeBase(nn.Module):
         return Statistics(loss.item(), num_non_padding, num_correct)
 
     def _bottle(self, _v):
-        return _v.view(-1, _v.size(2))
+        #return _v.view(-1, _v.size(2))
+        return _v.reshape(-1, _v.size(2))
 
     def _unbottle(self, _v, batch_size):
-        return _v.view(-1, batch_size, _v.size(1))
+        #return _v.view(-1, batch_size, _v.size(1))
+        return _v.reshape(-1, batch_size, _v.size(1))
 
 
 class LabelSmoothingLoss(nn.Module):

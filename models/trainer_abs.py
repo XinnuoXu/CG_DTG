@@ -188,14 +188,14 @@ class Trainer(object):
         with torch.no_grad():
             for batch in valid_iter:
                 src = batch.src
-                tgt = batch.tgt
-                segs = batch.segs
-                clss = batch.clss
                 mask_src = batch.mask_src
+                tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
+                clss = batch.clss
                 mask_cls = batch.mask_cls
+                labels = batch.gt_selection
 
-                outputs, _ = self.model(src, tgt, segs, clss, mask_src, mask_tgt, mask_cls)
+                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)
