@@ -2,11 +2,11 @@
 #SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/${SLURM_JOB_ID}.out
 #SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/${SLURM_JOB_ID}.out
 #SBATCH --nodes 1	  # nodes requested
-#SBATCH --gres=gpu:4  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
 #SBATCH -t 24:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
+#SBATCH --gres=gpu:4  # use 1 GPU
 #SBATCH -n 4	  # tasks requested
 
 set -e # fail fast
@@ -31,7 +31,8 @@ export RAW_DATA_DIR=/home/${USER}/Planning/Plan_while_Generate/Content_Selection
 export SCRATCH_HOME=/disk/scratch/${USER}/
 export BASE_DIR=${SCRATCH_HOME}/Planning/xsum/${MODEL_NAME}/
 mkdir -p ${BASE_DIR}
-rsync --archive --update --compress --progress ${RAW_DATA_DIR}/${RAW_DATA_NAME} ${BASE_DIR}/${RAW_DATA_NAME}
+rsync --archive --update --compress --progress ${RAW_DATA_DIR}/${RAW_DATA_NAME} ${BASE_DIR}
+echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/${RAW_DATA_NAME} ${BASE_DIR}"
 
 # ====================
 # Run training. Here we use src/gpu.py
@@ -43,7 +44,7 @@ sh ./scripts/train_xsum.sh
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system
 # ====================
-OUTPUT_HOME=/home/${USER}/Planning/Tree_enc_dec/outputs/${MODEL_NAME}
+OUTPUT_HOME=/home/${USER}/Planning/Tree_enc_dec/outputs/
 mkdir -p ${OUTPUT_HOME}
 rsync --archive --update --compress --progress ${BASE_DIR} ${OUTPUT_HOME}
 
