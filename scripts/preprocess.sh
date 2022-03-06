@@ -2,9 +2,9 @@
 
 #JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/jsons/
 #BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/data/
-JSON_PATH=/disk/scratch/s1687314/Planning/xsum/jsons/
-BERT_DATA_PATH=/disk/scratch/s1687314/Planning/xsum/data/
-LOG_PATH=/disk/scratch/s1687314/Planning/xsum/logs/
+JSON_PATH=${BASE_DIR}/jsons/
+BERT_DATA_PATH=${BASE_DIR}/data/
+LOG_PATH=${BASE_DIR}/logs/
 
 mkdir ${BERT_DATA_PATH}
 rm -rf ${BERT_DATA_PATH}/*

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/disk/scratch/s1687314/Planning/xsum/data/ 
-MODEL_PATH=/disk/scratch/s1687314/Planning/xsum/models/
-LOG_PATH=/disk/scratch/s1687314/Planning/xsum/logs/
+BERT_DATA_PATH=${BASE_DIR}/data/ 
+MODEL_PATH=${BASE_DIR}/models/
+LOG_PATH=${BASE_DIR}/logs/
 
 mkdir ${MODEL_PATH}
 
@@ -25,4 +25,4 @@ python train.py  \
 	-ext_dropout 0.1 \
 	-lr 2e-3 \
 	-accum_count 5 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2,3
