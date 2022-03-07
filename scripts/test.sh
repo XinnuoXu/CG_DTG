@@ -1,14 +1,17 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/BertSumExt/xsum_bertscore/data/
-MODEL_PATH=/scratch/xxu/Plan_while_Generate/BertSumExt/xsum_bertscore/models/
+BASE_DIR=/home/s1687314/Planning/Tree_enc_dec/outputs
+
+BERT_DATA_PATH=${BASE_DIR}/data/ 
+MODEL_PATH=${BASE_DIR}/models/
+LOG_PATH=${BASE_DIR}/logs/
 
 python train.py \
 	-mode test \
 	-input_path ${BERT_DATA_PATH} \
-	-test_from ${MODEL_PATH}/model_step_15000.pt \
-	-result_path ./logs/test.res \
-	-log_file ./logs/test.log \
+	-test_from ${MODEL_PATH}/model_step_30000.pt \
+	-result_path ${LOG_PATH}/test.res \
+	-log_file ${LOG_PATH}/test.log \
 	-use_interval true \
 	-block_trigram true \
 	-max_pos 512 \

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+BASE_DIR=/home/s1687314/Planning/Tree_enc_dec/outputs
+
 BERT_DATA_PATH=${BASE_DIR}/data/ 
 MODEL_PATH=${BASE_DIR}/models/
 LOG_PATH=${BASE_DIR}/logs/
@@ -14,7 +16,7 @@ python train.py  \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.7 \
 	-log_file ${LOG_PATH}/train.log \
-	-train_steps 30000 \
+	-train_steps 60000 \
 	-save_checkpoint_steps 5000 \
 	-warmup_steps 10000 \
 	-batch_size 3000 \
@@ -25,4 +27,4 @@ python train.py  \
 	-ext_dropout 0.1 \
 	-lr 2e-3 \
 	-accum_count 5 \
-	-visible_gpus 0,1,2,3
+	-visible_gpus 0
