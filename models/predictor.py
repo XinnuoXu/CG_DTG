@@ -225,11 +225,19 @@ class Translator(object):
 
         beam_size = self.beam_size
         batch_size = batch.batch_size
-        src = batch.src
-        segs = batch.segs
-        mask_src = batch.mask_src
 
-        src_features = self.model.bert(src, segs, mask_src)
+        src = batch.src
+        mask_src = batch.mask_src
+        tgt = batch.tgt
+        mask_tgt = batch.mask_tgt
+        clss = batch.clss
+        mask_cls = batch.mask_cls
+        labels = batch.gt_selection
+
+        src_res = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels, run_decoder=False)
+        src_features = src_res['encoder_outpus']
+        mask_src = src_res['encoder_attention_mask']
+
         dec_states = self.model.decoder.init_decoder_state(src, src_features, with_cache=True)
         device = src_features.device
 

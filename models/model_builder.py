@@ -165,7 +165,7 @@ class AbsSummarizer(nn.Module):
         return content_selection_weights
 
 
-    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection):
+    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection, run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
@@ -179,6 +179,9 @@ class AbsSummarizer(nn.Module):
             content_selection_weights = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
         else:
             content_selection_weights = mask_src
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
