@@ -251,8 +251,7 @@ def train_abs_single(args, device_id):
 
     if args.train_from != '':
         logger.info('Loading checkpoint from %s' % args.train_from)
-        checkpoint = torch.load(args.train_from,
-                                map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
         opt = vars(checkpoint['opt'])
         for k in opt.keys():
             if (k in model_flags):
