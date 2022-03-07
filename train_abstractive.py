@@ -93,6 +93,80 @@ class ErrorHandler(object):
         raise Exception(msg)
 
 
+def train_abs(args, device_id):
+    if (args.world_size > 1):
+        train_abs_multi(args)
+    else:
+        train_abs_single(args, device_id)
+
+
+def train_abs_multi(args):
+    """ Spawns 1 process per GPU """
+    init_logger()
+
+    nb_gpu = args.world_size
+    mp = torch.multiprocessing.get_context('spawn')
+
+    # Create a thread to listen for errors in the child processes.
+    error_queue = mp.SimpleQueue()
+    error_handler = ErrorHandler(error_queue)
+
+    # Train with multiprocessing.
+    procs = []
+    for i in range(nb_gpu):
+        device_id = i
+        procs.append(mp.Process(target=run, args=(args, device_id, error_queue,), daemon=True))
+        procs[i].start()
+        logger.info(" Starting process pid: %d  " % procs[i].pid)
+        error_handler.add_child(procs[i].pid)
+    for p in procs:
+        p.join()
+
+
+def train_abs_single(args, device_id):
+    init_logger(args.log_file)
+    logger.info(str(args))
+    device = "cpu" if args.visible_gpus == '-1' else "cuda"
+    logger.info('Device ID %d' % device_id)
+    logger.info('Device %s' % device)
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+
+    if device_id >= 0:
+        torch.cuda.set_device(device_id)
+        torch.cuda.manual_seed(args.seed)
+
+    if args.train_from != '':
+        logger.info('Loading checkpoint from %s' % args.train_from)
+        checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
+        opt = vars(checkpoint['opt'])
+        for k in opt.keys():
+            if (k in model_flags):
+                setattr(args, k, opt[k])
+    else:
+        checkpoint = None
+
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    torch.backends.cudnn.deterministic = True
+
+    def train_iter_fct():
+        return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
+                                      args.batch_size, device, shuffle=True, is_test=False)
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
+    optim = [model_builder.build_optim(args, model, checkpoint)]
+    logger.info(model)
+
+    symbols = {'PAD': tokenizer.pad_token_id}
+    train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
+                          train=True, label_smoothing=args.label_smoothing)
+    trainer = build_trainer(args, device_id, model, optim, train_loss)
+    trainer.train(train_iter_fct, args.train_steps)
+
+
 def validate_abs(args, device_id):
     timestep = 0
     if (args.test_all):
@@ -196,84 +270,11 @@ def test_abs(args, device_id, pt, step):
                                        args.test_batch_size, device,
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    symbols = {'PAD': tokenizer.pad_token_id}
 
     model = AbsSummarizer(args, device, checkpoint)
     model.eval()
 
-    predictor = build_predictor(args, tokenizer, symbols, model, logger)
+    predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 
-def train_abs(args, device_id):
-    if (args.world_size > 1):
-        train_abs_multi(args)
-    else:
-        train_abs_single(args, device_id)
-
-
-def train_abs_multi(args):
-    """ Spawns 1 process per GPU """
-    init_logger()
-
-    nb_gpu = args.world_size
-    mp = torch.multiprocessing.get_context('spawn')
-
-    # Create a thread to listen for errors in the child processes.
-    error_queue = mp.SimpleQueue()
-    error_handler = ErrorHandler(error_queue)
-
-    # Train with multiprocessing.
-    procs = []
-    for i in range(nb_gpu):
-        device_id = i
-        procs.append(mp.Process(target=run, args=(args, device_id, error_queue,), daemon=True))
-        procs[i].start()
-        logger.info(" Starting process pid: %d  " % procs[i].pid)
-        error_handler.add_child(procs[i].pid)
-    for p in procs:
-        p.join()
-
-
-def train_abs_single(args, device_id):
-    init_logger(args.log_file)
-    logger.info(str(args))
-    device = "cpu" if args.visible_gpus == '-1' else "cuda"
-    logger.info('Device ID %d' % device_id)
-    logger.info('Device %s' % device)
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-    torch.backends.cudnn.deterministic = True
-
-    if device_id >= 0:
-        torch.cuda.set_device(device_id)
-        torch.cuda.manual_seed(args.seed)
-
-    if args.train_from != '':
-        logger.info('Loading checkpoint from %s' % args.train_from)
-        checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
-        opt = vars(checkpoint['opt'])
-        for k in opt.keys():
-            if (k in model_flags):
-                setattr(args, k, opt[k])
-    else:
-        checkpoint = None
-
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-    torch.backends.cudnn.deterministic = True
-
-    def train_iter_fct():
-        return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
-                                      args.batch_size, device, shuffle=True, is_test=False)
-
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
-    optim = [model_builder.build_optim(args, model, checkpoint)]
-    logger.info(model)
-
-    symbols = {'PAD': tokenizer.pad_token_id}
-    train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
-                          train=True, label_smoothing=args.label_smoothing)
-    trainer = build_trainer(args, device_id, model, optim, train_loss)
-    trainer.train(train_iter_fct, args.train_steps)

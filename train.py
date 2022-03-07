@@ -81,6 +81,8 @@ if __name__ == '__main__':
     parser.add_argument("-block_trigram", type=str2bool, nargs='?', const=True, default=True)
     parser.add_argument("-select_topn", default=3, type=float)
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
+    parser.add_argument("-test_min_length", default=20, type=int)
+    parser.add_argument("-test_max_length", default=140, type=int)
 
     args = parser.parse_args()
     args.gpu_ranks = [int(i) for i in range(len(args.visible_gpus.split(',')))]
