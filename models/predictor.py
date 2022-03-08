@@ -9,26 +9,23 @@ import torch
 from tensorboardX import SummaryWriter
 from others.utils import rouge_results_to_str, test_rouge, tile
 from translate.beam import GNMTGlobalScorer
-from translate.beam_decoding import BeamSearchDecoder
 
 
 def build_predictor(args, tokenizer, model, logger=None):
     scorer = GNMTGlobalScorer(args.alpha,length_penalty='wu')
-    beam_decoder = BeamSearchDecoder(model.decoder)
-    translator = Translator(args, model, tokenizer, beam_decoder, global_scorer=scorer, logger=logger)
+    translator = Translator(args, model, tokenizer, global_scorer=scorer, logger=logger)
     return translator
 
 
 class Translator(object):
 
-    def __init__(self, args, model, tokenizer, beam_decoder, global_scorer=None, logger=None, dump_beam=""):
+    def __init__(self, args, model, tokenizer, global_scorer=None, logger=None, dump_beam=""):
 
         self.logger = logger
         self.cuda = args.visible_gpus != '-1'
 
         self.args = args
         self.model = model
-        self.beam_decoder = beam_decoder
         self.tokenizer = tokenizer
         self.generator = self.model.generator
         self.start_token_id = self.tokenizer.bos_token_id
@@ -59,91 +56,67 @@ class Translator(object):
 
     def from_batch(self, translation_batch):
         batch = translation_batch["batch"]
-        assert (len(translation_batch["gold_score"]) == len(translation_batch["predictions"]))
+        assert (len(translation_batch["scores"]) == len(translation_batch["predictions"]))
         batch_size = batch.batch_size
 
-        preds, pred_score, gold_score, tgt_str, src =  translation_batch["predictions"],translation_batch["scores"],translation_batch["gold_score"],batch.tgt_str, batch.src
+        preds = translation_batch["predictions"]
+        pred_score = translation_batch["scores"]
+        tgt_str = batch.tgt_str
+        src = batch.src
+        eid = batch.eid
 
         translations = []
         for b in range(batch_size):
-            pred_sents = self.vocab.convert_ids_to_tokens([int(n) for n in preds[b][0]])
-            pred_sents = ' '.join(pred_sents).replace(' ##','')
-            gold_sent = ' '.join(tgt_str[b].split())
-            raw_src = [self.vocab.ids_to_tokens[int(t)] for t in src[b]][:500]
-            raw_src = ' '.join(raw_src)
-            translation = (pred_sents, gold_sent, raw_src)
-            # translation = (pred_sents[0], gold_sent)
+            token_ids = preds[b][0]
+            pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
+            gold_sent = tgt_str[b]
+            raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
+            translation = (pred_sent, gold_sent, raw_src, eid[b])
             translations.append(translation)
-
         return translations
 
 
     def translate(self, data_iter, step, attn_debug=False):
-
-        self.model.eval()
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-
-        # raw_gold_path = self.args.result_path + '.%d.raw_gold' % step
-        # raw_can_path = self.args.result_path + '.%d.raw_candidate' % step
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
-        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
+        eid_path = self.args.result_path + '.%d.eid' % step
 
-        # pred_results, gold_results = [], []
-        ct = 0
+        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
+        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
+        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
+        self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
+
+        self.model.eval()
         with torch.no_grad():
             for batch in data_iter:
-                if(self.args.recall_eval):
-                    gold_tgt_len = batch.tgt.size(1)
-                    self.min_length = gold_tgt_len + 20
-                    self.max_length = gold_tgt_len + 60
+                # pridiction
                 batch_data = self.translate_batch(batch)
+                # prepare output data
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred, gold, src = trans
-                    pred_str = pred.replace('[unused0]', '').replace('[unused3]', '').replace('[PAD]', '').replace('[unused1]', '').replace(r' +', ' ').replace(' [unused2] ', '<q>').replace('[unused2]', '').strip()
-                    gold_str = gold.strip()
-                    if(self.args.recall_eval):
-                        _pred_str = ''
-                        gap = 1e3
-                        for sent in pred_str.split('<q>'):
-                            can_pred_str = _pred_str+ '<q>'+sent.strip()
-                            can_gap = math.fabs(len(_pred_str.split())-len(gold_str.split()))
-                            # if(can_gap>=gap):
-                            if(len(can_pred_str.split())>=len(gold_str.split())+10):
-                                pred_str = _pred_str
-                                break
-                            else:
-                                gap = can_gap
-                                _pred_str = can_pred_str
-                        # pred_str = ' '.join(pred_str.split()[:len(gold_str.split())])
-                    # self.raw_can_out_file.write(' '.join(pred).strip() + '\n')
-                    # self.raw_gold_out_file.write(' '.join(gold).strip() + '\n')
-                    self.can_out_file.write(pred_str + '\n')
-                    self.gold_out_file.write(gold_str + '\n')
-                    self.src_out_file.write(src.strip() + '\n')
-                    ct += 1
+                    pred_str, gold_str, src_str, eid = trans
+                    self.can_out_file.write(pred_str.strip() + '\n')
+                    self.gold_out_file.write(gold_str.strip() + '\n')
+                    self.src_out_file.write(src_str.strip() + '\n')
+                    self.eid_out_file.write(eid + '\n')
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
+                self.eid_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
+        self.eid_out_file.close()
 
-        if (step != -1):
-            rouges = self._report_rouge(gold_path, can_path)
-            self.logger.info('Rouges at step %d \n%s' % (step, rouge_results_to_str(rouges)))
-            if self.tensorboard_writer is not None:
-                self.tensorboard_writer.add_scalar('test/rouge1-F', rouges['rouge_1_f_score'], step)
-                self.tensorboard_writer.add_scalar('test/rouge2-F', rouges['rouge_2_f_score'], step)
-                self.tensorboard_writer.add_scalar('test/rougeL-F', rouges['rouge_l_f_score'], step)
+        rouges = self._report_rouge(gold_path, can_path)
+        self.logger.info('Rouges at step %d \n%s' % (step, rouge_results_to_str(rouges)))
+        if self.tensorboard_writer is not None:
+            self.tensorboard_writer.add_scalar('test/rouge1-F', rouges['rouge_1_f_score'], step)
+            self.tensorboard_writer.add_scalar('test/rouge2-F', rouges['rouge_2_f_score'], step)
+            self.tensorboard_writer.add_scalar('test/rougeL-F', rouges['rouge_l_f_score'], step)
 
 
     def _report_rouge(self, gold_path, can_path):
@@ -196,15 +169,12 @@ class Translator(object):
         results = {}
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
-        results["gold_score"] = [0] * batch_size
         results["batch"] = batch
 
         for step in range(max_length):
 
             #decoder_input = alive_seq[:, -1].view(1, -1)
             decoder_input = alive_seq
-            print(decoder_input)
-            print (mask_src)
             decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
                                            encoder_attention_mask=mask_src)

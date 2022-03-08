@@ -271,7 +271,7 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    model = AbsSummarizer(args, device, checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)
