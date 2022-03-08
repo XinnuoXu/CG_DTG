@@ -120,6 +120,13 @@ class AbsSummarizer(nn.Module):
         if checkpoint is not None:
             self.load_state_dict(checkpoint['model'], strict=True)
         else:
+            if args.param_init != 0.0:
+                for p in self.planning_layer.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.planning_layer.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
             for p in self.generator.parameters():
                 if p.dim() > 1:
                     xavier_uniform_(p)

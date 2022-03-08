@@ -5,15 +5,6 @@ import os
 import sys
 import json
 
-# values: "gold_summ" or "gold_select"
-gold_mode = sys.argv[1]
-# values: "auto" or "human"
-eva_mode = sys.argv[2]
-# input directory
-input_dir = './logs.tmp/'
-#input_dir = './res_arxiv/logs.xsum.rouge.top1/'
-#input_dir = './res_arxiv/yang_liu/'
-
 def format_for_human_eva(srcs, refs, candidates):
     pass
 
@@ -43,23 +34,24 @@ def format_for_auto_eva(srcs, refs, candidates):
 
 if __name__ == '__main__':
 
-    src_path = os.path.join(input_dir, 'test.res.src')
-    gold_summ_path = os.path.join(input_dir, 'test.res.gold')
-    gold_select_path = os.path.join(input_dir, 'test.res.gold_select')
-    candid_path = os.path.join(input_dir, 'test.res.candidate')
+    base_path = sys.argv[1] # something like './outputs/logs.xsum.bartbase/test.res.100000'
+    eva_mode = sys.argv[2] # auto or human
 
-    srcs = [line.strip().replace(' <q> ', ' ') for line in open(src_path)]
-    gold_summs = [line.strip().replace(' <q> ', ' ') for line in open(gold_summ_path)]
-    gold_selects = [line.strip().replace(' <q> ', ' ') for line in open(gold_select_path)]
-    candidates = [line.strip().replace(' <q> ', ' ') for line in open(candid_path)]
-    if gold_mode == 'gold_summ':
-        refs = gold_summs
-    else:
-        refs = gold_selects
+    src_path = base_path + ".raw_src"
+    gold_summ_path = base_path + ".gold"
+    candid_path = base_path + ".candidate"
+
+    #src_path = os.path.join(input_dir, 'test.res.src')
+    #gold_summ_path = os.path.join(input_dir, 'test.res.gold')
+    #candid_path = os.path.join(input_dir, 'test.res.candidate')
+
+    srcs = [line.strip() for line in open(src_path)]
+    gold_summs = [line.strip() for line in open(gold_summ_path)]
+    candidates = [line.strip() for line in open(candid_path)]
     
     if eva_mode == 'auto':
-        format_for_auto_eva(srcs, refs, candidates)
+        format_for_auto_eva(srcs, gold_summs, candidates)
     elif eva_mode == 'human':
-        format_for_human_eva(srcs, refs, candidates)
+        format_for_human_eva(srcs, gold_summs, candidates)
     else:
         print ('Can not find eva_mode (\'auto\' or \'human\'). ')

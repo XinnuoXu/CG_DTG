@@ -47,8 +47,8 @@ echo "Creating directory to save model weights"
 #sh ./scripts.hpc/preprocess.sh
 
 #sh ./scripts.hpc/train_xsum_gumbel_softmax.sh
-sh ./scripts.hpc/train_xsum_bartbase.sh
-#sh ./scripts.hpc/train_cnn.sh
-
+#sh ./scripts.hpc/train_xsum_bartbase.sh
+#sh ./scripts.hpc/train_cnn_gumbel_softmax.sh
+sh ./scripts.hpc/train_cnn_bartbase.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
