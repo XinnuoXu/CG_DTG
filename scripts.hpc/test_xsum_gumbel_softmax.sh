@@ -8,16 +8,16 @@ mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py \
-	-mode validate \
+	-mode test \
 	-input_path ${BERT_DATA_PATH} \
-	-model_path ${MODEL_PATH} \
+	-test_from ${MODEL_PATH}/model_step_100000.pt \
+	-result_path ${LOG_PATH}/test.res \
+	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs abs \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.5 \
-	-result_path ${LOG_PATH}/validation.res \
-	-log_file ${LOG_PATH}/validation.log \
-	-test_all \
+	-use_interval true \
+	-block_trigram true \
         -max_pos 1024 \
 	-batch_size 6000 \
-	-use_interval true \
 	-visible_gpus 0 \

@@ -10,12 +10,13 @@ mkdir -p ${MODEL_PATH}
 python train.py  \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
+        -train_from ${MODEL_PATH}/model_step_70000.pt \
 	-mode train \
 	-ext_or_abs abs \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.5 \
 	-log_file ${LOG_PATH}/train.log \
-	-train_steps 70000 \
+	-train_steps 100000 \
 	-save_checkpoint_steps 10000 \
 	-warmup_steps 20000 \
 	-batch_size 3000 \

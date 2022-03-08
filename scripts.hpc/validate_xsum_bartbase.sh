@@ -17,7 +17,7 @@ python train.py \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
 	-test_all \
-	-max_pos 512 \
+        -max_pos 1024 \
 	-batch_size 6000 \
 	-use_interval true \
 	-visible_gpus 0 \
