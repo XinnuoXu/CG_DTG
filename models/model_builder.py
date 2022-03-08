@@ -132,11 +132,12 @@ class AbsSummarizer(nn.Module):
         gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
         gumbels = (scores + gumbels) / tau
         y_soft = gumbels.softmax(-1)
+        top_k = min(top_k, y_soft.size(1))
         indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
         value = 1 / top_k
         y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
         ret = y_hard - y_soft.detach() + y_soft
-        ret = ret == value
+        ret = (ret == value)
         return ret
 
 
