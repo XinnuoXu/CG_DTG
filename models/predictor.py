@@ -190,8 +190,9 @@ class Translator(object):
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
 
-            alpha = self.global_scorer.alpha
-            length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
+            #alpha = self.global_scorer.alpha
+            #length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
+            length_penalty = 1.0
 
             # Flatten probs into a list of possibilities.
             curr_scores = log_probs / length_penalty

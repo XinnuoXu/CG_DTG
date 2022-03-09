@@ -58,13 +58,14 @@ class ExtSummarizer(nn.Module):
         if checkpoint is not None:
             self.load_state_dict(checkpoint['model'], strict=True)
         else:
-            if args.param_init != 0.0:
-                for p in self.planning_layer.parameters():
-                    p.data.uniform_(-args.param_init, args.param_init)
-            if args.param_init_glorot:
-                for p in self.planning_layer.parameters():
-                    if p.dim() > 1:
-                        xavier_uniform_(p)
+            if self.planning_layer is not None:
+                if args.param_init != 0.0:
+                    for p in self.planning_layer.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                if args.param_init_glorot:
+                    for p in self.planning_layer.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
         self.to(device)
 
     def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection):
@@ -120,18 +121,19 @@ class AbsSummarizer(nn.Module):
         if checkpoint is not None:
             self.load_state_dict(checkpoint['model'], strict=True)
         else:
-            if args.param_init != 0.0:
-                for p in self.planning_layer.parameters():
-                    p.data.uniform_(-args.param_init, args.param_init)
-            if args.param_init_glorot:
-                for p in self.planning_layer.parameters():
+            if self.planning_layer is not None:
+                if args.param_init != 0.0:
+                    for p in self.planning_layer.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                if args.param_init_glorot:
+                    for p in self.planning_layer.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
+                for p in self.generator.parameters():
                     if p.dim() > 1:
                         xavier_uniform_(p)
-            for p in self.generator.parameters():
-                if p.dim() > 1:
-                    xavier_uniform_(p)
-                else:
-                    p.data.zero_()
+                    else:
+                        p.data.zero_()
         self.to(device)
 
 

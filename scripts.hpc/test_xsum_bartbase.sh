@@ -16,4 +16,6 @@ python train.py \
 	-block_trigram true \
 	-max_pos 1024 \
 	-batch_size 6000 \
+        -test_min_length 10 \
+        -test_max_length 60 \
 	-visible_gpus 0 \

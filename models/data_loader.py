@@ -100,8 +100,7 @@ def ext_batch_size_fn(new, count):
 
 
 class Dataloader(object):
-    def __init__(self, args, datasets,  batch_size,
-                 device, shuffle, is_test):
+    def __init__(self, args, datasets,  batch_size, device, shuffle, is_test):
         self.args = args
         self.datasets = datasets
         self.batch_size = batch_size
@@ -132,14 +131,12 @@ class Dataloader(object):
         except StopIteration:
             return None
 
-        return DataIterator(args = self.args,
-            dataset=self.cur_dataset,  batch_size=self.batch_size,
-            device=self.device, shuffle=self.shuffle, is_test=self.is_test)
+        return DataIterator(args = self.args, dataset=self.cur_dataset, batch_size=self.batch_size,
+                            device=self.device, shuffle=self.shuffle, is_test=self.is_test)
 
 
 class DataIterator(object):
-    def __init__(self, args, dataset,  batch_size, device=None, is_test=False,
-                 shuffle=True):
+    def __init__(self, args, dataset,  batch_size, device=None, is_test=False, shuffle=True):
         self.args = args
         self.batch_size, self.is_test, self.dataset = batch_size, is_test, dataset
         self.iterations = 0
