@@ -24,5 +24,6 @@ python train.py  \
 	-max_tgt_len 128 \
 	-use_interval true \
 	-lr 3e-5 \
+	-decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2

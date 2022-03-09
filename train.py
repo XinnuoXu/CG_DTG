@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser.add_argument("-beta2", default=0.999, type=float)
     parser.add_argument("-max_grad_norm", default=0, type=float)
     parser.add_argument("-accum_count", default=1, type=int)
+    parser.add_argument("-decay_method", default='noam', type=str)
     parser.add_argument("-recall_eval", type=str2bool, nargs='?',const=True,default=False)
     parser.add_argument("-warmup_steps", default=8000, type=int)
     parser.add_argument("-report_every", default=1, type=int)

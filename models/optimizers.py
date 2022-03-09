@@ -191,7 +191,11 @@ class Optimizer(object):
                 self.original_lr *
                  min(self._step ** (-0.5),
                      self._step * self.warmup_steps**(-1.5)))
-
+        elif self.decay_method == "linear_warmup" and self.warmup_steps > 0:
+            if self._step > self.warmup_steps:
+                self._set_rate(max(self.original_lr * self._step ** (-0.5), self.learning_rate * 0.999993))
+            else:
+                self._set_rate(self._step * (self.original_lr/self.warmup_steps))
         else:
             if ((self.start_decay_steps is not None) and (
                      self._step >= self.start_decay_steps)):

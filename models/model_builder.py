@@ -29,7 +29,7 @@ def build_optim(args, model, checkpoint):
         optim = Optimizer(
             args.optim, args.lr, args.max_grad_norm,
             beta1=args.beta1, beta2=args.beta2,
-            decay_method='noam',
+            decay_method=args.decay_method,
             warmup_steps=args.warmup_steps)
 
     optim.set_parameters(list(model.named_parameters()))
