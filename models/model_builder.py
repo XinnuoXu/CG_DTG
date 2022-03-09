@@ -9,7 +9,6 @@ from transformers import AutoModelForSeq2SeqLM
 
 def build_optim(args, model, checkpoint):
     """ Build optimizer """
-
     if checkpoint is not None:
         optim = checkpoint['optims'][0]
         saved_optimizer_state_dict = optim.optimizer.state_dict()
