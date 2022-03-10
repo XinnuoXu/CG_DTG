@@ -232,11 +232,8 @@ class Trainer(object):
                 # Multi GPU gradient gather
                 if self.n_gpu > 1:
                     grads = [p.grad.data for p in self.model.parameters()
-                             if p.requires_grad
-                             and p.grad is not None]
-                    distributed.all_reduce_and_rescale_tensors(
-                        grads, float(1))
-
+                             if p.requires_grad and p.grad is not None]
+                    distributed.all_reduce_and_rescale_tensors(grads, float(1))
                 for o in self.optims:
                     o.step()
 
@@ -245,10 +242,8 @@ class Trainer(object):
         if self.grad_accum_count > 1:
             if self.n_gpu > 1:
                 grads = [p.grad.data for p in self.model.parameters()
-                         if p.requires_grad
-                         and p.grad is not None]
-                distributed.all_reduce_and_rescale_tensors(
-                    grads, float(1))
+                         if p.requires_grad and p.grad is not None]
+                distributed.all_reduce_and_rescale_tensors(grads, float(1))
             for o in self.optims:
                 o.step()
 

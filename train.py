@@ -38,7 +38,6 @@ if __name__ == '__main__':
     parser.add_argument("-use_interval", type=str2bool, nargs='?',const=True,default=True)
 
     # planning parameters
-    parser.add_argument("-large", type=str2bool, nargs='?',const=True,default=False)
     parser.add_argument("-param_init", default=0, type=float)
     parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
     parser.add_argument("-finetune_bert", type=str2bool, nargs='?', const=True, default=True)
@@ -48,6 +47,7 @@ if __name__ == '__main__':
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
+    parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

@@ -31,7 +31,12 @@ def build_optim(args, model, checkpoint):
             decay_method=args.decay_method,
             warmup_steps=args.warmup_steps)
 
-    optim.set_parameters(list(model.named_parameters()))
+    params = []
+    for name, para in model.named_parameters():
+        if para.requires_grad:
+            print (name)
+            params.append((name, para))
+    optim.set_parameters(params)
     return optim
 
 
@@ -65,7 +70,13 @@ class ExtSummarizer(nn.Module):
                     for p in self.planning_layer.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
+
+        if args.freeze_encoder_decoder:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
         self.to(device)
+
 
     def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection):
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -115,7 +126,7 @@ class AbsSummarizer(nn.Module):
 
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
-        self.generator[0].weight = self.decoder.embed_tokens.weight
+        #self.generator[0].weight = self.model.lm_head.weight
 
         if checkpoint is not None:
             self.load_state_dict(checkpoint['model'], strict=True)
@@ -128,11 +139,16 @@ class AbsSummarizer(nn.Module):
                     for p in self.planning_layer.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
-                for p in self.generator.parameters():
-                    if p.dim() > 1:
-                        xavier_uniform_(p)
-                    else:
-                        p.data.zero_()
+            for p in self.generator.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        if args.freeze_encoder_decoder:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
         self.to(device)
 
 
