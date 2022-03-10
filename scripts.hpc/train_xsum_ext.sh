@@ -15,16 +15,16 @@ python train.py  \
 	-content_planning_model tree \
         -freeze_encoder_decoder True \
 	-log_file ${LOG_PATH}/train_ext.log \
-	-train_steps 30000 \
-	-save_checkpoint_steps 5000 \
-	-warmup_steps 10000 \
+	-train_steps 50000 \
+	-save_checkpoint_steps 10000 \
+	-warmup_steps 3000 \
 	-batch_size 3000 \
 	-report_every 50 \
 	-max_pos 1024 \
 	-max_tgt_len 250 \
 	-use_interval true \
         -ext_dropout 0.1 \
-	-lr 2e-3 \
+	-lr 0.01 \
 	-accum_count 2 \
 	-visible_gpus 0,1,2
 
