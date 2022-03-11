@@ -150,6 +150,7 @@ class Translator(object):
         src_res = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels, run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
+        sent_probs = src_res['sent_probs']
         device = src_features.device
 
         # Tile states and memory beam_size times.
@@ -272,53 +273,3 @@ class Translator(object):
         return results
 
 
-class Translation(object):
-    """
-    Container for a translated sentence.
-
-    Attributes:
-        src (`LongTensor`): src word ids
-        src_raw ([str]): raw src words
-
-        pred_sents ([[str]]): words from the n-best translations
-        pred_scores ([[float]]): log-probs of n-best translations
-        attns ([`FloatTensor`]) : attention dist for each translation
-        gold_sent ([str]): words from gold translation
-        gold_score ([float]): log-prob of gold translation
-
-    """
-
-    def __init__(self, fname, src, src_raw, pred_sents,
-                 attn, pred_scores, tgt_sent, gold_score):
-        self.fname = fname
-        self.src = src
-        self.src_raw = src_raw
-        self.pred_sents = pred_sents
-        self.attns = attn
-        self.pred_scores = pred_scores
-        self.gold_sent = tgt_sent
-        self.gold_score = gold_score
-
-    def log(self, sent_number):
-        """
-        Log translation.
-        """
-
-        output = '\nSENT {}: {}\n'.format(sent_number, self.src_raw)
-
-        best_pred = self.pred_sents[0]
-        best_score = self.pred_scores[0]
-        pred_sent = ' '.join(best_pred)
-        output += 'PRED {}: {}\n'.format(sent_number, pred_sent)
-        output += "PRED SCORE: {:.4f}\n".format(best_score)
-
-        if self.gold_sent is not None:
-            tgt_sent = ' '.join(self.gold_sent)
-            output += 'GOLD {}: {}\n'.format(sent_number, tgt_sent)
-            output += ("GOLD SCORE: {:.4f}\n".format(self.gold_score))
-        if len(self.pred_sents) > 1:
-            output += '\nBEST HYP:\n'
-            for score, sent in zip(self.pred_scores, self.pred_sents):
-                output += "[{:.4f}] {}\n".format(score, sent)
-
-        return output

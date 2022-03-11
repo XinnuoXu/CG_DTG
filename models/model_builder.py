@@ -262,7 +262,7 @@ class AbsSummarizer(nn.Module):
             content_selection_weights.append(torch.cat(content_selection))
         content_selection_weights = torch.stack(content_selection_weights)
         content_selection_weights = content_selection_weights * attention_mask
-        return content_selection_weights
+        return content_selection_weights, root_probs
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection, run_decoder=True):
@@ -276,12 +276,13 @@ class AbsSummarizer(nn.Module):
             sents_vec = sents_vec * mask_cls[:, :, None].float()
             sent_scores = self.planning_layer(sents_vec, mask_cls)
             # Weight input tokens
-            content_selection_weights = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
+            content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
         else:
             content_selection_weights = mask_src
+            root_probs = None
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights, "sent_probs":root_probs}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
