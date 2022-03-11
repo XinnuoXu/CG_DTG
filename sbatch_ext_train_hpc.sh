@@ -33,6 +33,7 @@ source /home/hpcxu1/miniconda3/bin/activate Plan
 echo "Creating directory to save model weights"
 #sh ./scripts.hpc/preprocess_shard.sh
 #sh ./scripts.hpc/preprocess.sh
-sh ./scripts.hpc/train_xsum_ext.sh
+#sh ./scripts.hpc/train_xsum_ext.sh
+sh ./scripts.hpc/train_cnn_ext.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
