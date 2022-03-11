@@ -135,6 +135,13 @@ class Translator(object):
 
     def _fast_translate_batch(self, batch, max_length, min_length=0):
 
+        def sent_probs_to_selected_ids(sent_probs):
+            selected_ids = []
+            for i in range(sent_probs.size(0)):
+                weights = sent_probs[i, :].tolist()
+                selected_ids.append([i for i in range(len(weights)) if weights[i] == 1])
+            return selected_ids
+
         assert not self.dump_beam
         beam_size = self.beam_size
         batch_size = batch.batch_size
@@ -171,6 +178,8 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
+        results["selected_ids"] = sent_probs_to_selected_ids(sent_probs)
+        print (results["selected_ids"])
 
         for step in range(max_length):
 
