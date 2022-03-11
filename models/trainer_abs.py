@@ -159,7 +159,7 @@ class Trainer(object):
 
                         report_stats = self._maybe_report_training(
                             step, train_steps,
-                            self.optims[0].learning_rate,
+                            [self.optims[i].learning_rate for i in range(len(self.optims))],
                             report_stats)
 
                         true_batchs = []

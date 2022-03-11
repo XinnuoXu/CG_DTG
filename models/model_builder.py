@@ -7,6 +7,71 @@ from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM
 
+def build_optim_enc_dec(args, model, checkpoint):
+    """ Build optimizer """
+    if checkpoint is not None:
+        optim = checkpoint['optims'][0]
+        saved_optimizer_state_dict = optim.optimizer.state_dict()
+        optim.optimizer.load_state_dict(saved_optimizer_state_dict)
+        if args.visible_gpus != '-1':
+            for state in optim.optimizer.state.values():
+                for k, v in state.items():
+                    if torch.is_tensor(v):
+                        state[k] = v.cuda()
+
+        if (optim.method == 'adam') and (len(optim.optimizer.state) < 1):
+            raise RuntimeError(
+                "Error: loaded Adam optimizer from existing model" +
+                " but optimizer state is empty")
+
+    else:
+        optim = Optimizer(
+            args.optim, args.lr_enc_dec, args.max_grad_norm,
+            beta1=args.beta1, beta2=args.beta2,
+            decay_method=args.decay_method,
+            warmup_steps=args.warmup_steps)
+
+    params = []
+    for name, para in model.named_parameters():
+        if not name.startswith('planning_layer'):
+            params.append((name, para))
+    optim.set_parameters(params)
+    return optim
+
+
+def build_optim_tmt(args, model, checkpoint):
+    """ Build optimizer """
+    if checkpoint is not None:
+        optim = checkpoint['optims'][1]
+        saved_optimizer_state_dict = optim.optimizer.state_dict()
+        optim.optimizer.load_state_dict(saved_optimizer_state_dict)
+        if args.visible_gpus != '-1':
+            for state in optim.optimizer.state.values():
+                for k, v in state.items():
+                    if torch.is_tensor(v):
+                        state[k] = v.cuda()
+
+        if (optim.method == 'adam') and (len(optim.optimizer.state) < 1):
+            raise RuntimeError(
+                "Error: loaded Adam optimizer from existing model" +
+                " but optimizer state is empty")
+
+    else:
+        optim = Optimizer(
+            args.optim, args.lr_tmt, args.max_grad_norm,
+            beta1=args.beta1, beta2=args.beta2,
+            decay_method=args.decay_method,
+            warmup_steps=args.warmup_steps)
+
+    params = []
+    for name, para in model.named_parameters():
+        if name.startswith('planning_layer'):
+            print (name)
+            params.append((name, para))
+    optim.set_parameters(params)
+    return optim
+
+
 def build_optim(args, model, checkpoint):
     """ Build optimizer """
     if checkpoint is not None:

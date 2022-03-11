@@ -163,7 +163,13 @@ def train_abs_single(args, device_id):
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint)
-    optim = [model_builder.build_optim(args, model, checkpoint)]
+
+    if args.lr_tmt != -1 and args.lr_enc_dec != -1:
+        optim_enc_dec = model_builder.build_optim_enc_dec(args, model, checkpoint)
+        optim_tmt = model_builder.build_optim_tmt(args, model, checkpoint)
+        optim = [optim_enc_dec, optim_tmt]
+    else:
+        optim = [model_builder.build_optim(args, model, checkpoint)]
     logger.info(model)
 
     symbols = {'PAD': tokenizer.pad_token_id}

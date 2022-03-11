@@ -57,6 +57,8 @@ if __name__ == '__main__':
     # traning parameters
     parser.add_argument("-optim", default='adam', type=str)
     parser.add_argument("-lr", default=1, type=float)
+    parser.add_argument("-lr_tmt", default=-1, type=float)
+    parser.add_argument("-lr_enc_dec", default=-1, type=float)
     parser.add_argument("-beta1", default= 0.9, type=float)
     parser.add_argument("-beta2", default=0.999, type=float)
     parser.add_argument("-max_grad_norm", default=0, type=float)

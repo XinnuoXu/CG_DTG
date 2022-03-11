@@ -259,9 +259,10 @@ class Statistics(object):
            start (int): start time of step.
         """
         t = self.elapsed_time()
+        learning_rate = '/'.join([("%7.8f")%lr for lr in learning_rate])
         logger.info(
             ("Step %2d/%5d; acc: %6.2f; ppl: %5.2f; loss: %4.2f; xent: %4.2f; " +
-             "lr: %7.8f; %3.0f/%3.0f tok/s; %6.0f sec")
+             "lr: %s; %3.0f/%3.0f tok/s; %6.0f sec")
             % (step, num_steps,
                self.accuracy(),
                self.ppl(),
@@ -280,4 +281,4 @@ class Statistics(object):
         writer.add_scalar(prefix + "/ppl", self.ppl(), step)
         writer.add_scalar(prefix + "/accuracy", self.accuracy(), step)
         writer.add_scalar(prefix + "/tgtper", self.n_words / t, step)
-        writer.add_scalar(prefix + "/lr", learning_rate, step)
+        writer.add_scalar(prefix + "/lr", learning_rate[0], step)
