@@ -16,8 +16,6 @@ python train.py \
 	-tree_gumbel_softmax_tau 0.5 \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
-	-test_all \
         -max_pos 1024 \
 	-batch_size 6000 \
-	-use_interval true \
 	-visible_gpus 0 \

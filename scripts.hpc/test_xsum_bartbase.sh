@@ -12,7 +12,6 @@ python train.py \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs abs \
 	-content_planning_model none \
-	-use_interval true \
 	-block_trigram true \
 	-max_pos 1024 \
 	-batch_size 6000 \

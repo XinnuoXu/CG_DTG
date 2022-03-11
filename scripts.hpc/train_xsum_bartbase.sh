@@ -14,14 +14,13 @@ python train.py  \
 	-ext_or_abs abs \
 	-content_planning_model none \
 	-log_file ${LOG_PATH}/train.log \
-	-train_steps 150000 \
+	-train_steps 100000 \
 	-save_checkpoint_steps 30000 \
 	-warmup_steps 500 \
 	-batch_size 3000 \
 	-report_every 100 \
 	-max_pos 1024 \
 	-max_tgt_len 128 \
-	-use_interval true \
 	-lr 3e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \

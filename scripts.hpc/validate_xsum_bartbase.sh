@@ -19,5 +19,4 @@ python train.py \
 	-test_all \
         -max_pos 1024 \
 	-batch_size 6000 \
-	-use_interval true \
 	-visible_gpus 0 \

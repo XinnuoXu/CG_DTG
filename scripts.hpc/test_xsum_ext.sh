@@ -8,22 +8,15 @@ mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py  \
+	-mode test \
 	-input_path ${BERT_DATA_PATH} \
-	-model_path ${MODEL_PATH} \
-	-mode train \
+	-test_from ${MODEL_PATH}/model_step_50000.pt \
 	-ext_or_abs ext \
 	-content_planning_model tree \
-        -freeze_encoder_decoder True \
-	-log_file ${LOG_PATH}/train_ext.log \
-	-train_steps 50000 \
-	-save_checkpoint_steps 10000 \
-	-warmup_steps 3000 \
-	-batch_size 3000 \
-	-report_every 50 \
+	-result_path ${LOG_PATH}/test_ext.res \
+	-log_file ${LOG_PATH}/test_ext.log \
+	-batch_size 6000 \
 	-max_pos 1024 \
-	-max_tgt_len 250 \
-        -ext_dropout 0.1 \
-	-lr 0.01 \
-	-accum_count 2 \
-	-visible_gpus 0,1,2
+        -select_topn 3 \
+	-visible_gpus 0
 

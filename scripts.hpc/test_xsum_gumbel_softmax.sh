@@ -10,13 +10,12 @@ mkdir -p ${LOG_PATH}
 python train.py \
 	-mode test \
 	-input_path ${BERT_DATA_PATH} \
-	-test_from ${MODEL_PATH}/model_step_90000.pt \
+	-test_from ${MODEL_PATH}/model_step_60000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs abs \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.5 \
-	-use_interval true \
 	-block_trigram true \
         -max_pos 1024 \
 	-batch_size 6000 \
