@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #BASE_DIR=/home/s1687314/Planning/Tree_enc_dec/outputs
-BASE_DIR=/scratch/xxu/Plan_while_Generate/TreeSumAbs/xsum/
+BASE_DIR=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/
 
 BERT_DATA_PATH=${BASE_DIR}/data/ 
 MODEL_PATH=${BASE_DIR}/models/
@@ -15,18 +15,16 @@ python train.py  \
 	-mode train \
 	-ext_or_abs ext \
 	-content_planning_model tree \
-        -freeze_encoder_decoder True \
 	-log_file ${LOG_PATH}/train_ext.log \
-	-train_steps 30000 \
-	-save_checkpoint_steps 5000 \
-	-warmup_steps 10000 \
+	-train_steps 150000 \
+	-save_checkpoint_steps 30000 \
+	-warmup_steps 8000 \
 	-batch_size 3000 \
 	-report_every 50 \
 	-max_pos 1024 \
 	-max_tgt_len 250 \
-	-use_interval true \
         -ext_dropout 0.1 \
-	-lr 2e-3 \
-	-accum_count 2 \
+	-lr 0.01 \
+	-accum_count 1 \
 	-visible_gpus 0
 
