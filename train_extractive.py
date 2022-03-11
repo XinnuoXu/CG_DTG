@@ -59,48 +59,21 @@ class ErrorHandler(object):
 
 def validate_ext(args, device_id):
     timestep = 0
-    if (args.test_all):
-        cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
-        cp_files.sort(key=os.path.getmtime)
-        xent_lst = []
-        for i, cp in enumerate(cp_files):
-            step = int(cp.split('.')[-2].split('_')[-1])
-            xent = validate(args, device_id, cp, step)
-            xent_lst.append((xent, cp))
-            max_step = xent_lst.index(min(xent_lst))
-            if (i - max_step > 10):
-                break
-        xent_lst = sorted(xent_lst, key=lambda x: x[0])[:3]
-        logger.info('PPL %s' % str(xent_lst))
-        for xent, cp in xent_lst:
-            step = int(cp.split('.')[-2].split('_')[-1])
-            test_ext(args, device_id, cp, step)
-    else:
-        # test while traning
-        while (True):
-            cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
-            cp_files.sort(key=os.path.getmtime)
-            if (cp_files):
-                cp = cp_files[-1]
-                time_of_cp = os.path.getmtime(cp)
-                if (not os.path.getsize(cp) > 0):
-                    time.sleep(60)
-                    continue
-                if (time_of_cp > timestep):
-                    timestep = time_of_cp
-                    step = int(cp.split('.')[-2].split('_')[-1])
-                    validate(args, device_id, cp, step)
-                    test_ext(args, device_id, cp, step)
-
-            cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
-            cp_files.sort(key=os.path.getmtime)
-            if (cp_files):
-                cp = cp_files[-1]
-                time_of_cp = os.path.getmtime(cp)
-                if (time_of_cp > timestep):
-                    continue
-            else:
-                time.sleep(300)
+    cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
+    cp_files.sort(key=os.path.getmtime)
+    xent_lst = []
+    for i, cp in enumerate(cp_files):
+        step = int(cp.split('.')[-2].split('_')[-1])
+        xent = validate(args, device_id, cp, step)
+        xent_lst.append((xent, cp))
+        max_step = xent_lst.index(min(xent_lst))
+        if (i - max_step > 10):
+            break
+    xent_lst = sorted(xent_lst, key=lambda x: x[0])[:3]
+    logger.info('PPL %s' % str(xent_lst))
+    for xent, cp in xent_lst:
+        step = int(cp.split('.')[-2].split('_')[-1])
+        test_ext(args, device_id, cp, step)
 
 
 def validate(args, device_id, pt, step):
@@ -149,6 +122,7 @@ def test_ext(args, device_id, pt, step):
                                        args.batch_size, device,
                                        shuffle=False, is_test=True)
     trainer = build_trainer(args, device_id, model, None)
+
     trainer.test(test_iter, step)
 
 

@@ -182,18 +182,26 @@ class Trainer(object):
         with torch.no_grad():
             for batch in valid_iter:
                 src = batch.src
-                labels = batch.src_sent_labels
-                segs = batch.segs
+                mask_src = batch.mask_src
+                tgt = batch.tgt
+                mask_tgt = batch.mask_tgt
                 clss = batch.clss
-                mask = batch.mask_src
                 mask_cls = batch.mask_cls
+                labels = batch.gt_selection
 
-                sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)
+                sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
-                loss = self.loss(sent_scores, labels.float())
+                if(self.args.content_planning_model == 'tree'):
+                    labels = labels.float()
+                    r = torch.clamp(sent_scores[-1], 1e-5, 1 - 1e-5)
+                    loss = self.loss(r, labels)
+                else:
+                    loss = self.loss(sent_scores, labels.float())
+
                 loss = (loss * mask.float()).sum()
                 batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
                 stats.update(batch_stats)
+
             self._report_step(0, step, valid_stats=stats)
             return stats
 
@@ -226,16 +234,17 @@ class Trainer(object):
             self.model.eval()
         stats = Statistics()
 
+        src_path = '%s.src' % (self.args.result_path)
         can_path = '%s.candidate' % (self.args.result_path)
         gold_path = '%s.gold' % (self.args.result_path)
         gold_select_path = '%s.gold_select' % (self.args.result_path)
-        src_path = '%s.src' % (self.args.result_path)
-        for_abs_path = '%s.jsonl' % (self.args.result_path)
+        selected_ids_path = '%s.selected_ids' % (self.args.result_path)
+
+        save_src = open(src_path, 'w')
         save_pred = open(can_path, 'w')
         save_gold = open(gold_path, 'w')
         save_gold_select = open(gold_select_path, 'w')
-        save_src = open(src_path, 'w')
-        save_for_abs = open(for_abs_path, 'w')
+        save_selected_ids = open(selected_ids_path, 'w')
 
         with torch.no_grad():
             for batch in test_iter:
@@ -255,14 +264,13 @@ class Trainer(object):
                     selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in
                                     range(batch.batch_size)]
                 else:
-                    sent_scores, mask = self.model(src, segs, clss, mask, mask_cls)
+                    sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
-                    loss = self.loss(sent_scores, labels.float())
-                    loss = (loss * mask.float()).sum()
-                    batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
-                    stats.update(batch_stats)
+                    if (self.args.content_planning_model == 'tree'):
+                        sent_scores = sent_scores[-1] + mask.float()
+                    else:
+                        sent_scores = sent_scores+mask.float()
 
-                    sent_scores = sent_scores + mask.float()
                     sent_scores = sent_scores.cpu().data.numpy()
                     selected_ids = np.argsort(-sent_scores, 1)
                     #selected_ids = np.sort(selected_ids,1)
@@ -276,7 +284,7 @@ class Trainer(object):
                     if self.args.select_topn < 1:
                         select_topn = int(sent_num * self.args.select_topn) + 1
                     else:
-                        select_topn = int(select_topn)
+                        select_topn = int(self.args.select_topn)
                     for j in selected_ids[i][:len(batch.src_str[i])]:
                         if (j >= len(batch.src_str[i])):
                             continue
@@ -292,28 +300,22 @@ class Trainer(object):
                             break
 
                     _pred = ' <q> '.join(_pred)
-                    if (self.args.recall_eval):
-                        _pred = ' '.join(_pred.split()[:len(batch.tgt_str[i].split())])
 
                     pred_select.append(_pred_select)
                     pred.append(_pred)
                     gold.append(batch.tgt_str[i])
 
+                selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in range(batch.batch_size)]
+
+                for i in range(len(gold)):
+                    save_gold.write(gold[i].strip()+'\n')
+                for i in range(len(pred)):
+                    save_pred.write(pred[i].strip()+'\n')
                 for i in range(len(batch.src_str)):
                     save_src.write(' '.join(batch.src_str[i]).strip() + '\n')
-                for i in range(len(gold)):
-                    save_gold.write(gold[i].strip() + '\n')
-                for i in range(len(pred)):
-                    save_pred.write(pred[i].strip() + '\n')
                 for i in range(len(pred_select)):
-                    output_json = {}
-                    output_json['reference'] = batch.tgt_segs[i]
-                    output_json['alignments'] = [[[cid] for cid in pred_select[i]]] # just for the correct format
-                    output_json['document'] = [item.replace('[CLS] ', '').replace('[SEP] ', '') for item in batch.src_str[i]]
-                    output_json['eid'] = batch.eid[i]
-                    save_for_abs.write(json.dumps(output_json) + '\n')
-
-                selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in range(batch.batch_size)]
+                    item = {'gold':selected_ids[i], 'pred':pred_select[i]}
+                    save_selected_ids.write(json.dumps(item) + '\n')
                 for i, idx in enumerate(selected_ids):
                     _gold_selection = [batch.src_str[i][j].strip() for j in selected_ids[i][:len(batch.src_str[i])]]
                     _gold_selection = ' <q> '.join(_gold_selection).strip()
@@ -324,7 +326,7 @@ class Trainer(object):
         save_gold.close()
         save_pred.close()
         save_gold_select.close()
-        save_for_abs.close()
+        save_selected_ids.close()
 
         return stats
 

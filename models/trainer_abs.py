@@ -299,8 +299,6 @@ class Trainer(object):
                                     break
 
                             _pred = '<q>'.join(_pred)
-                            if(self.args.recall_eval):
-                                _pred = ' '.join(_pred.split()[:len(batch.tgt_str[i].split())])
 
                             pred.append(_pred)
                             gold.append(batch.tgt_str[i])

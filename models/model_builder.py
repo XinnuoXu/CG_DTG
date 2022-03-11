@@ -100,7 +100,7 @@ def get_generator(vocab_size, dec_hidden_size, device):
 
 
 class AbsSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, checkpoint=None):
+    def __init__(self, args, device, cls_token_id, checkpoint=None, ext_checkpoint=None):
         super(AbsSummarizer, self).__init__()
         self.args = args
         self.device = device
@@ -129,21 +129,31 @@ class AbsSummarizer(nn.Module):
         #self.generator[0].weight = self.model.lm_head.weight
 
         if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
+
         else:
-            if self.planning_layer is not None:
-                if args.param_init != 0.0:
-                    for p in self.planning_layer.parameters():
-                        p.data.uniform_(-args.param_init, args.param_init)
-                if args.param_init_glorot:
-                    for p in self.planning_layer.parameters():
-                        if p.dim() > 1:
-                            xavier_uniform_(p)
+            print ('Initialize parameters for generator...')
             for p in self.generator.parameters():
                 if p.dim() > 1:
                     xavier_uniform_(p)
                 else:
                     p.data.zero_()
+
+            if self.planning_layer is not None:
+                if (ext_checkpoint is not None):
+                    print ('Load parameters from ext_checkpoint...')
+                    tree_params = [(n[15:], p) for n, p in ext_checkpoint['model'].items() if n.startswith('planning_layer')]
+                    self.planning_layer.load_state_dict(dict(tree_params), strict=True)
+                else:
+                    print ('Initialize parameters for ext_checkpoint...')
+                    if args.param_init != 0.0:
+                        for p in self.planning_layer.parameters():
+                            p.data.uniform_(-args.param_init, args.param_init)
+                    if args.param_init_glorot:
+                        for p in self.planning_layer.parameters():
+                            if p.dim() > 1:
+                                xavier_uniform_(p)
 
         if args.freeze_encoder_decoder:
             for param in self.model.parameters():

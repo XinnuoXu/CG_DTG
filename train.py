@@ -35,7 +35,6 @@ if __name__ == '__main__':
     parser.add_argument("-batch_size", default=140, type=int)
     parser.add_argument("-max_pos", default=1024, type=int)
     parser.add_argument("-max_tgt_len", default=250, type=int)
-    parser.add_argument("-use_interval", type=str2bool, nargs='?',const=True,default=True)
 
     # planning parameters
     parser.add_argument("-param_init", default=0, type=float)
@@ -72,9 +71,9 @@ if __name__ == '__main__':
     parser.add_argument('-visible_gpus', default='-1', type=str)
     parser.add_argument('-gpu_ranks', default='0', type=str)
     parser.add_argument("-train_from", default='')
+    parser.add_argument("-load_from_ext", default='')
 
     # test parameters
-    parser.add_argument("-test_all", type=str2bool, nargs='?',const=True,default=False)
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)

@@ -46,7 +46,7 @@ class BertData():
         gt_selection = self.get_sent_labels(source_tokens, sent_labels)
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
 
-        return source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt
+        return source_tokens, target_tokens, gt_selection, cls_ids, src, tgt_txt
 
 
 def _process(params):

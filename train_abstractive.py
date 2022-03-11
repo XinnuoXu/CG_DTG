@@ -147,6 +147,12 @@ def train_abs_single(args, device_id):
     else:
         checkpoint = None
 
+    if args.load_from_ext != '':
+        logger.info('Loading EXT checkpoint from %s' % args.load_from_ext)
+        ext_checkpoint = torch.load(args.load_from_ext, map_location=lambda storage, loc: storage)
+    else:
+        ext_checkpoint = None
+
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
@@ -156,7 +162,7 @@ def train_abs_single(args, device_id):
                                       args.batch_size, device, shuffle=True, is_test=False)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint)
     optim = [model_builder.build_optim(args, model, checkpoint)]
     logger.info(model)
 
@@ -169,7 +175,10 @@ def train_abs_single(args, device_id):
 
 def validate_abs(args, device_id):
     timestep = 0
-    if (args.test_all):
+    if args.test_from != "":
+        step = args.test_from.split('_')[-1].split('.')[0]
+        validate(args, device_id, args.test_from, step)
+    else:
         cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
         cp_files.sort(key=os.path.getmtime)
         xent_lst = []
@@ -188,35 +197,6 @@ def validate_abs(args, device_id):
         for xent, cp in xent_lst:
             step = int(cp.split('.')[-2].split('_')[-1])
             test_abs(args, device_id, cp, step)
-    else:
-        if args.test_from != "":
-            step = args.test_from.split('_')[-1].split('.')[0]
-            validate(args, device_id, args.test_from, step)
-        else:
-            while (True):
-                cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
-                cp_files.sort(key=os.path.getmtime)
-                if (cp_files):
-                    cp = cp_files[-1]
-                    time_of_cp = os.path.getmtime(cp)
-                    if (not os.path.getsize(cp) > 0):
-                        time.sleep(60)
-                        continue
-                    if (time_of_cp > timestep):
-                        timestep = time_of_cp
-                        step = int(cp.split('.')[-2].split('_')[-1])
-                        validate(args, device_id, cp, step)
-                        test_abs(args, device_id, cp, step)
-
-                cp_files = sorted(glob.glob(os.path.join(args.model_path, 'model_step_*.pt')))
-                cp_files.sort(key=os.path.getmtime)
-                if (cp_files):
-                    cp = cp_files[-1]
-                    time_of_cp = os.path.getmtime(cp)
-                    if (time_of_cp > timestep):
-                        continue
-                else:
-                    time.sleep(300)
 
 
 def validate(args, device_id, pt, step):
