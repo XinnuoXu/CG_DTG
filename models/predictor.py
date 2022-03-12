@@ -3,6 +3,7 @@
 from __future__ import print_function
 import codecs
 import os
+import json
 import math
 import torch
 
@@ -61,6 +62,11 @@ class Translator(object):
 
         preds = translation_batch["predictions"]
         pred_score = translation_batch["scores"]
+        if 'selected_ids' in translation_batch:
+            selected_ids = translation_batch["selected_ids"]
+        else:
+            selected_ids = None
+        src_str = batch.src_str
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
@@ -71,7 +77,13 @@ class Translator(object):
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
             gold_sent = tgt_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
-            translation = (pred_sent, gold_sent, raw_src, eid[b])
+            if selected_ids is not None:
+                selected_id = selected_ids[b]
+                src_sents = src_str[b]
+                selected_sents = ' '.join([src_sents[id] for id in selected_id if id < len(src_sents)])
+                translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b])
+            else:
+                translation = (pred_sent, gold_sent, None, None, raw_src, eid[b])
             translations.append(translation)
         return translations
 
@@ -79,11 +91,15 @@ class Translator(object):
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
+        ext_path = self.args.result_path + '.%d.ext_str' % step
+        sel_path = self.args.result_path + '.%d.select_ids' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
         eid_path = self.args.result_path + '.%d.eid' % step
 
         self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
         self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
+        self.ext_out_file = codecs.open(ext_path, 'w', 'utf-8')
+        self.sel_out_file = codecs.open(sel_path, 'w', 'utf-8')
         self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
         self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
 
@@ -96,19 +112,27 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, eid = trans
+                    pred_str, gold_str, selected_sents, selected_ids, src_str, eid = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
                     self.eid_out_file.write(eid + '\n')
+                    if selected_sents is not None:
+                        self.ext_out_file.write(selected_sents.strip() + '\n')
+                        self.sel_out_file.write(json.dumps(selected_ids) + '\n')
+
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
+                self.ext_out_file.flush()
+                self.sel_out_file.flush()
                 self.eid_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
+        self.ext_out_file.close()
+        self.sel_out_file.close()
         self.eid_out_file.close()
 
         rouges = self._report_rouge(gold_path, can_path)
@@ -178,8 +202,8 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
-        results["selected_ids"] = sent_probs_to_selected_ids(sent_probs)
-        print (results["selected_ids"])
+        if sent_probs is not None:
+            results["selected_ids"] = sent_probs_to_selected_ids(sent_probs)
 
         for step in range(max_length):
 

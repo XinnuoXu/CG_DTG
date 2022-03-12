@@ -200,9 +200,11 @@ def validate_abs(args, device_id):
                 break
         xent_lst = sorted(xent_lst, key=lambda x: x[0])[:5]
         logger.info('PPL %s' % str(xent_lst))
+        '''
         for xent, cp in xent_lst:
             step = int(cp.split('.')[-2].split('_')[-1])
             test_abs(args, device_id, cp, step)
+        '''
 
 
 def validate(args, device_id, pt, step):
@@ -226,7 +228,7 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
@@ -257,7 +259,7 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

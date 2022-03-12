@@ -1,7 +1,8 @@
 #!/bin/bash
 
 BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models.gumbel_softmax/
+#MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models.gumbel_softmax/
+MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/models.gumbel_softmax.same_lr/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs.gumbel_softmax/
 
 mkdir -p ${MODEL_PATH}

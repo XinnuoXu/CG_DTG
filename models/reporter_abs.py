@@ -281,4 +281,6 @@ class Statistics(object):
         writer.add_scalar(prefix + "/ppl", self.ppl(), step)
         writer.add_scalar(prefix + "/accuracy", self.accuracy(), step)
         writer.add_scalar(prefix + "/tgtper", self.n_words / t, step)
+        if learning_rate is not list:
+            learning_rate = [learning_rate]
         writer.add_scalar(prefix + "/lr", learning_rate[0], step)

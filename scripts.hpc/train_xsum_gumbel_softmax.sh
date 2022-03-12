@@ -24,8 +24,8 @@ python train.py  \
 	-report_every 100 \
 	-max_pos 1024 \
 	-max_tgt_len 128 \
-	-lr_tmt 5e-3 \
-	-lr_enc_dec 2e-5 \
+	-lr_tmt 1e-2 \
+	-lr_enc_dec 3e-5 \
 	-decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2
