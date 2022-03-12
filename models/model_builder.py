@@ -125,7 +125,11 @@ class ExtSummarizer(nn.Module):
                                                          args.ext_layers)
 
         if checkpoint is not None:
-            self.load_state_dict(checkpoint['model'], strict=True)
+            #self.load_state_dict(checkpoint['model'], strict=True)
+            tree_params = [(n[15:], p) for n, p in checkpoint['model'].items() if n.startswith('planning_layer')]
+            self.planning_layer.load_state_dict(dict(tree_params), strict=True)
+            tree_params = [(n[8:], p) for n, p in checkpoint['model'].items() if n.startswith('encoder')]
+            self.encoder.load_state_dict(dict(tree_params), strict=True)
         else:
             if self.planning_layer is not None:
                 if args.param_init != 0.0:
