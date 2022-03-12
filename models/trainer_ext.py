@@ -404,7 +404,7 @@ class Trainer(object):
             'model': model_state_dict,
             # 'generator': generator_state_dict,
             'opt': self.args,
-            'optim': self.optim,
+            'optims': self.optim,
         }
         checkpoint_path = os.path.join(self.args.model_path, 'model_step_%d.pt' % step)
         logger.info("Saving checkpoint %s" % checkpoint_path)

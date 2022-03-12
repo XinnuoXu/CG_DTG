@@ -35,11 +35,15 @@ def format_for_auto_eva(srcs, refs, candidates):
 if __name__ == '__main__':
 
     base_path = sys.argv[1] # something like './outputs/logs.xsum.bartbase/test.res.100000'
-    eva_mode = sys.argv[2] # auto or human
+    ext_abs = sys.argv[2] # ext or abs
+    eva_mode = sys.argv[3] # auto or human
 
     src_path = base_path + ".raw_src"
     gold_summ_path = base_path + ".gold"
-    candid_path = base_path + ".candidate"
+    if ext_abs == 'abs':
+        candid_path = base_path + ".candidate"
+    else:
+        candid_path = base_path + ".ext_str"
 
     #src_path = os.path.join(input_dir, 'test.res.src')
     #gold_summ_path = os.path.join(input_dir, 'test.res.gold')

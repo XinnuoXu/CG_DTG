@@ -34,6 +34,7 @@ echo "Creating directory to save model weights"
 
 # This script does not actually do very much. But it does demonstrate the principles of training
 #sh ./scripts.hpc/validate_xsum_bartbase.sh
-sh ./scripts.hpc/validate_xsum_gumbel_softmax.sh
+#sh ./scripts.hpc/validate_xsum_gumbel_softmax.sh
+sh scripts.hpc/validate_cnn_gumbel_softmax.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
