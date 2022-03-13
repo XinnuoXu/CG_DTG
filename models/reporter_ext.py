@@ -4,8 +4,7 @@ from __future__ import print_function
 import sys
 import time
 from datetime import datetime
-
-from others.logging import logger
+from models.logging import logger
 
 
 def build_report_manager(opt):

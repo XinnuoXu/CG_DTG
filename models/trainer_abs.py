@@ -2,13 +2,10 @@ import os
 
 import numpy as np
 import torch
-from tensorboardX import SummaryWriter
 
 import distributed
 from models.reporter_abs import ReportMgr, Statistics
-from others.logging import logger
-from others.utils import test_rouge, rouge_results_to_str
-
+from models.logging import logger
 
 def _tally_parameters(model):
     n_params = sum([p.nelement() for p in model.parameters()])
@@ -42,12 +39,7 @@ def build_trainer(args, device_id, model, optims,loss):
 
     print('gpu_rank %d' % gpu_rank)
 
-    tensorboard_log_dir = args.model_path
-
-    writer = SummaryWriter(tensorboard_log_dir, comment="Unmt")
-
-    report_manager = ReportMgr(args.report_every, start_time=-1, tensorboard_writer=writer)
-
+    report_manager = ReportMgr(args.report_every, start_time=-1)
 
     trainer = Trainer(args, model, optims, loss, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
@@ -307,9 +299,6 @@ class Trainer(object):
                             save_gold.write(gold[i].strip()+'\n')
                         for i in range(len(pred)):
                             save_pred.write(pred[i].strip()+'\n')
-        if(step!=-1 and self.args.report_rouge):
-            rouges = test_rouge(self.args.temp_dir, can_path, gold_path)
-            logger.info('Rouges at step %d \n%s' % (step, rouge_results_to_str(rouges)))
         self._report_step(0, step, valid_stats=stats)
 
         return stats

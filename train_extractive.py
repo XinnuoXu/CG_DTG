@@ -16,7 +16,7 @@ from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.model_builder import ExtSummarizer
 from models.trainer_ext import build_trainer
-from others.logging import logger, init_logger
+from models.logging import logger, init_logger
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'inter_layers', 'encoder', 'ff_actv', 'use_interval', 'rnn_size']
 
@@ -71,9 +71,9 @@ def validate_ext(args, device_id):
             break
     xent_lst = sorted(xent_lst, key=lambda x: x[0])[:3]
     logger.info('PPL %s' % str(xent_lst))
-    for xent, cp in xent_lst:
-        step = int(cp.split('.')[-2].split('_')[-1])
-        test_ext(args, device_id, cp, step)
+    #for xent, cp in xent_lst:
+    #    step = int(cp.split('.')[-2].split('_')[-1])
+    #    test_ext(args, device_id, cp, step)
 
 
 def validate(args, device_id, pt, step):

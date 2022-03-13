@@ -2,11 +2,10 @@ import os
 import json
 import numpy as np
 import torch
-from tensorboardX import SummaryWriter
 
 import distributed
 from models.reporter_ext import ReportMgr, Statistics
-from others.logging import logger
+from models.logging import logger
 
 
 def _tally_parameters(model):
@@ -39,11 +38,7 @@ def build_trainer(args, device_id, model, optim):
 
     print('gpu_rank %d' % gpu_rank)
 
-    tensorboard_log_dir = args.model_path
-
-    writer = SummaryWriter(tensorboard_log_dir, comment="Unmt")
-
-    report_manager = ReportMgr(args.report_every, start_time=-1, tensorboard_writer=writer)
+    report_manager = ReportMgr(args.report_every, start_time=-1)
 
     trainer = Trainer(args, model, optim, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
@@ -234,7 +229,7 @@ class Trainer(object):
             self.model.eval()
         stats = Statistics()
 
-        src_path = '%s.src' % (self.args.result_path)
+        src_path = '%s.raw_src' % (self.args.result_path)
         can_path = '%s.candidate' % (self.args.result_path)
         gold_path = '%s.gold' % (self.args.result_path)
         gold_select_path = '%s.gold_select' % (self.args.result_path)
@@ -303,7 +298,7 @@ class Trainer(object):
 
                     pred_select.append(_pred_select)
                     pred.append(_pred)
-                    gold.append(batch.tgt_str[i])
+                    gold.append(' <q> '.join(batch.tgt_str[i]))
 
                 selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in range(batch.batch_size)]
 
@@ -404,7 +399,7 @@ class Trainer(object):
             'model': model_state_dict,
             # 'generator': generator_state_dict,
             'opt': self.args,
-            'optims': self.optim,
+            'optims': [self.optim],
         }
         checkpoint_path = os.path.join(self.args.model_path, 'model_step_%d.pt' % step)
         logger.info("Saving checkpoint %s" % checkpoint_path)

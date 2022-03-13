@@ -8,10 +8,8 @@ from __future__ import print_function
 
 import math
 import pickle
-
 import torch.distributed
-
-from others.logging import logger
+from models.logging import logger
 
 
 def is_master(gpu_ranks, device_id):

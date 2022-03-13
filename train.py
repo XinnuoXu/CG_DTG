@@ -5,7 +5,7 @@
 from __future__ import division
 import os
 import argparse
-from others.logging import init_logger
+from models.logging import init_logger
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
 

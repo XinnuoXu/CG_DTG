@@ -2,7 +2,7 @@
 
 import argparse
 import time
-from others.logging import init_logger
+from models.logging import init_logger
 from prepro import data_builder
 
 def str2bool(v):

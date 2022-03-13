@@ -1,13 +1,13 @@
 #!/bin/bash
 
 #JSON_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/jsons/
-#BERT_DATA_PATH=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/data/
+BASE_DIR=/scratch/xxu/Plan_while_Generate/TreeSumAbs/cnn_dm/
 JSON_PATH=${BASE_DIR}/jsons/
 BERT_DATA_PATH=${BASE_DIR}/data/
 LOG_PATH=${BASE_DIR}/logs/
 
 mkdir ${BERT_DATA_PATH}
-rm -rf ${BERT_DATA_PATH}/*
+#rm -rf ${BERT_DATA_PATH}/*
 
 python preprocess.py \
 	-mode format_for_training \

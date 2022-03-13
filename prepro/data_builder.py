@@ -13,10 +13,9 @@ from os.path import join as pjoin
 
 import torch
 from multiprocess import Pool
-
-from others.logging import logger
-from others.utils import clean
 from transformers import AutoTokenizer
+
+from models.logging import logger
 
 
 class BertData():
@@ -46,7 +45,8 @@ class BertData():
         gt_selection = self.get_sent_labels(source_tokens, sent_labels)
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
 
-        return source_tokens, target_tokens, gt_selection, cls_ids, src, tgt_txt
+        #return source_tokens, target_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt]
+        return source_tokens, target_tokens, gt_selection, cls_ids, src, tgt[0]
 
 
 def _process(params):

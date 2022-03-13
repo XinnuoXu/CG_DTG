@@ -20,7 +20,7 @@ from models.loss import abs_loss
 from models.model_builder import AbsSummarizer
 from models.predictor import build_predictor
 from models.trainer_abs import build_trainer
-from others.logging import logger, init_logger
+from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',

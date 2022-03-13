@@ -6,10 +6,28 @@ import os
 import json
 import math
 import torch
-
-from tensorboardX import SummaryWriter
-from others.utils import rouge_results_to_str, test_rouge, tile
 from translate.beam import GNMTGlobalScorer
+
+def tile(x, count, dim=0):
+    """
+    Tiles x on dimension dim count times.
+    """
+    perm = list(range(len(x.size())))
+    if dim != 0:
+        perm[0], perm[dim] = perm[dim], perm[0]
+        x = x.permute(perm).contiguous()
+    out_size = list(x.size())
+    out_size[0] *= count
+    batch = x.size(0)
+    x = x.view(batch, -1) \
+         .transpose(0, 1) \
+         .repeat(count, 1) \
+         .transpose(0, 1) \
+         .contiguous() \
+         .view(*out_size)
+    if dim != 0:
+        x = x.permute(perm).contiguous()
+    return x
 
 
 def build_predictor(args, tokenizer, model, logger=None):
@@ -37,9 +55,6 @@ class Translator(object):
         self.min_length = args.test_min_length
         self.max_length = args.test_max_length
         self.dump_beam = dump_beam
-
-        tensorboard_log_dir = args.model_path
-        self.tensorboard_writer = SummaryWriter(tensorboard_log_dir, comment="Unmt")
 
 
     def _build_target_tokens(self, pred):
@@ -134,19 +149,6 @@ class Translator(object):
         self.ext_out_file.close()
         self.sel_out_file.close()
         self.eid_out_file.close()
-
-        rouges = self._report_rouge(gold_path, can_path)
-        self.logger.info('Rouges at step %d \n%s' % (step, rouge_results_to_str(rouges)))
-        if self.tensorboard_writer is not None:
-            self.tensorboard_writer.add_scalar('test/rouge1-F', rouges['rouge_1_f_score'], step)
-            self.tensorboard_writer.add_scalar('test/rouge2-F', rouges['rouge_2_f_score'], step)
-            self.tensorboard_writer.add_scalar('test/rougeL-F', rouges['rouge_l_f_score'], step)
-
-
-    def _report_rouge(self, gold_path, can_path):
-        self.logger.info("Calculating Rouge")
-        results_dict = test_rouge(self.args.temp_dir, can_path, gold_path)
-        return results_dict
 
 
     def translate_batch(self, batch, fast=False):

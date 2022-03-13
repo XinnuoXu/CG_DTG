@@ -3,7 +3,7 @@ import glob
 import bisect
 import random
 import torch
-from others.logging import logger
+from models.logging import logger
 from transformers import AutoTokenizer
 
 
