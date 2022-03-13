@@ -2,7 +2,6 @@ import os
 import re
 import shutil
 import time
-#from src import pyrouge
 import pyrouge
 
 REMAP = {"-lrb-": "(", "-rrb-": ")", "-lcb-": "{", "-rcb-": "}",
