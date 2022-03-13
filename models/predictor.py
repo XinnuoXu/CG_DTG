@@ -90,12 +90,13 @@ class Translator(object):
         for b in range(batch_size):
             token_ids = preds[b][0]
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
-            gold_sent = tgt_str[b]
+            gold_sent = '<q>'.join(tgt_str[b])
+            pred_sent = pred_sent.replace('. ', '.<q>') #tmp code
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
             if selected_ids is not None:
                 selected_id = selected_ids[b]
                 src_sents = src_str[b]
-                selected_sents = ' '.join([src_sents[id] for id in selected_id if id < len(src_sents)])
+                selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
                 translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b])
             else:
                 translation = (pred_sent, gold_sent, None, None, raw_src, eid[b])

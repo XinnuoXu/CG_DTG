@@ -46,7 +46,7 @@ class BertData():
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
 
         #return source_tokens, target_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt]
-        return source_tokens, target_tokens, gt_selection, cls_ids, src, tgt[0]
+        return source_tokens, target_tokens, gt_selection, cls_ids, src, tgt[0] # tmp code
 
 
 def _process(params):
