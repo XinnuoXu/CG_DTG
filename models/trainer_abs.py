@@ -26,24 +26,18 @@ def build_trainer(args, device_id, model, optims,loss):
             used to save the model
     """
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
-
-
     grad_accum_count = args.accum_count
     n_gpu = args.world_size
-
     if device_id >= 0:
         gpu_rank = int(args.gpu_ranks[device_id])
     else:
         gpu_rank = 0
         n_gpu = 0
-
     print('gpu_rank %d' % gpu_rank)
 
     report_manager = ReportMgr(args.report_every, start_time=-1)
-
     trainer = Trainer(args, model, optims, loss, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
-    # print(tr)
     if (model):
         n_params = _tally_parameters(model)
         logger.info('* number of parameters: %d' % n_params)
@@ -212,7 +206,7 @@ class Trainer(object):
             mask_cls = batch.mask_cls
             labels = batch.gt_selection
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+            outputs, root_probs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
 

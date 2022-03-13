@@ -288,3 +288,33 @@ def shards(state, shard_size, eval_only=False):
                 variables.extend(zip(torch.split(state[k], shard_size), [v_chunk.grad for v_chunk in v_split]))
         inputs, grads = zip(*variables)
         torch.autograd.backward(inputs, grads)
+
+
+class ConentSelectionLossCompute(LossComputeBase):
+
+    def __init__(self, content_planning_model):
+        
+        self.content_planning_model = content_planning_model
+        self.loss = torch.nn.BCELoss(reduction='none')
+
+    def _compute_loss(labels, sent_scores, mask):
+
+        if(self.content_planning_model == 'tree'):
+            loss = 0
+            labels = labels.float()
+            for r in sent_scores:
+                r = torch.clamp(r, 1e-5, 1 - 1e-5)
+                _loss = self.loss(r, labels)
+                _loss = (_loss * mask.float()).sum()
+                loss += _loss
+            loss = loss/len(sent_scores)
+        else:
+            loss = self.loss(sent_scores, labels.float())
+            loss = (loss * mask.float()).sum()
+
+        (loss / loss.numel()).backward()
+        batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
+
+        return loss, batch_stats
+
+

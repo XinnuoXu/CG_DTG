@@ -29,20 +29,16 @@ def build_trainer(args, device_id, model, optim):
 
     grad_accum_count = args.accum_count
     n_gpu = args.world_size
-
     if device_id >= 0:
         gpu_rank = int(args.gpu_ranks[device_id])
     else:
         gpu_rank = 0
         n_gpu = 0
-
     print('gpu_rank %d' % gpu_rank)
 
     report_manager = ReportMgr(args.report_every, start_time=-1)
-
     trainer = Trainer(args, model, optim, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
-    # print(tr)
     if (model):
         n_params = _tally_parameters(model)
         logger.info('* number of parameters: %d' % n_params)
@@ -87,8 +83,8 @@ class Trainer(object):
         self.n_gpu = n_gpu
         self.gpu_rank = gpu_rank
         self.report_manager = report_manager
+        self.loss = ConentSelectionLossCompute(self.args.content_planning_model)
 
-        self.loss = torch.nn.BCELoss(reduction='none')
         assert grad_accum_count > 0
         # Set model in training mode.
         if (model):
@@ -343,24 +339,7 @@ class Trainer(object):
             labels = batch.gt_selection
 
             sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-
-            if(self.args.content_planning_model == 'tree'):
-                loss = 0
-                labels = labels.float()
-                for r in sent_scores:
-                    r = torch.clamp(r, 1e-5, 1 - 1e-5)
-                    _loss = self.loss(r, labels)
-                    _loss = (_loss * mask.float()).sum()
-                    loss += _loss
-                loss = loss/len(sent_scores)
-                (loss / loss.numel()).backward()
-
-            else:
-                loss = self.loss(sent_scores, labels.float())
-                loss = (loss * mask.float()).sum()
-                (loss / loss.numel()).backward()
-
-            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
+            loss, batch_stats = self.loss(labels, sent_scores, mask)
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)

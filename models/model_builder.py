@@ -296,4 +296,4 @@ class AbsSummarizer(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=content_selection_weights)
 
-        return decoder_outputs.last_hidden_state
+        return decoder_outputs.last_hidden_state, root_probs
