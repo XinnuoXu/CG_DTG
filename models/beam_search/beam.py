@@ -1,6 +1,6 @@
 from __future__ import division
 import torch
-from translate import penalties
+from models.beam_search import penalties
 
 
 class Beam(object):

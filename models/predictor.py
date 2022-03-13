@@ -6,7 +6,7 @@ import os
 import json
 import math
 import torch
-from translate.beam import GNMTGlobalScorer
+from models.beam_search.beam import GNMTGlobalScorer
 
 def tile(x, count, dim=0):
     """
