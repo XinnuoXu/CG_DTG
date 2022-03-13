@@ -49,6 +49,7 @@ class Translator(object):
         self.generator = self.model.generator
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
+        self.sep_token = self.tokenizer.sep_token
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -90,8 +91,8 @@ class Translator(object):
         for b in range(batch_size):
             token_ids = preds[b][0]
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
+            pred_sent = pred_sent.replace(self.sep_token, '<q>') #tmp code
             gold_sent = '<q>'.join(tgt_str[b])
-            pred_sent = pred_sent.replace('. ', '.<q>') #tmp code
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
             if selected_ids is not None:
                 selected_id = selected_ids[b]
