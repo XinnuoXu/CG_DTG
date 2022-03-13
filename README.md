@@ -18,6 +18,10 @@ pip install sentencepiece
 pip install transformers
 pip install nltk
 pip install pyrouge
+
+# get ROUGE-1.5.5
+git clone git@github.com:andersjo/pyrouge.git
+pyrouge_set_rouge_path /absolute/path/to/pyrouge/tools/ROUGE-1.5.5
 ```
 
 Check examples in dataset (python code):
