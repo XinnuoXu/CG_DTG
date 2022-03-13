@@ -22,6 +22,9 @@ pip install pyrouge
 # get ROUGE-1.5.5
 git clone git@github.com:andersjo/pyrouge.git
 pyrouge_set_rouge_path /absolute/path/to/pyrouge/tools/ROUGE-1.5.5
+cd pyrouge/tools/ROUGE-1.5.5/data/
+rm WordNet-2.0.exc.db
+./WordNet-2.0-Exceptions/buildExeptionDB.pl ./WordNet-2.0-Exceptions ./smart_common_words.txt ./WordNet-2.0.exc.db
 ```
 
 Check examples in dataset (python code):
