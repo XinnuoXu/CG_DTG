@@ -12,7 +12,6 @@ mkdir ${MODEL_PATH}
 python train.py  \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
-	-train_from ${MODEL_PATH}/model_step_90000.pt \
 	-mode train \
 	-ext_or_abs ext \
 	-content_planning_model tree \
