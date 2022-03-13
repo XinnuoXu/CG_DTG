@@ -17,6 +17,7 @@ pip install rouge_score
 pip install sentencepiece
 pip install transformers
 pip install nltk
+pip install pyrouge
 ```
 
 Check examples in dataset (python code):
