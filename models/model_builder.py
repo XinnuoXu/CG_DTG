@@ -77,8 +77,7 @@ def build_optim(args, model, checkpoint):
     if checkpoint is not None:
         for key in checkpoint:
             print (key)
-        #optim = checkpoint['optims'][0]
-        optim = checkpoint['optim']
+        optim = checkpoint['optims'][0]
         saved_optimizer_state_dict = optim.optimizer.state_dict()
         optim.optimizer.load_state_dict(saved_optimizer_state_dict)
         if args.visible_gpus != '-1':
