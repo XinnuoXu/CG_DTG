@@ -99,7 +99,7 @@ class ReportMgrBase(object):
         raise NotImplementedError()
 
 
-class ReportMgr(ReportMgrBase):
+class ReportMgrExt(ReportMgrBase):
     def __init__(self, report_every, start_time=-1., tensorboard_writer=None):
         """
         A report manager that writes statistics on standard output as well as
@@ -156,7 +156,7 @@ class ReportMgr(ReportMgrBase):
                                        step)
 
 
-class Statistics(object):
+class StatisticsExt(object):
     """
     Accumulator for loss statistics.
     Currently calculates:

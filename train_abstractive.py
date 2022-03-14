@@ -176,7 +176,7 @@ def train_abs_single(args, device_id):
     train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
                           train=True, label_smoothing=args.label_smoothing)
 
-    if args.abs_plus_ext_loss:
+    if args.abs_plus_ext_loss > 0.0:
         ext_loss = ConentSelectionLossCompute(args.content_planning_model)
         trainer = build_trainer(args, device_id, model, optim, train_loss, ext_loss)
         trainer.train_mix(train_iter_fct, args.train_steps)
