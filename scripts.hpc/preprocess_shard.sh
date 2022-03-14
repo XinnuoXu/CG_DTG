@@ -15,9 +15,9 @@ mkdir -p ${JSON_PATH}
 rm -rf ${JSON_PATH}/*
 
 python preprocess.py \
-	-mode split_shard \
-	-raw_path ${RAW_PATH} \
-	-save_path ${JSON_PATH} \
-	-oracle_topn 1000 \
-	-n_cpus 30 \
-	-log_file ${LOG_PATH}/preprocess_shard.log \
+        -mode split_shard \
+        -raw_path ${RAW_PATH} \
+        -save_path ${JSON_PATH} \
+        -oracle_topn 1000 \
+        -n_cpus 30 \
+        -log_file ${LOG_PATH}/preprocess_shard.log \

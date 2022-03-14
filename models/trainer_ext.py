@@ -6,6 +6,7 @@ import torch
 import distributed
 from models.reporter_ext import ReportMgr, Statistics
 from models.logging import logger
+from models.loss import ConentSelectionLossCompute
 
 
 def _tally_parameters(model):
@@ -321,8 +322,7 @@ class Trainer(object):
 
         return stats
 
-    def _gradient_accumulation(self, true_batchs, normalization, total_stats,
-                               report_stats):
+    def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats):
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
@@ -339,8 +339,10 @@ class Trainer(object):
             labels = batch.gt_selection
 
             sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-            loss, batch_stats = self.loss(labels, sent_scores, mask)
+            loss = self.loss._compute_loss(labels, sent_scores, mask, normalization)
+            (loss / loss.numel()).backward()
 
+            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
 

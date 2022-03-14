@@ -16,7 +16,7 @@ import torch
 import distributed
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
-from models.loss import abs_loss
+from models.loss import abs_loss, ConentSelectionLossCompute
 from models.model_builder import AbsSummarizer
 from models.predictor import build_predictor
 from models.trainer_abs import build_trainer
@@ -175,8 +175,15 @@ def train_abs_single(args, device_id):
     symbols = {'PAD': tokenizer.pad_token_id}
     train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
                           train=True, label_smoothing=args.label_smoothing)
-    trainer = build_trainer(args, device_id, model, optim, train_loss)
-    trainer.train(train_iter_fct, args.train_steps)
+
+    if args.abs_plus_ext_loss:
+        ext_loss = ConentSelectionLossCompute(args.content_planning_model)
+        trainer = build_trainer(args, device_id, model, optim, train_loss, ext_loss)
+        trainer.train_mix(train_iter_fct, args.train_steps)
+    else:
+        ext_loss = None
+        trainer = build_trainer(args, device_id, model, optim, train_loss)
+        trainer.train(train_iter_fct, args.train_steps)
 
 
 def validate_abs(args, device_id):

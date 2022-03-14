@@ -12,7 +12,7 @@ def _tally_parameters(model):
     return n_params
 
 
-def build_trainer(args, device_id, model, optims,loss):
+def build_trainer(args, device_id, model, optims, loss, ext_loss=None):
     """
     Simplify `Trainer` creation based on user `opt`s*
     Args:
@@ -36,7 +36,7 @@ def build_trainer(args, device_id, model, optims,loss):
     print('gpu_rank %d' % gpu_rank)
 
     report_manager = ReportMgr(args.report_every, start_time=-1)
-    trainer = Trainer(args, model, optims, loss, grad_accum_count, n_gpu, gpu_rank, report_manager)
+    trainer = Trainer(args, model, optims, loss, ext_loss, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
     if (model):
         n_params = _tally_parameters(model)
@@ -70,7 +70,7 @@ class Trainer(object):
                 Thus nothing will be saved if this parameter is None
     """
 
-    def __init__(self,  args, model,  optims, loss,
+    def __init__(self,  args, model,  optims, loss, ext_loss=None,
                   grad_accum_count=1, n_gpu=1, gpu_rank=1,
                   report_manager=None):
         # Basic attributes.
@@ -84,30 +84,15 @@ class Trainer(object):
         self.report_manager = report_manager
 
         self.loss = loss
+        self.ext_loss = ext_loss
 
         assert grad_accum_count > 0
         # Set model in training mode.
         if (model):
             self.model.train()
 
+
     def train(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
-        """
-        The main training loops.
-        by iterating over training data (i.e. `train_iter_fct`)
-        and running validation (i.e. iterating over `valid_iter_fct`
-
-        Args:
-            train_iter_fct(function): a function that returns the train
-                iterator. e.g. something like
-                train_iter_fct = lambda: generator(*args, **kwargs)
-            valid_iter_fct(function): same as train_iter_fct, for valid data
-            train_steps(int):
-            valid_steps(int):
-            save_checkpoint_steps(int):
-
-        Return:
-            None
-        """
         logger.info('Start training...')
 
         # step =  self.optim._step + 1
@@ -161,33 +146,6 @@ class Trainer(object):
 
         return total_stats
 
-    def validate(self, valid_iter, step=0):
-        """ Validate model.
-            valid_iter: validate data iterator
-        Returns:
-            :obj:`nmt.Statistics`: validation loss statistics
-        """
-        # Set model in validating mode.
-        self.model.eval()
-        stats = Statistics()
-
-        with torch.no_grad():
-            for batch in valid_iter:
-                src = batch.src
-                mask_src = batch.mask_src
-                tgt = batch.tgt
-                mask_tgt = batch.mask_tgt
-                clss = batch.clss
-                mask_cls = batch.mask_cls
-                labels = batch.gt_selection
-
-                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-
-                batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
-                stats.update(batch_stats)
-            self._report_step(0, step, valid_stats=stats)
-            return stats
-
 
     def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats):
 
@@ -232,6 +190,149 @@ class Trainer(object):
                 distributed.all_reduce_and_rescale_tensors(grads, float(1))
             for o in self.optims:
                 o.step()
+
+
+    def train_mix(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
+        logger.info('Start training Mix...')
+
+        step =  self.optims[0]._step + 1
+        true_batchs = []
+        accum = 0
+        normalization = 0
+        train_iter = train_iter_fct()
+
+        total_stats = Statistics()
+        report_stats = Statistics()
+        total_stats_ext = Statistics()
+        report_stats_ext = Statistics()
+
+        self._start_report_manager(start_time=total_stats.start_time)
+
+        while step <= train_steps:
+
+            reduce_counter = 0
+            for i, batch in enumerate(train_iter):
+                if self.n_gpu == 0 or (i % self.n_gpu == self.gpu_rank):
+
+                    true_batchs.append(batch)
+                    num_tokens = batch.tgt[:, 1:].ne(self.loss.padding_idx).sum()
+                    normalization += num_tokens.item()
+                    accum += 1
+                    if accum == self.grad_accum_count:
+                        reduce_counter += 1
+                        if self.n_gpu > 1:
+                            normalization = sum(distributed.all_gather_list(normalization))
+
+                        self._gradient_accumulation_mix(true_batchs, normalization, total_stats, report_stats, total_stats_ext, report_stats_ext)
+
+                        report_stats = self._maybe_report_training(step, train_steps,
+                            [self.optims[i].learning_rate for i in range(len(self.optims))], report_stats)
+
+                        report_stats_ext = self._maybe_report_training(step, train_steps,
+                            [self.optims[i].learning_rate for i in range(len(self.optims))], report_stats_ext)
+
+                        true_batchs = []
+                        accum = 0
+                        normalization = 0
+                        if (step % self.save_checkpoint_steps == 0 and self.gpu_rank == 0):
+                            self._save(step)
+
+                        step += 1
+                        if step > train_steps:
+                            break
+            train_iter = train_iter_fct()
+
+        return total_stats
+
+
+    def _gradient_accumulation_mix(self, true_batchs, normalization, total_stats, report_stats, total_stats_ext, report_stats_ext):
+
+        if self.grad_accum_count > 1:
+            self.model.zero_grad()
+
+        for batch in true_batchs:
+            if self.grad_accum_count == 1:
+                self.model.zero_grad()
+
+            src = batch.src
+            mask_src = batch.mask_src
+            tgt = batch.tgt
+            mask_tgt = batch.mask_tgt
+            clss = batch.clss
+            mask_cls = batch.mask_cls
+            labels = batch.gt_selection
+
+            outputs, root_probs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+
+            # Abs Loss
+            loss_abs, _stats = self.loss._compute_loss(batch, outputs[:, :-1, :], batch.tgt[:,1:])
+            loss_abs = loss_abs.div(float(normalization))
+
+            batch_stats_abs = Statistics()
+            batch_stats_abs.update(_stats)
+            batch_stats_abs.n_docs = int(src.size(0))
+
+            total_stats.update(batch_stats_abs)
+            report_stats.update(batch_stats_abs)
+
+            # Ext Loss
+            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls, normalization)
+            loss_ext = (loss_ext / loss_ext.numel())
+
+            batch_stats_ext = Statistics(float(loss_ext.cpu().data.numpy()), normalization)
+            total_stats_ext.update(batch_stats_ext)
+            report_stats_ext.update(batch_stats_ext)
+
+            loss = loss_abs + loss_ext
+            loss.backward()
+
+            # 4. Update the parameters and statistics.
+            if self.grad_accum_count == 1:
+                # Multi GPU gradient gather
+                if self.n_gpu > 1:
+                    grads = [p.grad.data for p in self.model.parameters()
+                             if p.requires_grad and p.grad is not None]
+                    distributed.all_reduce_and_rescale_tensors(grads, float(1))
+                for o in self.optims:
+                    o.step()
+
+        # in case of multi step gradient accumulation,
+        # update only after accum batches
+        if self.grad_accum_count > 1:
+            if self.n_gpu > 1:
+                grads = [p.grad.data for p in self.model.parameters()
+                         if p.requires_grad and p.grad is not None]
+                distributed.all_reduce_and_rescale_tensors(grads, float(1))
+            for o in self.optims:
+                o.step()
+
+
+    def validate(self, valid_iter, step=0):
+        """ Validate model.
+            valid_iter: validate data iterator
+        Returns:
+            :obj:`nmt.Statistics`: validation loss statistics
+        """
+        # Set model in validating mode.
+        self.model.eval()
+        stats = Statistics()
+
+        with torch.no_grad():
+            for batch in valid_iter:
+                src = batch.src
+                mask_src = batch.mask_src
+                tgt = batch.tgt
+                mask_tgt = batch.mask_tgt
+                clss = batch.clss
+                mask_cls = batch.mask_cls
+                labels = batch.gt_selection
+
+                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+
+                batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
+                stats.update(batch_stats)
+            self._report_step(0, step, valid_stats=stats)
+            return stats
 
 
     def test(self, test_iter, step, cal_lead=False, cal_oracle=False):

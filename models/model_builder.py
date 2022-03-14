@@ -280,9 +280,9 @@ class AbsSummarizer(nn.Module):
             # Get sentence importance
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
             sents_vec = sents_vec * mask_cls[:, :, None].float()
-            sent_scores = self.planning_layer(sents_vec, mask_cls)
+            sent_scores_layers = self.planning_layer(sents_vec, mask_cls)
             # Weight input tokens
-            content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores, src, mask_src, mask_cls)
+            content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls)
         else:
             content_selection_weights = mask_src
             root_probs = None
@@ -296,4 +296,4 @@ class AbsSummarizer(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=content_selection_weights)
 
-        return decoder_outputs.last_hidden_state, root_probs
+        return decoder_outputs.last_hidden_state, sent_scores_layers

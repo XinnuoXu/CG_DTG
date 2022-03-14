@@ -75,6 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('-gpu_ranks', default='0', type=str)
     parser.add_argument("-train_from", default='')
     parser.add_argument("-load_from_ext", default='')
+    parser.add_argument("-abs_plus_ext_loss", type=str2bool, nargs='?', default=False)
 
     # test parameters
     parser.add_argument("-test_from", default='')
