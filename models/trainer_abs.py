@@ -165,7 +165,7 @@ class Trainer(object):
         step =  self.optims[0]._step + 1
         true_batchs = []
         accum = 0
-        normalization = 0
+        normalization = 0; normalization_ext = 0;
         train_iter = train_iter_fct()
 
         total_stats = Statistics()
@@ -184,13 +184,15 @@ class Trainer(object):
                     true_batchs.append(batch)
                     num_tokens = batch.tgt[:, 1:].ne(self.loss.padding_idx).sum()
                     normalization += num_tokens.item()
+                    normalization_ext += batch.batch_size
                     accum += 1
                     if accum == self.grad_accum_count:
                         reduce_counter += 1
                         if self.n_gpu > 1:
                             normalization = sum(distributed.all_gather_list(normalization))
+                            normalization_ext = sum(distributed.all_gather_list(normalization_ext))
 
-                        self._gradient_accumulation_mix(true_batchs, normalization, total_stats, report_stats, total_stats_ext, report_stats_ext)
+                        self._gradient_accumulation_mix(true_batchs, normalization, normalization_ext, total_stats, report_stats, total_stats_ext, report_stats_ext)
 
                         report_stats = self._maybe_report_training(self.report_manager, step, train_steps,
                             [self.optims[i].learning_rate for i in range(len(self.optims))], report_stats)
@@ -201,6 +203,7 @@ class Trainer(object):
                         true_batchs = []
                         accum = 0
                         normalization = 0
+                        normalization_ext = 0
                         if (step % self.save_checkpoint_steps == 0 and self.gpu_rank == 0):
                             self._save(step)
 
@@ -212,7 +215,7 @@ class Trainer(object):
         return total_stats
 
 
-    def _gradient_accumulation_mix(self, true_batchs, normalization, total_stats, report_stats, total_stats_ext, report_stats_ext):
+    def _gradient_accumulation_mix(self, true_batchs, normalization, normalization_ext, total_stats, report_stats, total_stats_ext, report_stats_ext):
 
         if self.grad_accum_count > 1:
             self.model.zero_grad()
@@ -243,10 +246,10 @@ class Trainer(object):
             report_stats.update(batch_stats_abs)
 
             # Ext Loss
-            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls, normalization)
+            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls, normalization_ext)
             loss_ext = (loss_ext / loss_ext.numel())
 
-            batch_stats_ext = StatisticsExt(float(loss_ext.cpu().data.numpy()), normalization)
+            batch_stats_ext = StatisticsExt(float(loss_ext.cpu().data.numpy()), normalization_ext)
             total_stats_ext.update(batch_stats_ext)
             report_stats_ext.update(batch_stats_ext)
 
