@@ -45,7 +45,6 @@ class Trainer(object):
         self.grad_accum_count = grad_accum_count
         self.n_gpu = n_gpu
         self.gpu_rank = gpu_rank
-        self.report_manager = report_manager
 
         self.loss = loss
         self.ext_loss = ext_loss
@@ -96,7 +95,7 @@ class Trainer(object):
                             report_stats)
 
                         report_stats = self._maybe_report_training(
-                            self.report_manager
+                            self.report_manager,
                             step, train_steps,
                             [self.optims[i].learning_rate for i in range(len(self.optims))],
                             report_stats)
@@ -171,8 +170,8 @@ class Trainer(object):
 
         total_stats = Statistics()
         report_stats = Statistics()
-        total_stats_ext = Statistics()
-        report_stats_ext = Statistics()
+        total_stats_ext = StatisticsExt()
+        report_stats_ext = StatisticsExt()
 
         self._start_report_manager(start_time=total_stats.start_time)
 
@@ -247,7 +246,7 @@ class Trainer(object):
             loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls, normalization)
             loss_ext = (loss_ext / loss_ext.numel())
 
-            batch_stats_ext = Statistics(float(loss_ext.cpu().data.numpy()), normalization)
+            batch_stats_ext = StatisticsExt(float(loss_ext.cpu().data.numpy()), normalization)
             total_stats_ext.update(batch_stats_ext)
             report_stats_ext.update(batch_stats_ext)
 

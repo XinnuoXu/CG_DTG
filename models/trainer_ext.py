@@ -4,7 +4,8 @@ import numpy as np
 import torch
 
 import distributed
-from models.reporter_ext import ReportMgr, Statistics
+from models.reporter_ext import StatisticsExt as Statistics
+from models.reporter_ext import ReportMgrExt
 from models.logging import logger
 from models.loss import ConentSelectionLossCompute
 
@@ -37,7 +38,7 @@ def build_trainer(args, device_id, model, optim):
         n_gpu = 0
     print('gpu_rank %d' % gpu_rank)
 
-    report_manager = ReportMgr(args.report_every, start_time=-1)
+    report_manager = ReportMgrExt(args.report_every, start_time=-1)
     trainer = Trainer(args, model, optim, grad_accum_count, n_gpu, gpu_rank, report_manager)
 
     if (model):
@@ -144,7 +145,7 @@ class Trainer(object):
 
                         report_stats = self._maybe_report_training(
                             step, train_steps,
-                            self.optim.learning_rate,
+                            [self.optim.learning_rate],
                             report_stats)
 
                         true_batchs = []

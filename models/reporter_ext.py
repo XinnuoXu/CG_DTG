@@ -71,11 +71,11 @@ class ReportMgrBase(object):
         if step % self.report_every == 0:
             if multigpu:
                 report_stats = \
-                    Statistics.all_gather_stats(report_stats)
+                    StatisticsExt.all_gather_stats(report_stats)
             self._report_training(
                 step, num_steps, learning_rate, report_stats)
             self.progress_step += 1
-            return Statistics()
+            return StatisticsExt()
         else:
             return report_stats
 
@@ -110,7 +110,7 @@ class ReportMgrExt(ReportMgrBase):
             tensorboard_writer(:obj:`tensorboard.SummaryWriter`):
                 The TensorBoard Summary writer to use or None
         """
-        super(ReportMgr, self).__init__(report_every, start_time)
+        super(ReportMgrExt, self).__init__(report_every, start_time)
         self.tensorboard_writer = tensorboard_writer
 
     def maybe_log_tensorboard(self, stats, prefix, learning_rate, step):
@@ -131,7 +131,7 @@ class ReportMgrExt(ReportMgrBase):
                                    "progress",
                                    learning_rate,
                                    self.progress_step)
-        report_stats = Statistics()
+        report_stats = StatisticsExt()
 
         return report_stats
 
@@ -184,7 +184,7 @@ class StatisticsExt(object):
         Returns:
             `Statistics`, the update stats object
         """
-        stats = Statistics.all_gather_stats_list([stat], max_size=max_size)
+        stats = StatisticsExt.all_gather_stats_list([stat], max_size=max_size)
         return stats[0]
 
     @staticmethod
@@ -248,12 +248,12 @@ class StatisticsExt(object):
            start (int): start time of step.
         """
         t = self.elapsed_time()
+        learning_rate = '/'.join([("%7.7f")%lr for lr in learning_rate])
         step_fmt = "%2d" % step
         if num_steps > 0:
             step_fmt = "%s/%5d" % (step_fmt, num_steps)
         logger.info(
-            ("Step %s; xent: %4.2f; " +
-             "lr: %7.7f; %3.0f docs/s; %6.0f sec")
+            ("Step %s; xent: %4.2f; " + "lr: %s; %3.0f docs/s; %6.0f sec")
             % (step_fmt,
                self.xent(),
                learning_rate,
