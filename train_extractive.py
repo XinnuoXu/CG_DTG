@@ -18,7 +18,7 @@ from models.model_builder import ExtSummarizer
 from models.trainer_ext import build_trainer
 from models.logging import logger, init_logger
 
-model_flags = ['hidden_size', 'ff_size', 'heads', 'inter_layers', 'encoder', 'ff_actv', 'use_interval', 'rnn_size']
+model_flags = ['hidden_size', 'ff_size', 'heads', 'inter_layers', 'encoder', 'ff_actv', 'use_interval', 'rnn_size', 'ext_or_abs']
 
 
 class ErrorHandler(object):

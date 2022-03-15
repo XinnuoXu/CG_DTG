@@ -26,7 +26,6 @@ class BertData():
         self.cls_token_id = self.tokenizer.cls_token_id
         self.pad_token_id = self.tokenizer.pad_token_id
         self.cls_token = self.tokenizer.cls_token
-        self.sep_token = self.tokenizer.sep_token
 
     def get_sent_labels(self, src_subtoken_idxs, sent_labels):
         _sent_labels = [0 for t in src_subtoken_idxs if t == self.cls_token_id]
@@ -38,7 +37,7 @@ class BertData():
 
     def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length):
         src_txt = (' '+self.cls_token+' ').join(src)
-        tgt_txt = (' '+self.sep_token+' ').join([' '.join(sent) for sent in tgt])
+        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt])
 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']

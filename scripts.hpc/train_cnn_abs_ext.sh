@@ -12,8 +12,7 @@ mkdir -p ${LOG_PATH}
 python train.py  \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
-        -load_from_ext ${EXT_PATH}/model_step_60000.pt \
-        -load_from_abs ${ABS_PATH}/model_step_320000.pt \
+        -train_from ${MODEL_PATH}/model_step_80000.pt \
 	-mode train \
 	-ext_or_abs mix \
 	-content_planning_model tree \
@@ -33,3 +32,5 @@ python train.py  \
 	-accum_count 2 \
 	-visible_gpus 0,1,2
 
+        #-load_from_ext ${EXT_PATH}/model_step_60000.pt \
+        #-load_from_abs ${ABS_PATH}/model_step_320000.pt \

@@ -240,7 +240,7 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
+    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
@@ -271,7 +271,7 @@ def test_mix(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
+    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

@@ -7,7 +7,7 @@
 
 # Setup for CNN
 JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/jsons/
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/data/
+BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm.bak/data/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs/
 
 mkdir -p ${LOG_PATH}
