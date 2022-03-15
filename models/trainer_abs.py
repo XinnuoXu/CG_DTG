@@ -297,7 +297,7 @@ class Trainer(object):
                 mask_cls = batch.mask_cls
                 labels = batch.gt_selection
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                outputs, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

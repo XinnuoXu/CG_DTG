@@ -15,7 +15,6 @@ python train.py \
 	-ext_or_abs abs \
 	-content_planning_model tree \
 	-tree_gumbel_softmax_tau 0.2 \
-	-use_interval true \
 	-block_trigram true \
 	-max_pos 512 \
 	-batch_size 6000 \
