@@ -184,14 +184,9 @@ class Trainer(object):
 
                 sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
-                if(self.args.content_planning_model == 'tree'):
-                    labels = labels.float()
-                    r = torch.clamp(sent_scores[-1], 1e-5, 1 - 1e-5)
-                    loss = self.loss(r, labels)
-                else:
-                    loss = self.loss(sent_scores, labels.float())
-
+                loss = self.loss._compute_loss_test(labels, sent_scores, mask)
                 loss = (loss * mask.float()).sum()
+
                 batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
                 stats.update(batch_stats)
 
@@ -340,7 +335,7 @@ class Trainer(object):
             labels = batch.gt_selection
 
             sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-            loss = self.loss._compute_loss(labels, sent_scores, mask, normalization)
+            loss = self.loss._compute_loss(labels, sent_scores, mask)
             (loss / loss.numel()).backward()
 
             batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)

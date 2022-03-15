@@ -298,7 +298,7 @@ class ConentSelectionLossCompute(nn.Module):
         self.content_planning_model = content_planning_model
         self.loss = torch.nn.BCELoss(reduction='none')
 
-    def _compute_loss(self, labels, sent_scores, mask, normalization):
+    def _compute_loss(self, labels, sent_scores, mask):
 
         if(self.content_planning_model == 'tree'):
             loss = 0
@@ -314,5 +314,18 @@ class ConentSelectionLossCompute(nn.Module):
             loss = (loss * mask.float()).sum()
 
         return loss
+
+    def _compute_loss_test(self, labels, sent_scores, mask):
+
+        if(self.content_planning_model == 'tree'):
+            labels = labels.float()
+            r = torch.clamp(sent_scores[-1], 1e-5, 1 - 1e-5)
+            loss = self.loss(r, labels)
+        else:
+            loss = self.loss(sent_scores, labels.float())
+            loss = (loss * mask.float()).sum()
+
+        return loss
+
 
 

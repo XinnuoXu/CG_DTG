@@ -246,7 +246,7 @@ class Trainer(object):
             report_stats.update(batch_stats_abs)
 
             # Ext Loss
-            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls, normalization_ext)
+            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls)
             loss_ext = (loss_ext / loss_ext.numel())
 
             batch_stats_ext = StatisticsExt(float(loss_ext.cpu().data.numpy()), normalization_ext)

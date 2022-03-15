@@ -8,6 +8,7 @@ import argparse
 from models.logging import init_logger
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
+from train_ext_abs import train_mix, validate_mix, test_mix
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -22,7 +23,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix'])
     parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
@@ -39,10 +40,8 @@ if __name__ == '__main__':
     # planning parameters
     parser.add_argument("-param_init", default=0, type=float)
     parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
-    parser.add_argument("-finetune_bert", type=str2bool, nargs='?', const=True, default=True)
     parser.add_argument("-ext_dropout", default=0.2, type=float)
-    #parser.add_argument("-ext_layers", default=3, type=int)
-    parser.add_argument("-ext_layers", default=2, type=int)
+    parser.add_argument("-ext_layers", default=3, type=int)
     parser.add_argument("-ext_hidden_size", default=768, type=int)
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
@@ -75,6 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('-gpu_ranks', default='0', type=str)
     parser.add_argument("-train_from", default='')
     parser.add_argument("-load_from_ext", default='')
+    parser.add_argument("-load_from_abs", default='')
     parser.add_argument("-abs_plus_ext_loss", type=float, nargs='?', default=0.0)
 
     # test parameters
@@ -123,3 +123,16 @@ if __name__ == '__main__':
             except:
                 step = 0
             test_abs(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'mix':
+        if (args.mode == 'train'):
+            train_mix(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_mix(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_mix(args, device_id, cp, step)
