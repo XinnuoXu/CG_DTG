@@ -47,6 +47,8 @@ if __name__ == '__main__':
     parser.add_argument("-ext_ff_size", default=2048, type=int)
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
+    parser.add_argument("-freeze_tmt", type=str2bool, default=False)
+    parser.add_argument("-ext_topn", default=3, type=float)
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

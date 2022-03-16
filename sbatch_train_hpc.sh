@@ -51,6 +51,8 @@ echo "Creating directory to save model weights"
 #sh ./scripts.hpc/train_cnn_bartbase.sh
 #sh ./scripts.hpc/train_cnn_gumbel_softmax.sh
 #sh scripts.hpc/train_cnn_mix.sh
-sh scripts.hpc/train_cnn_abs_ext.sh
+#sh scripts.hpc/train_cnn_abs_ext.sh
+#sh scripts.hpc/train_cnn_freeze_tmt.sh
+sh scripts.hpc/train_cnn_freeze_tmt_30percent.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

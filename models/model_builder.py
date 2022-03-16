@@ -349,11 +349,15 @@ class ExtAbsSummarizer(nn.Module):
                 param.requires_grad = False
             for param in self.decoder.parameters():
                 param.requires_grad = False
+        if args.freeze_tmt:
+            for param in self.planning_layer.parameters():
+                param.requires_grad = False
 
         self.to(device)
 
 
     def gumbel_softmax_function(self, scores, tau, top_k):
+        top_k = int(top_k)
         gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
         gumbels = (scores + gumbels) / tau
         y_soft = gumbels.softmax(-1)
@@ -366,11 +370,30 @@ class ExtAbsSummarizer(nn.Module):
         return ret
 
 
+    def topn_function(self, scores, mask_block, top_n):
+        if top_n >= 1:
+            top_n = int(top_n)
+            indices = torch.topk(scores, top_n)[1]
+            y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
+        else:
+            y_hard = []
+            nsent_selection = (mask_block.sum(dim=1) * top_n).int().tolist()
+            for b in range(len(nsent_selection)):
+                indices = torch.topk(scores[b], nsent_selection[b])[1]
+                y_h = torch.zeros_like(scores[b].contiguous()).scatter_(-1, indices, 1)
+                y_hard.append(y_h)
+            y_hard = torch.stack(y_hard)
+        return y_hard
+
+
     def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block):
         #root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = roots[-1]
         root_probs = root_probs * mask_block
-        root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, 3)
+        if self.tree_gumbel_softmax_tau > 0:
+            root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
+        else:
+            root_probs = self.topn_function(root_probs, mask_block, self.args.ext_topn)
 
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
