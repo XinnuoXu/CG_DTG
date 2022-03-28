@@ -7,6 +7,7 @@ import json
 import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
+from models.tree_reader import decode_mst
 
 def tile(x, count, dim=0):
     """
@@ -187,7 +188,11 @@ class Translator(object):
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
         sent_probs = src_res['sent_probs']
+        sent_relations = src_res['sent_relations']
         device = src_features.device
+
+        # tree analysis
+        self.tree_building(sent_probs, sent_relations, mask_cls, device)
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
@@ -315,3 +320,18 @@ class Translator(object):
         return results
 
 
+    def tree_building(self, roots, edges, mask, device):
+        edge_prob = edges[-1]
+        roots = roots.unsqueeze(1)
+        new_matrix = torch.cat([roots, edge_prob], dim=1)
+        dumy_column = torch.zeros((1, new_matrix.size(1), 1)).to(device)
+        new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
+
+        batch_size = new_matrix.size(0)
+        nsents = torch.sum(mask, dim=1).tolist()
+        matrix_npy = new_matrix.cpu().detach().numpy() 
+        for eid in range(batch_size):
+            matrix = matrix_npy[eid]
+            sent_num = nsents[eid]
+            heads, _ = decode_mst(matrix, sent_num, has_labels=False) 
+            print (heads)

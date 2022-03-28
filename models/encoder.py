@@ -93,7 +93,7 @@ class TMTLayer(nn.Module):
             new_c = self.layer_norm[i](new_c)
             vecs.append(new_c)
 
-        return vecs[-1], root
+        return vecs[-1], root, attn
 
 
 class StructuredAttention(nn.Module):
@@ -207,10 +207,11 @@ class TreeInference(nn.Module):
         sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
         structure_vec = sent_vec
 
-        roots = []; structure_vecs = []
+        roots = []; structure_vecs = []; attns = []
         for i in range(self.num_inter_layers):
-            structure_vec, root = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
+            structure_vec, root, attn = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
             roots.append(root)
+            attns.append(attn)
             structure_vecs.append(structure_vec)
 
-        return roots, structure_vecs
+        return roots, attns

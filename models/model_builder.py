@@ -159,7 +159,7 @@ class ExtSummarizer(nn.Module):
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
-        return sent_scores, mask_cls
+        return sent_scores, mask_cls, aj_matrixes
 
 
 def get_generator(vocab_size, dec_hidden_size, device):
@@ -495,7 +495,7 @@ class ExtAbsSummarizerLayerMasking(ExtAbsSummarizer):
     def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection, run_decoder=True):
 
         # Planner
-        sent_scores_layers, mask_cls = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection)
+        sent_scores_layers, mask_cls, aj_matrixes = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection)
         content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls, gt_selection)
 
         # Encoder for Generator
@@ -503,7 +503,10 @@ class ExtAbsSummarizerLayerMasking(ExtAbsSummarizer):
         top_vec = encoder_outputs.last_hidden_state
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights, "sent_probs":root_probs}
+            return {"encoder_outpus":top_vec, 
+                    "encoder_attention_mask":content_selection_weights, 
+                    "sent_probs":root_probs,
+                    "sent_relations":aj_matrixes}
 
         # Decoding for Generator
         decoder_outputs = self.decoder(input_ids=tgt, 
