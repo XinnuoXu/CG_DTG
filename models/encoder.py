@@ -1,5 +1,4 @@
 import math
-
 import torch
 import torch.nn as nn
 
@@ -208,8 +207,10 @@ class TreeInference(nn.Module):
         sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
         structure_vec = sent_vec
 
-        roots = []
+        roots = []; structure_vecs = []
         for i in range(self.num_inter_layers):
             structure_vec, root = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
             roots.append(root)
-        return roots
+            structure_vecs.append(structure_vec)
+
+        return roots, structure_vecs

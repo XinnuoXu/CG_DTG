@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn.init import xavier_uniform_
 from models.encoder import Classifier, TreeInference, SentenceClassification
+from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM
 
@@ -29,7 +30,7 @@ def build_optim_enc_dec(args, model, checkpoint):
             args.optim, args.lr_enc_dec, args.max_grad_norm,
             beta1=args.beta1, beta2=args.beta2,
             decay_method=args.decay_method,
-            warmup_steps=args.warmup_steps)
+            warmup_steps=args.warmup_steps_enc_dec)
 
     params = []
     for name, para in model.named_parameters():
@@ -61,7 +62,7 @@ def build_optim_tmt(args, model, checkpoint):
             args.optim, args.lr_tmt, args.max_grad_norm,
             beta1=args.beta1, beta2=args.beta2,
             decay_method=args.decay_method,
-            warmup_steps=args.warmup_steps)
+            warmup_steps=args.warmup_steps_tmt)
 
     params = []
     for name, para in model.named_parameters():
@@ -157,7 +158,7 @@ class ExtSummarizer(nn.Module):
         sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
-        sent_scores = self.planning_layer(sents_vec, mask_cls)
+        sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
         return sent_scores, mask_cls
 
 
@@ -283,7 +284,7 @@ class AbsSummarizer(nn.Module):
             # Get sentence importance
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
             sents_vec = sents_vec * mask_cls[:, :, None].float()
-            sent_scores_layers = self.planning_layer(sents_vec, mask_cls)
+            sent_scores_layers, _ = self.planning_layer(sents_vec, mask_cls)
             # Weight input tokens
             content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls)
         else:
@@ -373,7 +374,7 @@ class ExtAbsSummarizer(nn.Module):
     def topn_function(self, scores, mask_block, top_n):
         if top_n >= 1:
             top_n = int(top_n)
-            indices = torch.topk(scores, top_n)[1]
+            indices = torch.topk(scores, min(scores.size(1), top_n))[1]
             y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
         else:
             y_hard = []
@@ -386,11 +387,13 @@ class ExtAbsSummarizer(nn.Module):
         return y_hard
 
 
-    def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block):
+    def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block, gt_selection):
         #root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = roots[-1]
         root_probs = root_probs * mask_block
-        if self.tree_gumbel_softmax_tau > 0:
+        if self.args.tree_use_ground_truth:
+            root_probs = gt_selection
+        elif self.tree_gumbel_softmax_tau > 0:
             root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
         else:
             root_probs = self.topn_function(root_probs, mask_block, self.args.ext_topn)
@@ -417,7 +420,7 @@ class ExtAbsSummarizer(nn.Module):
 
         # Planner
         sent_scores_layers, mask_cls = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection)
-        content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls)
+        content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls, gt_selection)
 
         # Encoder for Generator
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -431,5 +434,82 @@ class ExtAbsSummarizer(nn.Module):
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=content_selection_weights)
+
+        return decoder_outputs.last_hidden_state, sent_scores_layers
+
+
+class ExtAbsSummarizerLayerMasking(ExtAbsSummarizer):
+    def __init__(self, args, device, cls_token_id, checkpoint=None, ext_finetune=None, abs_finetune=None):
+        super(ExtAbsSummarizerLayerMasking, self).__init__(args, device, cls_token_id, checkpoint, ext_finetune, abs_finetune)
+        self.args = args
+        self.device = device
+        model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.vocab_size = model.config.vocab_size
+        self.cls_token_id = cls_token_id
+        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+
+        # Encoder for Generator
+        self.encoder = model.get_encoder()
+
+        # Decoder for Generator
+        self.decoder = model.get_decoder()
+        self.generator = get_generator(self.vocab_size, model.config.hidden_size, device)
+
+        # Planner (parameters are initialized)
+        self.planning_layer = ExtSummarizer(args, device, ext_finetune, args.content_planning_model)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            if abs_finetune is not None:
+                print ('Load parameters from abs_finetune...')
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('encoder')]
+                self.encoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('decoder')]
+                self.decoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[10:], p) for n, p in abs_finetune['model'].items() if n.startswith('generator')]
+                self.generator.load_state_dict(dict(tree_params), strict=True)
+            else:
+                print ('Initialize parameters for generator...')
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
+
+        self.decoder = BartDecoderCS(self.decoder)
+
+        if args.freeze_encoder_decoder:
+            for param in self.encoder.parameters():
+                param.requires_grad = False
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+        if args.freeze_tmt:
+            for param in self.planning_layer.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+
+    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection, run_decoder=True):
+
+        # Planner
+        sent_scores_layers, mask_cls = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection)
+        content_selection_weights, root_probs = self.from_tree_to_mask(sent_scores_layers, src, mask_src, mask_cls, gt_selection)
+
+        # Encoder for Generator
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights, "sent_probs":root_probs}
+
+        # Decoding for Generator
+        decoder_outputs = self.decoder(input_ids=tgt, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=mask_src,
+                                       content_selection_mask=content_selection_weights)
 
         return decoder_outputs.last_hidden_state, sent_scores_layers

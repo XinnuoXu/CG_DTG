@@ -176,6 +176,7 @@ class Translator(object):
 
         src = batch.src
         mask_src = batch.mask_src
+        encoder_mask = batch.mask_src
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
         clss = batch.clss
@@ -190,6 +191,7 @@ class Translator(object):
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
+        encoder_mask = tile(encoder_mask, beam_size, dim=0)
         src_features = tile(src_features, beam_size, dim=0)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
@@ -215,7 +217,9 @@ class Translator(object):
             decoder_input = alive_seq
             decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
-                                           encoder_attention_mask=mask_src)
+                                           encoder_attention_mask=encoder_mask,
+                                           content_selection_mask=mask_src,
+                                           content_selection_layers = [0])
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
             # Generator forward.
@@ -306,6 +310,7 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
             mask_src = mask_src.index_select(0, select_indices)
+            encoder_mask = encoder_mask.index_select(0, select_indices)
 
         return results
 

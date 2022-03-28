@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
+    parser.add_argument("-tree_use_ground_truth", type=str2bool, default=False)
     parser.add_argument("-ext_topn", default=3, type=float)
 
     # generation parameters
@@ -68,6 +69,8 @@ if __name__ == '__main__':
     parser.add_argument("-decay_method", default='noam', type=str)
     parser.add_argument("-recall_eval", type=str2bool, nargs='?',const=True,default=False)
     parser.add_argument("-warmup_steps", default=8000, type=int)
+    parser.add_argument("-warmup_steps_tmt", default=8000, type=int)
+    parser.add_argument("-warmup_steps_enc_dec", default=8000, type=int)
     parser.add_argument("-report_every", default=1, type=int)
     parser.add_argument("-train_steps", default=1000, type=int)
     parser.add_argument("-save_checkpoint_steps", default=5, type=int)
