@@ -1,8 +1,9 @@
 #!/bin/bash
 
 BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/models.ext_abs/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs.ext_abs/
+MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/models.freeze_tmt_gt/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs.freeze_tmt_gt/
+
 
 python train.py \
 	-mode test \
@@ -12,10 +13,14 @@ python train.py \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs mix \
 	-content_planning_model tree \
-	-tree_gumbel_softmax_tau 0.5 \
+	-tree_gumbel_softmax_tau -1 \
+        -abs_plus_ext_loss 0 \
+        -ext_topn 3 \
 	-block_trigram true \
 	-max_pos 1024 \
 	-batch_size 6000 \
         -test_min_length 55 \
         -test_max_length 140 \
 	-visible_gpus 0 \
+
+        #-tree_use_ground_truth True \
