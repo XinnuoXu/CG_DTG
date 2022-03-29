@@ -304,15 +304,18 @@ def _find_cycle(
 
 def list_to_tree(list_input, nsent):
 
-    def create_tree_str(cnode, childrens, string_list, height):
+    def create_tree_str(cnode, childrens, string_list):
         if cnode not in childrens:
             # leaf
             string_list.append('(SENT-'+str(cnode)+' )')
+            height = 1
             return string_list, height
         string_list.append('(SENT-'+str(cnode))
+        child_heights = []
         for child in childrens[cnode]:
-            string_list, height = create_tree_str(child, childrens, string_list, height)
-        height += 1
+            string_list, height = create_tree_str(child, childrens, string_list)
+            child_heights.append(height)
+        height = max(child_heights)+1
         string_list.append(')')
         return string_list, height
 
@@ -328,6 +331,6 @@ def list_to_tree(list_input, nsent):
             childrens[head] = set()
         childrens[head].add(vet)
 
-    string_list = []; height = 0
-    string_list, height = create_tree_str(root, childrens, string_list, height)
-    return string_list, height
+    string_list = []
+    string_list, height = create_tree_str(root, childrens, string_list)
+    return string_list, height-1
