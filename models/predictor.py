@@ -7,7 +7,7 @@ import json
 import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import decode_mst
+from models.tree_reader import tree_building, list_to_tree
 
 def tile(x, count, dim=0):
     """
@@ -58,18 +58,61 @@ class Translator(object):
         self.max_length = args.test_max_length
         self.dump_beam = dump_beam
 
-    def _build_target_tokens(self, pred):
-        # vocab = self.fields["tgt"].vocab
-        tokens = []
-        for tok in pred:
-            tok = int(tok)
-            tokens.append(tok)
-            if tokens[-1] == self.end_token:
-                tokens = tokens[:-1]
-                break
-        tokens = [t for t in tokens if t < len(self.vocab)]
-        tokens = self.vocab.DecodeIds(tokens).split(' ')
-        return tokens
+
+    def translate(self, data_iter, step, attn_debug=False):
+        gold_path = self.args.result_path + '.%d.gold' % step
+        can_path = self.args.result_path + '.%d.candidate' % step
+        ext_path = self.args.result_path + '.%d.ext_str' % step
+        sel_path = self.args.result_path + '.%d.select_ids' % step
+        raw_src_path = self.args.result_path + '.%d.raw_src' % step
+        eid_path = self.args.result_path + '.%d.eid' % step
+        tree_path = self.args.result_path + '.%d.trees' % step
+
+        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
+        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
+        self.ext_out_file = codecs.open(ext_path, 'w', 'utf-8')
+        self.sel_out_file = codecs.open(sel_path, 'w', 'utf-8')
+        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
+        self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
+        self.tree_out_file = codecs.open(tree_path, 'w', 'utf-8')
+
+        self.model.eval()
+        with torch.no_grad():
+            for batch in data_iter:
+                # pridiction
+                batch_data = self.translate_batch(batch)
+                # prepare output data
+                translations = self.from_batch(batch_data)
+
+                for trans in translations:
+                    pred_str, gold_str, selected_sents, selected_ids, src_str, eid, src_list, tree, height = trans
+                    self.can_out_file.write(pred_str.strip() + '\n')
+                    self.gold_out_file.write(gold_str.strip() + '\n')
+                    self.src_out_file.write(src_str.strip() + '\n')
+                    self.eid_out_file.write(eid + '\n')
+                    if selected_sents is not None:
+                        self.ext_out_file.write(selected_sents.strip() + '\n')
+                        self.sel_out_file.write(json.dumps(selected_ids) + '\n')
+
+                    tree_structure = {'Tree':tree, 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height}
+                    self.tree_out_file.write(json.dumps(tree_structure) + '\n')
+
+                self.can_out_file.flush()
+                self.gold_out_file.flush()
+                self.src_out_file.flush()
+                self.ext_out_file.flush()
+                self.sel_out_file.flush()
+                self.eid_out_file.flush()
+                self.tree_out_file.flush()
+
+        self.can_out_file.close()
+        self.gold_out_file.close()
+        self.src_out_file.close()
+        self.ext_out_file.close()
+        self.sel_out_file.close()
+        self.eid_out_file.close()
+        self.tree_out_file.close()
+
 
     def from_batch(self, translation_batch):
         batch = translation_batch["batch"]
@@ -82,6 +125,8 @@ class Translator(object):
             selected_ids = translation_batch["selected_ids"]
         else:
             selected_ids = None
+        trees = translation_batch["trees"]
+
         src_str = batch.src_str
         tgt_str = batch.tgt_str
         src = batch.src
@@ -99,59 +144,16 @@ class Translator(object):
                 selected_id = selected_ids[b]
                 src_sents = src_str[b]
                 selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
-                translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b])
+                tree, height = list_to_tree(trees[b], len(src_str))
+                print (trees[b])
+                print (' '.join(tree))
+                print ('Height:', height)
+                print (' ')
+                translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b], src_str[b], ' '.join(tree), height)
             else:
-                translation = (pred_sent, gold_sent, None, None, raw_src, eid[b])
+                translation = (pred_sent, gold_sent, None, None, raw_src, eid[b], None, None, None)
             translations.append(translation)
         return translations
-
-
-    def translate(self, data_iter, step, attn_debug=False):
-        gold_path = self.args.result_path + '.%d.gold' % step
-        can_path = self.args.result_path + '.%d.candidate' % step
-        ext_path = self.args.result_path + '.%d.ext_str' % step
-        sel_path = self.args.result_path + '.%d.select_ids' % step
-        raw_src_path = self.args.result_path + '.%d.raw_src' % step
-        eid_path = self.args.result_path + '.%d.eid' % step
-
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-        self.ext_out_file = codecs.open(ext_path, 'w', 'utf-8')
-        self.sel_out_file = codecs.open(sel_path, 'w', 'utf-8')
-        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
-        self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
-
-        self.model.eval()
-        with torch.no_grad():
-            for batch in data_iter:
-                # pridiction
-                batch_data = self.translate_batch(batch)
-                # prepare output data
-                translations = self.from_batch(batch_data)
-
-                for trans in translations:
-                    pred_str, gold_str, selected_sents, selected_ids, src_str, eid = trans
-                    self.can_out_file.write(pred_str.strip() + '\n')
-                    self.gold_out_file.write(gold_str.strip() + '\n')
-                    self.src_out_file.write(src_str.strip() + '\n')
-                    self.eid_out_file.write(eid + '\n')
-                    if selected_sents is not None:
-                        self.ext_out_file.write(selected_sents.strip() + '\n')
-                        self.sel_out_file.write(json.dumps(selected_ids) + '\n')
-
-                self.can_out_file.flush()
-                self.gold_out_file.flush()
-                self.src_out_file.flush()
-                self.ext_out_file.flush()
-                self.sel_out_file.flush()
-                self.eid_out_file.flush()
-
-        self.can_out_file.close()
-        self.gold_out_file.close()
-        self.src_out_file.close()
-        self.ext_out_file.close()
-        self.sel_out_file.close()
-        self.eid_out_file.close()
 
 
     def translate_batch(self, batch, fast=False):
@@ -192,7 +194,7 @@ class Translator(object):
         device = src_features.device
 
         # tree analysis
-        self.tree_building(sent_probs, sent_relations, mask_cls, device)
+        trees = tree_building(sent_probs, sent_relations, mask_cls, device)
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
@@ -213,6 +215,7 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
+        results["trees"] = trees
         if sent_probs is not None:
             results["selected_ids"] = sent_probs_to_selected_ids(sent_probs)
 
@@ -320,18 +323,3 @@ class Translator(object):
         return results
 
 
-    def tree_building(self, roots, edges, mask, device):
-        edge_prob = edges[-1]
-        roots = roots.unsqueeze(1)
-        new_matrix = torch.cat([roots, edge_prob], dim=1)
-        dumy_column = torch.zeros((1, new_matrix.size(1), 1)).to(device)
-        new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
-
-        batch_size = new_matrix.size(0)
-        nsents = torch.sum(mask, dim=1).tolist()
-        matrix_npy = new_matrix.cpu().detach().numpy() 
-        for eid in range(batch_size):
-            matrix = matrix_npy[eid]
-            sent_num = nsents[eid]
-            heads, _ = decode_mst(matrix, sent_num, has_labels=False) 
-            print (heads)

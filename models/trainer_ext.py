@@ -252,7 +252,7 @@ class Trainer(object):
                     selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in
                                     range(batch.batch_size)]
                 else:
-                    sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                    sent_scores, mask, aj_matrixes = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                     if (self.args.content_planning_model == 'tree'):
                         sent_scores = sent_scores[-1] + mask.float()

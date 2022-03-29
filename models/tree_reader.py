@@ -1,5 +1,27 @@
 from typing import List, Set, Tuple, Dict
 import numpy
+import torch
+
+def tree_building(roots, edges, mask, device):
+    edge_prob = edges[-1]
+    roots = roots.unsqueeze(1)
+    new_matrix = torch.cat([roots, edge_prob], dim=1)
+    dumy_column = torch.zeros((1, new_matrix.size(1), 1)).to(device)
+    new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
+
+    batch_size = new_matrix.size(0)
+    nsents = torch.sum(mask, dim=1).tolist()
+    matrix_npy = new_matrix.cpu().detach().numpy()
+
+    heads_ret = []
+    for eid in range(batch_size):
+        matrix = matrix_npy[eid]
+        sent_num = nsents[eid]
+        heads, _ = decode_mst(matrix, sent_num, has_labels=False)
+        heads_ret.append(heads)
+        
+    return heads_ret
+
 
 def decode_mst(energy: numpy.ndarray, length: int, has_labels: bool = True) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
@@ -278,3 +300,34 @@ def _find_cycle(
             break
 
     return has_cycle, list(cycle)
+
+
+def list_to_tree(list_input, nsent):
+
+    def create_tree_str(cnode, childrens, string_list, height):
+        if cnode not in childrens:
+            # leaf
+            string_list.append('(SENT-'+str(cnode)+' )')
+            return string_list, height
+        string_list.append('(SENT-'+str(cnode))
+        for child in childrens[cnode]:
+            string_list, height = create_tree_str(child, childrens, string_list, height)
+        height += 1
+        string_list.append(')')
+        return string_list, height
+
+    childrens = {}
+    root = -1
+    list_input = list_input[:-1]
+    for vet in range(len(list_input)):
+        head = list_input[vet]
+        if head == -1:
+            root = vet
+            continue
+        if head not in childrens:
+            childrens[head] = set()
+        childrens[head].add(vet)
+
+    string_list = []; height = 0
+    string_list, height = create_tree_str(root, childrens, string_list, height)
+    return string_list, height
