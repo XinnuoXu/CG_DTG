@@ -321,7 +321,6 @@ def list_to_tree(list_input, nsent):
 
     childrens = {}
     root = -1
-    list_input = list_input[:-1]
     for vet in range(len(list_input)):
         head = list_input[vet]
         if head == -1:

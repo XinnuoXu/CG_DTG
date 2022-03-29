@@ -144,12 +144,9 @@ class Translator(object):
                 selected_id = selected_ids[b]
                 src_sents = src_str[b]
                 selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
-                tree, height = list_to_tree(trees[b], len(src_str))
-                print (trees[b])
-                print (' '.join(tree))
-                print ('Height:', height)
-                print (' ')
-                translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b], src_str[b], ' '.join(tree), height)
+                tree, height = list_to_tree(trees[b][:-1], len(src_str)) # ":-1" is temp code
+                src_list = src_str[b][:-1] # ":-1" is temp code
+                translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b], src_list, ' '.join(tree), height)
             else:
                 translation = (pred_sent, gold_sent, None, None, raw_src, eid[b], None, None, None)
             translations.append(translation)
