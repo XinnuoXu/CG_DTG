@@ -142,7 +142,7 @@ class DataIterator(object):
         self.iterations = 0
         self.device = device
         self.shuffle = shuffle
-        self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
         self.cls_token = self.tokenizer.cls_token
         self.pad_token_id = self.tokenizer.pad_token_id
 

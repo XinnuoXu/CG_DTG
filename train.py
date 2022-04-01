@@ -22,6 +22,7 @@ def str2bool(v):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
+    parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
     parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix'])
     parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
-    parser.add_argument("-tree_use_ground_truth", type=str2bool, default=False)
+    parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k'])
     parser.add_argument("-ext_topn", default=3, type=float)
 
     # generation parameters

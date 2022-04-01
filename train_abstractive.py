@@ -161,8 +161,8 @@ def train_abs_single(args, device_id):
         return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
                                       args.batch_size, device, shuffle=True, is_test=False)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, ext_checkpoint)
 
     if args.lr_tmt != -1 and args.lr_enc_dec != -1:
         optim_enc_dec = model_builder.build_optim_enc_dec(args, model, checkpoint)
@@ -232,10 +232,10 @@ def validate(args, device_id, pt, step):
                                         args.batch_size, device,
                                         shuffle=False, is_test=False)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
@@ -264,9 +264,9 @@ def test_abs(args, device_id, pt, step):
     test_iter = data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False),
                                        args.test_batch_size, device,
                                        shuffle=False, is_test=True)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

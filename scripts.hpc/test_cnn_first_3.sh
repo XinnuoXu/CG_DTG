@@ -12,7 +12,7 @@ python train.py \
 	-test_from ${MODEL_PATH}/model_step_320000.pt \
         -load_from_ext ${EXT_PATH}/model_step_60000.pt \
         -load_from_abs ${ABS_PATH}/model_step_320000.pt \
-	-planning_method gumbel_tree \
+	-planning_method lead_k \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs mix \

@@ -22,6 +22,8 @@ if __name__ == '__main__':
     parser.add_argument('-dataset', default='')
     parser.add_argument("-raw_path", default='')
     parser.add_argument("-save_path", default='')
+    parser.add_argument("-additional_token_path", default='')
+    parser.add_argument("-saved_tokenizer_path", default='')
     parser.add_argument('-log_file', default='./logs/cnndm.log')
     parser.add_argument("-shard_size", default=2000, type=int)
     parser.add_argument('-max_tgt_ntokens', default=500, type=int)

@@ -94,8 +94,9 @@ class Translator(object):
                         self.ext_out_file.write(selected_sents.strip() + '\n')
                         self.sel_out_file.write(json.dumps(selected_ids) + '\n')
 
-                    tree_structure = {'Tree':tree, 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height}
-                    self.tree_out_file.write(json.dumps(tree_structure) + '\n')
+                    if tree is not None:
+                        tree_structure = {'Tree':tree, 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height}
+                        self.tree_out_file.write(json.dumps(tree_structure) + '\n')
 
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
@@ -125,6 +126,7 @@ class Translator(object):
             selected_ids = translation_batch["selected_ids"]
         else:
             selected_ids = None
+        
         trees = translation_batch["trees"]
 
         src_str = batch.src_str
@@ -140,7 +142,7 @@ class Translator(object):
             #pred_sent = pred_sent.strip().replace('. ', '<q>') #tmp code
             gold_sent = '<q>'.join(tgt_str[b])
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
-            if selected_ids is not None:
+            if (selected_ids is not None) and (trees is not None):
                 selected_id = selected_ids[b]
                 src_sents = src_str[b]
                 selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
@@ -183,6 +185,7 @@ class Translator(object):
         mask_cls = batch.mask_cls
         labels = batch.gt_selection
 
+        # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels, run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
@@ -191,7 +194,10 @@ class Translator(object):
         device = src_features.device
 
         # tree analysis
-        trees = tree_building(sent_probs, sent_relations, mask_cls, device)
+        if (sent_probs is not None) and (sent_relations is not None):
+            trees = tree_building(sent_probs, sent_relations, mask_cls, device)
+        else:
+            trees = None
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
@@ -220,11 +226,17 @@ class Translator(object):
 
             #decoder_input = alive_seq[:, -1].view(1, -1)
             decoder_input = alive_seq
-            decoder_outputs = self.model.decoder(input_ids=decoder_input,
+            if self.args.ext_or_abs == 'mix':
+                decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
                                            encoder_attention_mask=encoder_mask,
                                            content_selection_mask=mask_src,
                                            content_selection_layers = [0])
+            else:
+                decoder_outputs = self.model.decoder(input_ids=decoder_input,
+                                           encoder_hidden_states=src_features,
+                                           encoder_attention_mask=encoder_mask)
+
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
             # Generator forward.

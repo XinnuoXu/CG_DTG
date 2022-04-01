@@ -24,7 +24,7 @@ from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
 model_flags = ['ext_layers', 'ext_hidden_size', 'ext_heads', 
-               'ext_ff_size', 'tree_gumbel_softmax_tau', 'model_name',]
+               'ext_ff_size', 'tree_gumbel_softmax_tau', 'tokenizer_path',]
 
 
 def str2bool(v):
@@ -168,7 +168,7 @@ def train_mix_single(args, device_id):
                                       args.batch_size, device, shuffle=True, is_test=False)
 
     # Create model
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     #model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
     model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
     logger.info(model)
@@ -238,7 +238,7 @@ def validate(args, device_id, pt, step):
                                         args.batch_size, device,
                                         shuffle=False, is_test=False)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
     model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
@@ -270,7 +270,7 @@ def test_mix(args, device_id, pt, step):
     test_iter = data_loader.Dataloader(args, load_dataset(args, 'test', shuffle=False),
                                        args.test_batch_size, device,
                                        shuffle=False, is_test=True)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     ext_checkpoint = None
     if args.load_from_ext != '':
@@ -285,7 +285,7 @@ def test_mix(args, device_id, pt, step):
     if (ext_checkpoint is not None) and (abs_checkpoint is not None):
         model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
     else:
-        model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
+        model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, checkpoint, None, None)
 
     model.eval()
 

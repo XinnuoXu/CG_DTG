@@ -102,7 +102,7 @@ def build_optim(args, model, checkpoint):
     params = []
     for name, para in model.named_parameters():
         if para.requires_grad:
-            print (name)
+            #print (name)
             params.append((name, para))
     optim.set_parameters(params)
     return optim
@@ -173,14 +173,17 @@ def get_generator(vocab_size, dec_hidden_size, device):
 
 
 class AbsSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, checkpoint=None, ext_checkpoint=None):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_checkpoint=None):
         super(AbsSummarizer, self).__init__()
         self.args = args
         self.device = device
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
-        self.vocab_size = self.model.config.vocab_size
+        self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+
+        if self.vocab_size > self.model.config.vocab_size:
+            self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
         if args.content_planning_model == 'tree':
@@ -290,9 +293,11 @@ class AbsSummarizer(nn.Module):
         else:
             content_selection_weights = mask_src
             root_probs = None
+            sent_scores_layers = None
+            sent_relations = None
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights, "sent_probs":root_probs}
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights, "sent_probs":root_probs, "sent_relations":sent_relations}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
@@ -391,12 +396,18 @@ class ExtAbsSummarizer(nn.Module):
         #root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = roots[-1]
         root_probs = root_probs * mask_block
-        if self.args.tree_use_ground_truth:
+        if self.args.planning_method == 'ground_truth':
             root_probs = gt_selection
-        elif self.tree_gumbel_softmax_tau > 0:
-            root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
-        else:
+        elif self.args.planning_method == 'topk_tree':
             root_probs = self.topn_function(root_probs, mask_block, self.args.ext_topn)
+        elif self.args.planning_method == 'lead_k':
+            print (root_probs)
+        elif self.args.planning_method == 'not_lead_k':
+            print (root_probs)
+        elif self.args.planning_method == 'random':
+            print (root_probs)
+        else:
+            root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
 
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
