@@ -19,9 +19,16 @@ from models.logging import logger
 
 
 class BertData():
-    def __init__(self, args):
+    def __init__(self, args, additional_tokens=None):
+
         self.args = args
-        self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+        if additional_tokens is None:
+           self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+        else:
+           self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+           self.tokenizer.add_tokens(additional_tokens)
+           self.tokenizer.save_pretrained(args.saved_tokenizer_path)
+
         self.sep_token_id = self.tokenizer.sep_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
         self.pad_token_id = self.tokenizer.pad_token_id
@@ -56,10 +63,14 @@ def _process(params):
         logger.info('Ignore %s' % save_file)
         return
 
-    bert = BertData(args)
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+
+    bert = BertData(args, additional_tokens)
     jobs = json.load(open(json_file))
 
-    datasets = []
+    datasets = []; max_src_len = 0; max_tgt_len = 0
     for d in jobs:
         eid = d['example_id']
         sent_labels = d['selections']
@@ -74,9 +85,13 @@ def _process(params):
                        'src_txt': src_txt, "tgt_txt": tgt_txt, "eid": eid}
 
         datasets.append(b_data_dict)
+        max_src_len = max(max_src_len, len(source_tokens))
+        max_tgt_len = max(max_tgt_len, len(target_tokens))
 
     logger.info('Processed instances %d' % len(datasets))
     logger.info('Saving to %s' % save_file)
+    logger.info('Max src length %d' % max_src_len)
+    logger.info('Max tgt length %d' % max_tgt_len)
     torch.save(datasets, save_file)
     datasets = []
     gc.collect()
