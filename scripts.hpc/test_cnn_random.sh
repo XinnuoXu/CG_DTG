@@ -4,7 +4,9 @@ BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/data/
 MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/models.freeze_tmt/
 EXT_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/models.ext/
 ABS_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/models.bartbase/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs.freeze_tmt/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs.random/
+
+mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode test \
@@ -12,7 +14,7 @@ python train.py \
 	-test_from ${MODEL_PATH}/model_step_320000.pt \
         -load_from_ext ${EXT_PATH}/model_step_60000.pt \
         -load_from_abs ${ABS_PATH}/model_step_320000.pt \
-	-planning_method lead_k \
+	-planning_method random \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs mix \
@@ -26,3 +28,4 @@ python train.py \
         -test_min_length 55 \
         -test_max_length 140 \
 	-visible_gpus 0 \
+

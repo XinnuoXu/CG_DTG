@@ -40,7 +40,10 @@ echo "Creating directory to save model weights"
 #sh scripts.hpc/test_cnn_gumbel_softmax_with_ext_loss.sh
 #sh scripts.hpc/test_cnn_abs_ext.sh 
 #sh scripts.hpc/test_cnn_freeze_tmt.sh
-sh scripts.hpc/test_cnn_freeze_tmt_30percent.sh
+#sh scripts.hpc/test_cnn_freeze_tmt_30percent.sh
 #sh scripts.hpc/test_cnn_freeze_tmt_groundtruth.sh
+#sh scripts.hpc/test_cnn_lead_3.sh
+#sh scripts.hpc/test_cnn_not_lead_3.sh
+sh scripts.hpc/test_cnn_random.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

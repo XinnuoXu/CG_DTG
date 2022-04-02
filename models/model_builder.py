@@ -1,4 +1,4 @@
-import copy
+import copy, random
 
 import torch
 import torch.nn as nn
@@ -401,11 +401,21 @@ class ExtAbsSummarizer(nn.Module):
         elif self.args.planning_method == 'topk_tree':
             root_probs = self.topn_function(root_probs, mask_block, self.args.ext_topn)
         elif self.args.planning_method == 'lead_k':
-            print (root_probs)
+            root_probs = torch.zeros(gt_selection.size(), device=self.device).int()
+            root_probs[:, :min(gt_selection.size(1), int(self.args.ext_topn))] = 1
+            root_probs = root_probs * mask_block
         elif self.args.planning_method == 'not_lead_k':
-            print (root_probs)
+            root_probs = torch.zeros(gt_selection.size(), device=self.device).int()
+            root_probs[:, min(gt_selection.size(1), int(self.args.ext_topn)):] = 1
+            root_probs = root_probs * mask_block
         elif self.args.planning_method == 'random':
-            print (root_probs)
+            root_probs = torch.zeros(gt_selection.size(), device=self.device).int()
+            nsents = mask_block.sum(dim=1)
+            for i in range(root_probs.size(0)):
+                sample_num = min(nsents[i], int(self.args.ext_topn))
+                for idx in random.sample(range(0, int(nsents[i])), sample_num):
+                    root_probs[i][idx] = 1
+            root_probs = root_probs * mask_block
         else:
             root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
 
