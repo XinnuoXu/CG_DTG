@@ -253,7 +253,7 @@ class StatisticsExt(object):
         if num_steps > 0:
             step_fmt = "%s/%5d" % (step_fmt, num_steps)
         logger.info(
-            ("Step %s; xent: %4.2f; " + "lr: %s; %3.0f docs/s; %6.0f sec")
+            ("Step %s; xent: %4.5f; " + "lr: %s; %3.0f docs/s; %6.0f sec")
             % (step_fmt,
                self.xent(),
                learning_rate,
