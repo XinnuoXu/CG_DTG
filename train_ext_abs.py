@@ -17,7 +17,7 @@ import distributed
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import ExtAbsSummarizer, ExtAbsSummarizerLayerMasking
+from models.model_builder import ExtAbsSummarizer
 from models.predictor import build_predictor
 from models.trainer_abs import build_trainer
 from models.logging import logger, init_logger
@@ -170,7 +170,7 @@ def train_mix_single(args, device_id):
     # Create model
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     #model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
-    model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
+    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
     logger.info(model)
 
     # Create optimizers
@@ -283,9 +283,9 @@ def test_mix(args, device_id, pt, step):
         abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
 
     if (ext_checkpoint is not None) and (abs_checkpoint is not None):
-        model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
+        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
     else:
-        model = ExtAbsSummarizerLayerMasking(args, device, tokenizer.cls_token_id, checkpoint, None, None)
+        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None, None)
 
     model.eval()
 
