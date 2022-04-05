@@ -109,11 +109,16 @@ def build_optim(args, model, checkpoint):
 
 
 class ExtSummarizer(nn.Module):
-    def __init__(self, args, device, checkpoint, content_planning_model):
+    def __init__(self, args, device, vocab_size, checkpoint, content_planning_model):
         super(ExtSummarizer, self).__init__()
         self.args = args
         self.device = device
+        self.vocab_size = vocab_size
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+
+        if self.vocab_size > self.model.config.vocab_size:
+            self.model.resize_token_embeddings(self.vocab_size)
+
         self.encoder = self.model.get_encoder()
         if content_planning_model == 'tree':
             self.planning_layer = TreeInference(self.model.config.hidden_size, 
@@ -265,7 +270,7 @@ class AbsSummarizer(nn.Module):
 class ExtAbsSummarizer(nn.Module):
 
     def __init__(self, args, device, cls_token_id, checkpoint=None, ext_finetune=None, abs_finetune=None):
-        super(ExtAbsSummarizerLayerMasking, self).__init__(args, device, cls_token_id, checkpoint, ext_finetune, abs_finetune)
+        super(ExtAbsSummarizer, self).__init__(args, device, cls_token_id, checkpoint, ext_finetune, abs_finetune)
         self.args = args
         self.device = device
         model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)

@@ -76,13 +76,15 @@ def _process(params):
         sent_labels = d['selections']
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
+        nsent = len(src)
 
         b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens)
         source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
-                       "gt_selection": gt_selection, 'clss': cls_ids,
-                       'src_txt': src_txt, "tgt_txt": tgt_txt, "eid": eid}
+                       "gt_selection": gt_selection, "clss": cls_ids,
+                       "src_txt": src_txt, "tgt_txt": tgt_txt, 
+                       "nsent":nsent, "eid": eid}
 
         datasets.append(b_data_dict)
         max_src_len = max(max_src_len, len(source_tokens))

@@ -17,6 +17,7 @@ from models.data_loader import load_dataset
 from models.model_builder import ExtSummarizer
 from models.trainer_ext import build_trainer
 from models.logging import logger, init_logger
+from transformers import AutoTokenizer
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'inter_layers', 'encoder', 'ff_actv', 'use_interval', 'rnn_size', 'ext_or_abs']
 
@@ -202,7 +203,8 @@ def train_single_ext(args, device_id):
         return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
                                         args.batch_size, device, shuffle=True, is_test=False)
 
-    model = ExtSummarizer(args, device, checkpoint, args.content_planning_model)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.content_planning_model)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

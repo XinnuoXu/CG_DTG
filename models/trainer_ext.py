@@ -333,8 +333,9 @@ class Trainer(object):
             clss = batch.clss
             mask_cls = batch.mask_cls
             labels = batch.gt_selection
+            nsent = batch.nsent
 
-            sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+            sent_scores, mask, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
             loss = self.loss._compute_loss(labels, sent_scores, mask)
             (loss / loss.numel()).backward()
 
