@@ -189,8 +189,17 @@ class Translator(object):
         src_res = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels, run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
-        sent_probs = src_res['sent_probs']
-        sent_relations = src_res['sent_relations']
+
+        if 'sent_probs' not in src_res:
+            sent_probs = None
+        else:
+            sent_probs = src_res['sent_probs']
+
+        if 'sent_relations' not in src_res:
+            sent_relations = None
+        else:
+            sent_relations = src_res['sent_relations']
+
         device = src_features.device
 
         # tree analysis
