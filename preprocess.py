@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("-shard_size", default=2000, type=int)
     parser.add_argument('-max_tgt_ntokens', default=500, type=int)
     parser.add_argument('-max_src_ntokens', default=1024, type=int)
-    parser.add_argument("-oracle_topn", default=3, type=int)
+    parser.add_argument("-oracle_topn", default=-1, type=int)
     parser.add_argument("-tokenizer", default='facebook/bart-base')
 
     parser.add_argument('-n_cpus', default=2, type=int)

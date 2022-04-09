@@ -8,6 +8,7 @@ import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
 from models.tree_reader import tree_building, list_to_tree
+from tool.analysis import Analysis
 
 def tile(x, count, dim=0):
     """
@@ -57,6 +58,8 @@ class Translator(object):
         self.min_length = args.test_min_length
         self.max_length = args.test_max_length
         self.dump_beam = dump_beam
+
+        self.model_analysis = Analysis()
 
 
     def translate(self, data_iter, step, attn_debug=False):
@@ -146,7 +149,7 @@ class Translator(object):
                 selected_id = selected_ids[b]
                 src_sents = src_str[b]
                 selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
-                tree, height = list_to_tree(trees[b][:-1], len(src_str)) # ":-1" is temp code
+                tree, height = list_to_tree(trees[b][:-1]) # ":-1" is temp code
                 src_list = src_str[b][:-1] # ":-1" is temp code
                 translation = (pred_sent, gold_sent, selected_sents, selected_id, raw_src, eid[b], src_list, ' '.join(tree), height)
             else:
@@ -184,9 +187,11 @@ class Translator(object):
         clss = batch.clss
         mask_cls = batch.mask_cls
         labels = batch.gt_selection
+        device = src.device
 
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels, run_decoder=False)
+
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
 
@@ -200,7 +205,10 @@ class Translator(object):
         else:
             sent_relations = src_res['sent_relations']
 
-        device = src_features.device
+        # edge_ranking
+        sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
+        sents_vec = sents_vec * mask_cls[:, :, None].float()
+        self.model_analysis.edge_ranking(sents_vec, batch.alg, mask_cls)
 
         # tree analysis
         if (sent_probs is not None) and (sent_relations is not None):

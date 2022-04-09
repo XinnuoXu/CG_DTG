@@ -6,7 +6,7 @@ def tree_building(roots, edges, mask, device):
     edge_prob = edges[-1]
     roots = roots.unsqueeze(1)
     new_matrix = torch.cat([roots, edge_prob], dim=1)
-    dumy_column = torch.zeros((1, new_matrix.size(1), 1)).to(device)
+    dumy_column = torch.zeros((new_matrix.size(0), new_matrix.size(1), 1)).to(device)
     new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
 
     batch_size = new_matrix.size(0)
@@ -302,7 +302,7 @@ def _find_cycle(
     return has_cycle, list(cycle)
 
 
-def list_to_tree(list_input, nsent):
+def list_to_tree(list_input):
 
     def create_tree_str(cnode, childrens, string_list):
         if cnode not in childrens:

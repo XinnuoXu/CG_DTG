@@ -8,6 +8,7 @@ from models.reporter_ext import StatisticsExt as Statistics
 from models.reporter_ext import ReportMgrExt
 from models.logging import logger
 from models.loss import ConentSelectionLossCompute
+from models.tree_reader import tree_building, list_to_tree
 
 
 def _tally_parameters(model):
@@ -182,7 +183,7 @@ class Trainer(object):
                 mask_cls = batch.mask_cls
                 labels = batch.gt_selection
 
-                sent_scores, mask = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                sent_scores, mask, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                 loss = self.loss._compute_loss_test(labels, sent_scores, mask)
                 loss = (loss * mask.float()).sum()
@@ -227,12 +228,14 @@ class Trainer(object):
         gold_path = '%s.gold' % (self.args.result_path)
         gold_select_path = '%s.gold_select' % (self.args.result_path)
         selected_ids_path = '%s.selected_ids' % (self.args.result_path)
+        tree_path = '%s.trees' % (self.args.result_path)
 
         save_src = open(src_path, 'w')
         save_pred = open(can_path, 'w')
         save_gold = open(gold_path, 'w')
         save_gold_select = open(gold_select_path, 'w')
         save_selected_ids = open(selected_ids_path, 'w')
+        save_trees = open(tree_path, 'w')
 
         with torch.no_grad():
             for batch in test_iter:
@@ -243,6 +246,7 @@ class Trainer(object):
                 clss = batch.clss
                 mask_cls = batch.mask_cls
                 labels = batch.gt_selection
+                nsent = batch.nsent
 
                 gold = []; pred = []; pred_select = []
 
@@ -255,6 +259,7 @@ class Trainer(object):
                     sent_scores, mask, aj_matrixes = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                     if (self.args.content_planning_model == 'tree'):
+                        device = mask.device
                         sent_scores = sent_scores[-1] + mask.float()
                     else:
                         sent_scores = sent_scores+mask.float()
@@ -269,7 +274,9 @@ class Trainer(object):
                     if (len(batch.src_str[i]) == 0):
                         continue
                     sent_num = sent_nums[i]
-                    if self.args.select_topn < 1:
+                    if self.args.select_topn == 0:
+                        select_topn = nsent[i]
+                    elif self.args.select_topn > 0 and self.args.select_topn < 1:
                         select_topn = int(sent_num * self.args.select_topn) + 1
                     else:
                         select_topn = int(self.args.select_topn)
@@ -309,12 +316,24 @@ class Trainer(object):
                     _gold_selection = ' <q> '.join(_gold_selection).strip()
                     save_gold_select.write(_gold_selection + '\n')
 
+                root_selection = torch.zeros(mask.size(), device=mask.device).int()
+                for i, _pred_select in enumerate(pred_select):
+                    for sid in _pred_select:
+                        root_selection[i][sid] = 1
+                trees = tree_building(root_selection, aj_matrixes, mask, device)
+                for i in range(batch.batch_size):
+                    tree, height = list_to_tree(trees[i])
+                    src_list = batch.src_str[i]
+                    tree_structure = {'Tree':' '.join(tree), 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height, 'tgt_nsent':nsent[i], 'src_nsent':len(src_list)}
+                    save_trees.write(json.dumps(tree_structure)+'\n')
+
         self._report_step(0, step, valid_stats=stats)
         save_src.close()
         save_gold.close()
         save_pred.close()
         save_gold_select.close()
         save_selected_ids.close()
+        save_trees.close()
 
         return stats
 
