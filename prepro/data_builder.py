@@ -26,8 +26,10 @@ class BertData():
            self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
         else:
            self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+           print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
            self.tokenizer.add_tokens(additional_tokens)
            self.tokenizer.save_pretrained(args.saved_tokenizer_path)
+           print ('The vocab size after adding new tokens: %d' % (len(self.tokenizer)))
 
         self.sep_token_id = self.tokenizer.sep_token_id
         self.cls_token_id = self.tokenizer.cls_token_id

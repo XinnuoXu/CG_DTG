@@ -244,6 +244,7 @@ class Translator(object):
 
         if self.args.do_analysis:
             # Edge analysis
+            predicates = src > 50265
             sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
             edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
             results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
