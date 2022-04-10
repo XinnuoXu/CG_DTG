@@ -44,28 +44,41 @@ class Analysis():
         return pred_scores, align_labels
 
 
-def edge_ranking_evaluation(pred_scores, gold_lables, data_path=None):
+def edge_ranking_evaluation(pred_scores, gold_lables, nsents, data_path=None):
 
     if data_path is not None:
-        gold_lables = []; pred_scores = []
+        gold_lables = []; pred_scores = []; nsents = []
         for line in open(data_path):
             json_obj = json.loads(line.strip())
             pred = json_obj['Pred']
             label = json_obj['Label']
+            nsent = json_obj['nSent']
             if len(label) <= 1 or len(pred) <= 1:
                 continue
             gold_lables.append(label)
             pred_scores.append(pred)
+            nsents.append(nsent)
 
-    scores = []
+    scores = []; detailed_scores = {}
     for i, y_true in enumerate(gold_lables):
         y_true = np.array([y_true])
         y_score = np.array([pred_scores[i]])
         score = label_ranking_loss(y_true, y_score)
         scores.append(score)
 
-    return sum(scores)/len(scores)
+        nsent = nsents[i]
+        if nsent not in detailed_scores:
+            detailed_scores[nsent] = []
+        detailed_scores[nsent].append(score)
+
+    rank_loss = sum(scores)/len(scores)
+    print ('edge rank loss is:', rank_loss)
+
+    for item in sorted(detailed_scores.items(), key = lambda d:d[0]):
+        nsent = item[0]
+        scores = item[1]
+        rank_loss = sum(scores)/len(scores)
+        print ('edge rank loss for examples with %d sentences as input is: %f' % (nsent, rank_loss))
 
 if __name__ == '__main__':
-    rank_loss = edge_ranking_evaluation(None, None, data_path='outputs.webnlg/logs.base/test.res.20000.edge')
-    print ('edge rank loss is:', rank_loss)
+    edge_ranking_evaluation(None, None, None, data_path='outputs.webnlg/logs.base/test.res.20000.edge')

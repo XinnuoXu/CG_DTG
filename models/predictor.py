@@ -90,7 +90,7 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, selected_sents, selected_ids, src_str, eid, src_list, tree, height, edge_pred_score, edge_align_label = trans
+                    pred_str, gold_str, src_str, src_list, eid, selected_sents, selected_ids, tree, height, edge_pred_score, edge_align_label = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
@@ -105,7 +105,7 @@ class Translator(object):
                         self.tree_out_file.write(json.dumps(tree_structure) + '\n')
 
                     if edge_pred_score is not None:
-                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label}
+                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': len(src_list)}
                         self.edge_out_file.write(json.dumps(edge_structure) + '\n')
 
                 self.can_out_file.flush()
@@ -158,20 +158,18 @@ class Translator(object):
             token_ids = preds[b][0]
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
-            #pred_sent = pred_sent.strip().replace('. ', '<q>') #tmp code
             gold_sent = '<q>'.join(tgt_str[b])
+            src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
             selected_sents = None; selected_id = None
             if selected_ids is not None:
                 selected_id = selected_ids[b]
-                src_sents = src_str[b]
-                selected_sents = '<q>'.join([src_sents[id] for id in selected_id if id < len(src_sents)])
+                selected_sents = '<q>'.join([src_list[id] for id in selected_id if id < len(src_list)])
 
-            src_list = None; tree_str = None; height = None
+            tree_str = None; height = None
             if trees is not None:
-                tree, height = list_to_tree(trees[b][:-1]) # ":-1" is temp code
-                src_list = src_str[b][:-1] # ":-1" is temp code
+                tree, height = list_to_tree(trees[b])
                 tree_str = ' '.join(tree)
 
             edge_pred_score = None; edge_align_label = None
@@ -181,11 +179,11 @@ class Translator(object):
 
             translation = (pred_sent, 
                            gold_sent, 
+                           raw_src, 
+                           src_list, 
+                           eid[b], 
                            selected_sents, 
                            selected_id, 
-                           raw_src, 
-                           eid[b], 
-                           src_list, 
                            tree_str, 
                            height,
                            edge_pred_score, 
