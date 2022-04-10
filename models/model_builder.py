@@ -164,7 +164,7 @@ class ExtSummarizer(nn.Module):
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
-        return sent_scores, mask_cls, aj_matrixes
+        return sent_scores, mask_cls, aj_matrixes, top_vec
 
 
 

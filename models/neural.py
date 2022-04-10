@@ -411,7 +411,8 @@ class MultiHeadedAttention(nn.Module):
 
         if mask is not None:
             mask = mask.unsqueeze(1).expand_as(scores)
-            scores = scores.masked_fill(mask, -1e18)
+            #scores = scores.masked_fill(mask, -1e18)
+            scores = scores.masked_fill(~mask, -1e18)
 
         # 3) Apply attention dropout and compute context vectors.
 
@@ -444,43 +445,18 @@ class MultiHeadedAttention(nn.Module):
 class CalculateSelfAttention(nn.Module):
 
     def __init__(self, dropout=0.1):
-
+        super(CalculateSelfAttention, self).__init__()
         self.softmax = nn.Softmax(dim=-1)
-        self.dropout = nn.Dropout(dropout)
 
-    def forward(self, key, query, mask=None, predefined_graph_1=None):
+    def forward(self, key, query, mask=None):
 
-        batch_size = key.size(0)
-        key_len = key.size(2)
-        query_len = query.size(2)
-
-        # 2) Calculate and scale scores.
-        print (key.size(), query.size())
-        query = query / math.sqrt(dim_per_head)
         scores = torch.matmul(query, key.transpose(1, 2))
-
         if mask is not None:
             mask = mask.unsqueeze(1).expand_as(scores)
-            scores = scores.masked_fill(mask, -1e18)
-
-        # 3) Apply attention dropout and compute context vectors.
-
+            scores = scores.masked_fill(~mask, -1e18)
         attn = self.softmax(scores)
 
-        if (not predefined_graph_1 is None):
-            attn_masked = attn[:, -1] * predefined_graph_1
-            attn_masked = attn_masked / (torch.sum(attn_masked, 2).unsqueeze(2) + 1e-9)
-
-            attn = torch.cat([attn[:, :-1], attn_masked.unsqueeze(1)], 1)
-
-        drop_attn = self.dropout(attn)
-        if (self.use_final_linear):
-            context = unshape(torch.matmul(drop_attn, value))
-            output = self.final_linear(context)
-            return output, attn
-        else:
-            context = torch.matmul(drop_attn, value)
-            return context, attn
+        return attn
 
 
 class DecoderState(object):

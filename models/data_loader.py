@@ -22,7 +22,8 @@ class Batch(object):
             pre_tgt = [x[1] for x in data]
             pre_clss = [x[2] for x in data]
             pre_gt_selection = [x[3] for x in data]
-            nsent = [x[4] for x in data]
+            pre_alg = [x[4] for x in data]
+            nsent = [x[5] for x in data]
 
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
@@ -42,6 +43,7 @@ class Batch(object):
             setattr(self, 'clss', clss.to(device))
             setattr(self, 'mask_cls', mask_cls.to(device))
             setattr(self, 'nsent', nsent)
+            setattr(self, 'alg', pre_alg)
 
             if (is_test):
                 src_str = [x[-3] for x in data]
@@ -166,6 +168,7 @@ class DataIterator(object):
         tgt_txt = ex['tgt_txt']
         eid = ex['eid']
         nsent = ex['nsent']
+        alg = ex['alignments']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
@@ -174,9 +177,9 @@ class DataIterator(object):
         clss = clss[:max_sent_id]
 
         if(is_test):
-            return src, tgt, clss, gt_selection, nsent, src_txt, tgt_txt, eid
+            return src, tgt, clss, gt_selection, alg, nsent, src_txt, tgt_txt, eid
         else:
-            return src, tgt, clss, gt_selection, nsent
+            return src, tgt, clss, gt_selection, alg, nsent
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

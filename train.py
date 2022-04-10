@@ -87,12 +87,12 @@ if __name__ == '__main__':
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)
-    parser.add_argument("-report_rouge", type=str2bool, nargs='?',const=True,default=True)
     parser.add_argument("-block_trigram", type=str2bool, nargs='?', const=True, default=True)
     parser.add_argument("-select_topn", default=3, type=float)
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
     parser.add_argument("-test_min_length", default=10, type=int)
     parser.add_argument("-test_max_length", default=60, type=int)
+    parser.add_argument("-do_analysis", type=str2bool, nargs='?', const=True, default=False)
 
     args = parser.parse_args()
     args.gpu_ranks = [int(i) for i in range(len(args.visible_gpus.split(',')))]

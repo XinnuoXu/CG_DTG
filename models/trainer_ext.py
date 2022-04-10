@@ -10,6 +10,8 @@ from models.logging import logger
 from models.loss import ConentSelectionLossCompute
 from models.tree_reader import tree_building, list_to_tree
 
+from tool.analysis import Analysis
+
 
 def _tally_parameters(model):
     n_params = sum([p.nelement() for p in model.parameters()])
@@ -87,6 +89,8 @@ class Trainer(object):
         self.gpu_rank = gpu_rank
         self.report_manager = report_manager
         self.loss = ConentSelectionLossCompute(self.args.content_planning_model)
+
+        self.model_analysis = Analysis()
 
         assert grad_accum_count > 0
         # Set model in training mode.
@@ -256,7 +260,9 @@ class Trainer(object):
                     selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in
                                     range(batch.batch_size)]
                 else:
-                    sent_scores, mask, aj_matrixes = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                    sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                    sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
+                    edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
 
                     if (self.args.content_planning_model == 'tree'):
                         device = mask.device

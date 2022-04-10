@@ -157,7 +157,7 @@ class StructuredAttention(nn.Module):
 
 class SentenceClassification(nn.Module):
     def __init__(self, d_model, d_ff, heads, dropout, num_inter_layers=0):
-        super(ExtTransformerEncoder, self).__init__()
+        super(SentenceClassification, self).__init__()
         self.d_model = d_model
         self.num_inter_layers = num_inter_layers
         self.pos_emb = PositionalEncoding(dropout, d_model)
