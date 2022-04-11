@@ -450,7 +450,7 @@ class CalculateSelfAttention(nn.Module):
 
     def forward(self, key, query, mask=None):
 
-        query = query / math.sqrt(query.size(-1))
+        query = query / math.sqrt(query.size(-1)
         scores = torch.matmul(query, key.transpose(1, 2))
         if mask is not None:
             mask = mask.unsqueeze(1).expand_as(scores)
