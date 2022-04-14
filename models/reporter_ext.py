@@ -166,10 +166,14 @@ class StatisticsExt(object):
     * elapsed time
     """
 
-    def __init__(self, loss=0, n_docs=0, n_correct=0):
+    def __init__(self, loss=0, n_docs=0, n_correct=0, attn_ma=0.0, attn_mi=0.0, attn_mean=0.0):
         self.loss = loss
         self.n_docs = n_docs
         self.start_time = time.time()
+        self.attn_ma = attn_ma
+        self.attn_mi = attn_mi
+        self.attn_gap = attn_ma-attn_mi
+        self.attn_mean = attn_mean
 
     @staticmethod
     def all_gather_stats(stat, max_size=4096):
@@ -229,6 +233,12 @@ class StatisticsExt(object):
 
         self.n_docs += stat.n_docs
 
+        self.attn_ma += stat.attn_ma
+        self.attn_mi += stat.attn_mi
+        self.attn_gap += stat.attn_gap
+        self.attn_mean += stat.attn_mean
+        
+
     def xent(self):
         """ compute cross entropy """
         if (self.n_docs == 0):
@@ -252,13 +262,18 @@ class StatisticsExt(object):
         step_fmt = "%2d" % step
         if num_steps > 0:
             step_fmt = "%s/%5d" % (step_fmt, num_steps)
-        logger.info(
-            ("Step %s; xent: %4.5f; " + "lr: %s; %3.0f docs/s; %6.0f sec")
-            % (step_fmt,
-               self.xent(),
-               learning_rate,
-               self.n_docs / (t + 1e-5),
-               time.time() - start))
+        logger.info(("Step %s; xent: %4.5f; " + "lr: %s; %3.0f docs/s; %6.0f sec")
+                     % (step_fmt,
+                       self.xent(),
+                       learning_rate,
+                       self.n_docs / (t + 1e-5),
+                       time.time() - start))
+        logger.info(("Step %s; [ATTN] max: %0.5f; min: %0.5f; gap %0.5f; mean: %0.5f;")
+                     % (step_fmt, 
+                        self.attn_ma/self.n_docs, 
+                        self.attn_mi/self.n_docs, 
+                        self.attn_gap/self.n_docs, 
+                        self.attn_mean/self.n_docs))
         sys.stdout.flush()
 
     def log_tensorboard(self, prefix, writer, learning_rate, step):
@@ -266,3 +281,4 @@ class StatisticsExt(object):
         t = self.elapsed_time()
         writer.add_scalar(prefix + "/xent", self.xent(), step)
         writer.add_scalar(prefix + "/lr", learning_rate, step)
+

@@ -75,8 +75,8 @@ class TMTLayer(nn.Module):
 
         self.iter = iter
         self.self_attn = StructuredAttention( d_model, dropout)
-        self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout)
         self.dropout = nn.Dropout(dropout)
+        self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout) # useless
         self.linears1 = nn.ModuleList([nn.Linear(2*d_model,d_model) for _ in range(iter)])
         self.relu = nn.ReLU()
         self.linears2 = nn.ModuleList([nn.Linear(d_model,d_model) for _ in range(iter)])
@@ -155,6 +155,36 @@ class StructuredAttention(nn.Module):
         return attn, d0
 
 
+class TreeInference(nn.Module):
+    def __init__(self, d_model, d_ff, dropout, num_inter_layers=0):
+        super(TreeInference, self).__init__()
+        self.d_model = d_model
+        self.num_inter_layers = num_inter_layers
+        self.pos_emb = PositionalEncoding(dropout, int(d_model))
+        self.transformer_inter = nn.ModuleList([TMTLayer(d_model, d_ff, dropout, i) for i in range(num_inter_layers)])
+        self.layer_norm2 = nn.LayerNorm(d_model, eps=1e-6)
+
+    def forward(self, sent_vec, mask_block):
+
+        batch_size, n_blocks, _ = sent_vec.size()
+
+        global_pos_emb = self.pos_emb.pe[:, :n_blocks]
+        sent_vec = sent_vec + global_pos_emb
+
+        sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
+        structure_vec = sent_vec
+
+        roots = []; structure_vecs = []; attns = []
+        for i in range(self.num_inter_layers):
+            structure_vec, root, attn = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
+            attn = nn.functional.normalize(attn) # not in the original code
+            roots.append(root)
+            attns.append(attn)
+            structure_vecs.append(structure_vec)
+
+        return roots, attns
+
+
 class SentenceClassification(nn.Module):
     def __init__(self, d_model, d_ff, heads, dropout, num_inter_layers=0):
         super(SentenceClassification, self).__init__()
@@ -188,30 +218,3 @@ class SentenceClassification(nn.Module):
         return sent_scores
 
 
-class TreeInference(nn.Module):
-    def __init__(self, d_model, d_ff, dropout, num_inter_layers=0):
-        super(TreeInference, self).__init__()
-        self.d_model = d_model
-        self.num_inter_layers = num_inter_layers
-        self.pos_emb = PositionalEncoding(dropout, int(d_model))
-        self.transformer_inter = nn.ModuleList([TMTLayer(d_model, d_ff, dropout, i) for i in range(num_inter_layers)])
-        self.layer_norm2 = nn.LayerNorm(d_model, eps=1e-6)
-
-    def forward(self, sent_vec, mask_block):
-
-        batch_size, n_blocks, _ = sent_vec.size()
-
-        global_pos_emb = self.pos_emb.pe[:, :n_blocks]
-        sent_vec = sent_vec + global_pos_emb
-
-        sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
-        structure_vec = sent_vec
-
-        roots = []; structure_vecs = []; attns = []
-        for i in range(self.num_inter_layers):
-            structure_vec, root, attn = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
-            roots.append(root)
-            attns.append(attn)
-            structure_vecs.append(structure_vec)
-
-        return roots, attns

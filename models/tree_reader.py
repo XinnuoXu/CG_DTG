@@ -333,3 +333,19 @@ def list_to_tree(list_input):
     string_list = []
     string_list, height = create_tree_str(root, childrens, string_list)
     return string_list, height-1
+
+
+if __name__ == '__main__':
+    root = [[0, 1, 0, 0, 1, 0]]
+    adjacency = [[0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0]]
+    root = numpy.array(root)
+    adjacency = numpy.array(adjacency)
+    matrix = numpy.concatenate((root, adjacency), axis=0)
+    row_number = matrix.shape[0]
+    dummy_column = numpy.zeros((row_number, 1))
+    matrix = numpy.concatenate((dummy_column, matrix), axis=1)
+    heads, _ = decode_mst(matrix, row_number, has_labels=False)
+    print ('Matris:')
+    print (matrix)
+    print ('Predicted Head:')
+    print (heads)

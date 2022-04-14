@@ -244,13 +244,15 @@ class Translator(object):
 
         if self.args.do_analysis:
             # Edge analysis
+
+            '''
             predicates = src > 50265
             predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
             width = max(len(d) for d in predicate_idx)
             predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
             sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
-
-            #sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
+            '''
+            sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
             edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
             results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
 

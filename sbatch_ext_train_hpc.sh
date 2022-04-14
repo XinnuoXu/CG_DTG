@@ -2,7 +2,7 @@
 #SBATCH -A TEAMER-SL2-GPU
 #SBATCH -p ampere
 #SBATCH --nodes=1	  # nodes requested
-#SBATCH --gres=gpu:3  # use 1 GPU
+#SBATCH --gres=gpu:1  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH -t 24:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
@@ -34,6 +34,7 @@ echo "Creating directory to save model weights"
 #sh ./scripts.hpc/preprocess_shard.sh
 #sh ./scripts.hpc/preprocess.sh
 #sh ./scripts.hpc/train_xsum_ext.sh
-sh ./scripts.hpc/train_cnn_ext.sh
+#sh ./scripts.hpc/train_cnn_ext.sh
+sh ./scripts_d2t.hpc/train_webnlg_ext.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

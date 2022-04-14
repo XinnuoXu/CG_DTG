@@ -10,7 +10,7 @@ from models.logging import logger
 from models.loss import ConentSelectionLossCompute
 from models.tree_reader import tree_building, list_to_tree
 
-from tool.analysis import Analysis
+from tool.analysis import Analysis, attention_evaluation
 
 
 def _tally_parameters(model):
@@ -187,7 +187,7 @@ class Trainer(object):
                 mask_cls = batch.mask_cls
                 labels = batch.gt_selection
 
-                sent_scores, mask, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                sent_scores, mask, _, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                 loss = self.loss._compute_loss_test(labels, sent_scores, mask)
                 loss = (loss * mask.float()).sum()
@@ -233,6 +233,7 @@ class Trainer(object):
         gold_select_path = '%s.gold_select' % (self.args.result_path)
         selected_ids_path = '%s.selected_ids' % (self.args.result_path)
         tree_path = '%s.trees' % (self.args.result_path)
+        edge_path = '%s.edge' % (self.args.result_path)
 
         save_src = open(src_path, 'w')
         save_pred = open(can_path, 'w')
@@ -240,6 +241,7 @@ class Trainer(object):
         save_gold_select = open(gold_select_path, 'w')
         save_selected_ids = open(selected_ids_path, 'w')
         save_trees = open(tree_path, 'w')
+        save_edges = open(edge_path, 'w')
 
         with torch.no_grad():
             for batch in test_iter:
@@ -261,8 +263,6 @@ class Trainer(object):
                                     range(batch.batch_size)]
                 else:
                     sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-                    sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
-                    edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
 
                     if (self.args.content_planning_model == 'tree'):
                         device = mask.device
@@ -322,16 +322,30 @@ class Trainer(object):
                     _gold_selection = ' <q> '.join(_gold_selection).strip()
                     save_gold_select.write(_gold_selection + '\n')
 
-                root_selection = torch.zeros(mask.size(), device=mask.device).int()
-                for i, _pred_select in enumerate(pred_select):
-                    for sid in _pred_select:
-                        root_selection[i][sid] = 1
-                trees = tree_building(root_selection, aj_matrixes, mask, device)
-                for i in range(batch.batch_size):
-                    tree, height = list_to_tree(trees[i])
-                    src_list = batch.src_str[i]
-                    tree_structure = {'Tree':' '.join(tree), 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height, 'tgt_nsent':nsent[i], 'src_nsent':len(src_list)}
-                    save_trees.write(json.dumps(tree_structure)+'\n')
+
+                if self.args.do_analysis:
+
+                    # Edge analysis
+                    sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
+                    edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
+                    for i, edge_pred_score in enumerate(edge_pred_scores):
+                        edge_align_label = edge_align_labels[i]
+                        n_src_sent = len(batch.src_str[i])
+                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': n_src_sent}
+                        save_edges.write(json.dumps(edge_structure) + '\n')
+
+                    # Tree analysis
+                    root_selection = torch.zeros(mask.size(), device=mask.device).int()
+                    for i, _pred_select in enumerate(pred_select):
+                        for sid in _pred_select:
+                            root_selection[i][sid] = 1
+
+                    trees = tree_building(root_selection, aj_matrixes, mask, device)
+                    for i in range(batch.batch_size):
+                        tree, height = list_to_tree(trees[i])
+                        src_list = batch.src_str[i]
+                        tree_structure = {'Tree':' '.join(tree), 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height, 'tgt_nsent':nsent[i], 'src_nsent':len(src_list)}
+                        save_trees.write(json.dumps(tree_structure)+'\n')
 
         self._report_step(0, step, valid_stats=stats)
         save_src.close()
@@ -340,6 +354,7 @@ class Trainer(object):
         save_gold_select.close()
         save_selected_ids.close()
         save_trees.close()
+        save_edges.close()
 
         return stats
 
@@ -360,11 +375,38 @@ class Trainer(object):
             labels = batch.gt_selection
             nsent = batch.nsent
 
-            sent_scores, mask, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+            sent_scores, mask, attn, top_vec = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+
+            # TMP_CODE: training of the edge prediction
+            sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
+            edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
+            edge_pred_scores = [torch.stack(example) for example in edge_pred_scores]
+            if len(edge_pred_scores) == 0:
+                continue
+            sent_scores = [torch.cat(edge_pred_scores).unsqueeze(0)]
+            labels = []
+            for item in edge_align_labels:
+                labels.extend(item)
+            labels = torch.tensor(labels, device=src.device).unsqueeze(0)
+            mask = torch.ones(labels.size(), device=src.device)
+            # TMP_CODE END
+
             loss = self.loss._compute_loss(labels, sent_scores, mask)
             (loss / loss.numel()).backward()
 
-            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
+            # Gradient supervise
+            gradient_monitor = {}
+            for name, para in self.model.named_parameters():
+                if para.grad is not None:
+                    print (torch.mean(para.grad))
+
+            attn_ma, attn_mi, attn_mean = attention_evaluation(attn[-1], mask_cls)
+
+            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization, 
+                                     attn_ma=attn_ma, 
+                                     attn_mi=attn_mi, 
+                                     attn_mean=attn_mean)
+
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
 

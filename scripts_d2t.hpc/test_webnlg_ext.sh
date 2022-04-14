@@ -2,13 +2,13 @@
 
 BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
 MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.ext/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.ext/
 
 python train.py \
 	-mode test \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_20000.pt \
+	-test_from ${MODEL_PATH}/model_step_60000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs ext \
@@ -19,3 +19,4 @@ python train.py \
         -test_min_length 10 \
         -test_max_length 150 \
 	-visible_gpus 0 \
+	-do_analysis True \

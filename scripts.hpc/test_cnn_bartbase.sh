@@ -18,3 +18,4 @@ python train.py \
         -test_min_length 55 \
         -test_max_length 140 \
 	-visible_gpus 0 \
+	-do_analysis True \

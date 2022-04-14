@@ -102,7 +102,6 @@ def build_optim(args, model, checkpoint):
     params = []
     for name, para in model.named_parameters():
         if para.requires_grad:
-            #print (name)
             params.append((name, para))
     optim.set_parameters(params)
     return optim
@@ -164,6 +163,7 @@ class ExtSummarizer(nn.Module):
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
+
         return sent_scores, mask_cls, aj_matrixes, top_vec
 
 
