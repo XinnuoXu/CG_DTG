@@ -1,8 +1,8 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data.tmp/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.base/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
+BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
+MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.step/
+LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.step/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -27,4 +27,4 @@ python train.py  \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2

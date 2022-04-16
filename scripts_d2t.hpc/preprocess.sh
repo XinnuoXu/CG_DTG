@@ -3,7 +3,7 @@
 # Setup for WebNLG
 ADD_TOKEN_PATH=/home/hpcxu1/Planning/Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/jsons/
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data.tmp/
+BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs/
 
 mkdir -p ${LOG_PATH}
