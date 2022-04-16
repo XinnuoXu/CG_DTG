@@ -35,7 +35,7 @@ echo "Creating directory to save model weights"
 # This script does not actually do very much. But it does demonstrate the principles of training
 #sh ./scripts.hpc/test_xsum_bartbase.sh
 #sh ./scripts.hpc/test_xsum_gumbel_softmax.sh
-sh ./scripts.hpc/test_cnn_bartbase.sh
+#sh ./scripts.hpc/test_cnn_bartbase.sh
 #sh scripts.hpc/test_cnn_gumbel_softmax.sh
 #sh scripts.hpc/test_cnn_gumbel_softmax_with_ext_loss.sh
 #sh scripts.hpc/test_cnn_abs_ext.sh 
@@ -46,5 +46,6 @@ sh ./scripts.hpc/test_cnn_bartbase.sh
 #sh scripts.hpc/test_cnn_not_lead_3.sh
 #sh scripts.hpc/test_cnn_random.sh
 #sh scripts.hpc/test_cnn_ext.sh
+sh scripts_d2t.hpc/test_webnlg_base.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

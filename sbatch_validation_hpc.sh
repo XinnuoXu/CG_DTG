@@ -36,6 +36,7 @@ echo "Creating directory to save model weights"
 #sh ./scripts.hpc/validate_xsum_bartbase.sh
 #sh ./scripts.hpc/validate_xsum_gumbel_softmax.sh
 #sh scripts.hpc/validate_cnn_gumbel_softmax.sh
-sh scripts.hpc/validate_cnn_abs_ext.sh
+#sh scripts.hpc/validate_cnn_abs_ext.sh
+sh scripts_d2t.hpc/validate_webnlg_base.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

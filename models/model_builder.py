@@ -7,6 +7,7 @@ from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM
+from models.tree_reader import tree_to_content_mask
 
 def build_optim_enc_dec(args, model, checkpoint):
     """ Build optimizer """
@@ -107,6 +108,7 @@ def build_optim(args, model, checkpoint):
     return optim
 
 
+
 class ExtSummarizer(nn.Module):
     def __init__(self, args, device, vocab_size, checkpoint, content_planning_model):
         super(ExtSummarizer, self).__init__()
@@ -193,22 +195,57 @@ class AbsSummarizer(nn.Module):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
-        if args.content_planning_model == 'tree':
-            self.planning_layer = TreeInference(self.model.config.hidden_size, 
-                                                args.ext_ff_size, 
-                                                args.ext_dropout, 
-                                                args.ext_layers)
-        elif args.content_planning_model == 'transformer':
-            self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
-                                                         args.ext_ff_size, 
-                                                         args.ext_heads, 
-                                                         args.ext_dropout, 
-                                                         args.ext_layers)
-        elif args.content_planning_model == 'independent_tree_planner':
-            self.planning_layer = ExtSummarizer()
-        else:
-            self.planning_layer = None 
+        self.decoder = self.model.get_decoder()
+        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
 
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        else:
+            print ('Initialize parameters for generator...')
+            for p in self.generator.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        self.to(device)
+
+
+    def forward(self, src, tgt, mask_src, mask_tgt,clss, mask_cls, alignments, run_decoder=True):
+
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+        content_selection_weights = mask_src
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+
+        # Decoding
+        decoder_outputs = self.decoder(input_ids=tgt, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=content_selection_weights)
+
+        return decoder_outputs.last_hidden_state
+
+
+
+class StepAbsSummarizer(nn.Module):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_checkpoint=None):
+        super(StepAbsSummarizer, self).__init__()
+        self.args = args
+        self.device = device
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.vocab_size = vocab_size
+        self.cls_token_id = cls_token_id
+        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+
+        if self.vocab_size > self.model.config.vocab_size:
+            self.model.resize_token_embeddings(self.vocab_size)
+
+        self.encoder = self.model.get_encoder()
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
         #self.generator[0].weight = self.model.lm_head.weight
@@ -225,34 +262,24 @@ class AbsSummarizer(nn.Module):
                 else:
                     p.data.zero_()
 
-            if self.planning_layer is not None:
-                if (ext_checkpoint is not None):
-                    print ('Load parameters from ext_checkpoint...')
-                    tree_params = [(n[15:], p) for n, p in ext_checkpoint['model'].items() if n.startswith('planning_layer')]
-                    self.planning_layer.load_state_dict(dict(tree_params), strict=True)
-                else:
-                    print ('Initialize parameters for ext_checkpoint...')
-                    if args.param_init != 0.0:
-                        for p in self.planning_layer.parameters():
-                            p.data.uniform_(-args.param_init, args.param_init)
-                    if args.param_init_glorot:
-                        for p in self.planning_layer.parameters():
-                            if p.dim() > 1:
-                                xavier_uniform_(p)
-
-        if args.freeze_encoder_decoder:
-            for param in self.model.parameters():
-                param.requires_grad = False
-
         self.to(device)
 
 
-    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection, run_decoder=True):
+    def forward(self, src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, alignments, run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
         content_selection_weights = mask_src
-        sent_scores_layers = None
+
+        content_selection_weights = tree_to_content_mask(alignments, src, mask_src, tgt_nsent, self.cls_token_id)
+        mask_tgt = mask_tgt_sent
+        extend_top_vec = []
+        extend_tgt = []
+        for i, nsent in enumerate(tgt_nsent):
+            extend_top_vec.extend([top_vec[i]]*nsent)
+            extend_tgt.extend([tgt[i]]*nsent)
+        top_vec = torch.stack(extend_top_vec)
+        tgt = torch.stack(extend_tgt)
 
         if not run_decoder:
             return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
@@ -263,7 +290,7 @@ class AbsSummarizer(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=content_selection_weights)
 
-        return decoder_outputs.last_hidden_state
+        return decoder_outputs.last_hidden_state, tgt, mask_tgt
 
 
 

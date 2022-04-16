@@ -14,7 +14,7 @@ class Batch(object):
         rtn_data = [d + [pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
-    def __init__(self, data=None, device=None, is_test=False, pad_id=None):
+    def __init__(self, data=None, device=None, is_test=False, pad_id=None, cls_id=None):
         """Create a Batch from a list of examples."""
         if data is not None:
             self.batch_size = len(data)
@@ -29,20 +29,24 @@ class Batch(object):
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
             mask_tgt = ~(tgt == pad_id)
+            tgt_sentence_mask = self.sent_mask(tgt, mask_tgt, cls_id)
 
             gt_selection = torch.tensor(self._pad(pre_gt_selection, 0))
             clss = torch.tensor(self._pad(pre_clss, -1))
             mask_cls = ~(clss == -1)
             clss[clss == -1] = 0
-
-            setattr(self, 'gt_selection', gt_selection.to(device))
+            
             setattr(self, 'src', src.to(device))
             setattr(self, 'tgt', tgt.to(device))
             setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
+            setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
+            setattr(self, 'nsent', nsent)
+
             setattr(self, 'clss', clss.to(device))
             setattr(self, 'mask_cls', mask_cls.to(device))
-            setattr(self, 'nsent', nsent)
+
+            setattr(self, 'gt_selection', gt_selection.to(device))
             setattr(self, 'alg', pre_alg)
 
             if (is_test):
@@ -52,6 +56,20 @@ class Batch(object):
                 setattr(self, 'tgt_str', tgt_str)
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
+
+    def sent_mask(self, tgt, mask_tgt, cls_id):
+        tgt_sentence_mask = []
+        for i, ex_tgt in enumerate(tgt):
+            cls_index = (ex_tgt == cls_id).nonzero(as_tuple=True)[0]
+            cls_index = cls_index.tolist() + [tgt.size(1)]
+            for i in range(len(cls_index)-1):
+                mask = torch.zeros(tgt.size(1))
+                sid = cls_index[i]
+                eid = cls_index[i+1]
+                mask[sid:eid] = 1
+                mask = mask * mask_tgt[i]
+                tgt_sentence_mask.append(mask)
+        return torch.stack(tgt_sentence_mask)
 
     def __len__(self):
         return self.batch_size
@@ -147,8 +165,12 @@ class DataIterator(object):
         self.device = device
         self.shuffle = shuffle
         self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-        self.cls_token = self.tokenizer.cls_token
+        if self.tokenizer.cls_token_id is None:
+            self.cls_token = self.tokenizer.eos_token
+        else:
+            self.cls_token = self.tokenizer.cls_token
         self.pad_token_id = self.tokenizer.pad_token_id
+        self.cls_token_id = self.tokenizer.cls_token_id
 
         self._iterations_this_epoch = 0
         self.batch_size_fn = ext_batch_size_fn
@@ -238,7 +260,7 @@ class DataIterator(object):
                     continue
                 self.iterations += 1
                 self._iterations_this_epoch += 1
-                batch = Batch(minibatch, self.device, self.is_test, self.pad_token_id)
+                batch = Batch(minibatch, self.device, self.is_test, self.pad_token_id, self.cls_token_id)
 
                 yield batch
             return

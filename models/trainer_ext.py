@@ -395,10 +395,12 @@ class Trainer(object):
             (loss / loss.numel()).backward()
 
             # Gradient supervise
+            '''
             gradient_monitor = {}
             for name, para in self.model.named_parameters():
                 if para.grad is not None:
                     print (torch.mean(para.grad))
+            '''
 
             attn_ma, attn_mi, attn_mean = attention_evaluation(attn[-1], mask_cls)
 

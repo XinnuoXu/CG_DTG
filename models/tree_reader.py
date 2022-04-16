@@ -335,6 +335,28 @@ def list_to_tree(list_input):
     return string_list, height-1
 
 
+def tree_to_content_mask(tree, src, mask_src, tgt_nsent, cls_id):
+    device = src.device
+    src_subtree_mask = []
+    for i, ex_src in enumerate(src):
+        subtree_idxes = tree[i]
+        if len(subtree_idxes) != tgt_nsent[i]:
+            for j in range(tgt_nsent[i]):
+                src_subtree_mask.append(mask_src[i])
+            continue
+        cls_index = (ex_src == cls_id).nonzero(as_tuple=True)[0]
+        cls_index = cls_index.tolist() + [src.size(1)]
+        for tri_ids in subtree_idxes:
+            mask = torch.zeros(src.size(1), device=device)
+            for tri_id in tri_ids:
+                sid = cls_index[tri_id]
+                eid = cls_index[tri_id+1]
+                mask[sid:eid] = 1
+            mask = mask * mask_src[i]
+            src_subtree_mask.append(mask)
+    return torch.stack(src_subtree_mask)
+
+
 if __name__ == '__main__':
     root = [[0, 1, 0, 0, 1, 0]]
     adjacency = [[0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0]]

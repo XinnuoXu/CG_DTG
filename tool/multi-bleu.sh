@@ -1,7 +1,7 @@
 #/bin/bash
 
-path_prefix='./outputs.webnlg/logs.base/test.res.5000'
-target_format='first-to-first'
+path_prefix='./outputs.webnlg/logs.base/test.res.4000'
+target_format='first-to-many'
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix} ${target_format}
 

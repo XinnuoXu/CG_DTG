@@ -58,19 +58,20 @@ class Trainer(object):
             self.model.train()
 
 
-    def train(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
-        logger.info('Start training...')
+    def train_mix(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
+        logger.info('Start training Mix...')
 
-        # step =  self.optim._step + 1
         step =  self.optims[0]._step + 1
-
         true_batchs = []
         accum = 0
-        normalization = 0
+        normalization = 0; normalization_ext = 0;
         train_iter = train_iter_fct()
 
         total_stats = Statistics()
         report_stats = Statistics()
+        total_stats_ext = StatisticsExt()
+        report_stats_ext = StatisticsExt()
+
         self._start_report_manager(start_time=total_stats.start_time)
 
         while step <= train_steps:
@@ -82,27 +83,26 @@ class Trainer(object):
                     true_batchs.append(batch)
                     num_tokens = batch.tgt[:, 1:].ne(self.loss.padding_idx).sum()
                     normalization += num_tokens.item()
+                    normalization_ext += batch.batch_size
                     accum += 1
                     if accum == self.grad_accum_count:
                         reduce_counter += 1
                         if self.n_gpu > 1:
-                            normalization = sum(distributed
-                                                .all_gather_list
-                                                (normalization))
+                            normalization = sum(distributed.all_gather_list(normalization))
+                            normalization_ext = sum(distributed.all_gather_list(normalization_ext))
 
-                        self._gradient_accumulation(
-                            true_batchs, normalization, total_stats,
-                            report_stats)
+                        self._gradient_accumulation_mix(true_batchs, normalization, normalization_ext, total_stats, report_stats, total_stats_ext, report_stats_ext)
 
-                        report_stats = self._maybe_report_training(
-                            self.report_manager,
-                            step, train_steps,
-                            [self.optims[i].learning_rate for i in range(len(self.optims))],
-                            report_stats)
+                        report_stats = self._maybe_report_training(self.report_manager, step, train_steps,
+                            [self.optims[i].learning_rate for i in range(len(self.optims))], report_stats)
+
+                        report_stats_ext = self._maybe_report_training(self.report_manager_ext, step, train_steps,
+                            [self.optims[i].learning_rate for i in range(len(self.optims))], report_stats_ext)
 
                         true_batchs = []
                         accum = 0
                         normalization = 0
+                        normalization_ext = 0
                         if (step % self.save_checkpoint_steps == 0 and self.gpu_rank == 0):
                             self._save(step)
 
@@ -114,7 +114,7 @@ class Trainer(object):
         return total_stats
 
 
-    def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats):
+    def _gradient_accumulation_mix(self, true_batchs, normalization, normalization_ext, total_stats, report_stats, total_stats_ext, report_stats_ext):
 
         if self.grad_accum_count > 1:
             self.model.zero_grad()
@@ -129,14 +129,31 @@ class Trainer(object):
             mask_tgt = batch.mask_tgt
             clss = batch.clss
             mask_cls = batch.mask_cls
-            labels = batch.alg
+            labels = batch.gt_selection
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
-            batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
-            batch_stats.n_docs = int(src.size(0))
+            outputs, root_probs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
-            total_stats.update(batch_stats)
-            report_stats.update(batch_stats)
+            # Abs Loss
+            loss_abs, _stats = self.loss._compute_loss(batch, outputs[:, :-1, :], batch.tgt[:,1:])
+            loss_abs = loss_abs.div(float(normalization))
+
+            batch_stats_abs = Statistics()
+            batch_stats_abs.update(_stats)
+            batch_stats_abs.n_docs = int(src.size(0))
+
+            total_stats.update(batch_stats_abs)
+            report_stats.update(batch_stats_abs)
+
+            # Ext Loss
+            loss_ext = self.ext_loss._compute_loss(labels, root_probs, mask_cls)
+            loss_ext = (loss_ext / loss_ext.numel())
+
+            batch_stats_ext = StatisticsExt(float(loss_ext.cpu().data.numpy()), normalization_ext)
+            total_stats_ext.update(batch_stats_ext)
+            report_stats_ext.update(batch_stats_ext)
+
+            loss = loss_abs + loss_ext * self.args.abs_plus_ext_loss
+            loss.backward()
 
             # 4. Update the parameters and statistics.
             if self.grad_accum_count == 1:
@@ -159,7 +176,7 @@ class Trainer(object):
                 o.step()
 
 
-    def validate(self, valid_iter, step=0):
+    def validate_mix(self, valid_iter, step=0):
         """ Validate model.
             valid_iter: validate data iterator
         Returns:
@@ -177,9 +194,9 @@ class Trainer(object):
                 mask_tgt = batch.mask_tgt
                 clss = batch.clss
                 mask_cls = batch.mask_cls
-                labels = batch.alg
+                labels = batch.gt_selection
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                outputs, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

@@ -22,19 +22,24 @@ class BertData():
     def __init__(self, args, additional_tokens=None):
 
         self.args = args
-        if additional_tokens is None:
-           self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
-        else:
-           self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+
+        if args.tokenizer == 't5-base':
+            special_tokens_dict = {"cls_token": "<s>", "bos_token": "<s>"}
+            self.tokenizer.add_special_tokens(special_tokens_dict)
+
+        if additional_tokens is not None:
            print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
            self.tokenizer.add_tokens(additional_tokens)
            self.tokenizer.save_pretrained(args.saved_tokenizer_path)
            print ('The vocab size after adding new tokens: %d' % (len(self.tokenizer)))
 
-        self.sep_token_id = self.tokenizer.sep_token_id
-        self.cls_token_id = self.tokenizer.cls_token_id
         self.pad_token_id = self.tokenizer.pad_token_id
+        self.cls_token_id = self.tokenizer.cls_token_id
         self.cls_token = self.tokenizer.cls_token
+        self.bos_token = self.tokenizer.bos_token
+
 
     def get_sent_labels(self, src_subtoken_idxs, sent_labels):
         _sent_labels = [0 for t in src_subtoken_idxs if t == self.cls_token_id]
@@ -44,9 +49,14 @@ class BertData():
             _sent_labels[l] = 1
         return _sent_labels
 
-    def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length):
+
+    def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length, alg):
+
         src_txt = (' '+self.cls_token+' ').join(src)
         tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt])
+        if self.args.tokenizer == 't5-base':
+            src_txt = self.cls_token + ' ' + src_txt
+            tgt_txt = self.bos_token + ' ' + tgt_txt
 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
@@ -54,7 +64,15 @@ class BertData():
         gt_selection = self.get_sent_labels(source_tokens, sent_labels)
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
 
-        return source_tokens, target_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt]
+        new_alg = []
+        for sent in alg:
+            s = []
+            for fact in sent:
+                s.extend(fact)
+            if len(s) > 0:
+                new_alg.append(s)
+
+        return source_tokens, target_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
 
 
 def _process(params):
@@ -80,8 +98,8 @@ def _process(params):
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
 
-        b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens)
-        source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt = b_data
+        b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg)
+        source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
                        "gt_selection": gt_selection, "clss": cls_ids,

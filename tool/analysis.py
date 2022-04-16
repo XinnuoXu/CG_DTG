@@ -21,11 +21,10 @@ class Analysis():
             pred_score = []; align_label = []
 
             cluster_labels = {}; cluster_lable = 0
-            for sent in alignment:
-                for fact in sent:
-                    for a in fact:
-                        cluster_labels[a] = cluster_lable
-                    cluster_lable += 1
+            for fact in alignment:
+                for a in fact:
+                    cluster_labels[a] = cluster_lable
+                cluster_lable += 1
 
             #scores = self_attns[eid].fill_diagonal_(0)
             scores = self_attns[eid]
@@ -41,9 +40,9 @@ class Analysis():
                     else:
                         align_label.append(0)
 
-            if len(pred_score) > 0 and len(align_label) > 0:
-                pred_scores.append(pred_score)
-                align_labels.append(align_label)  
+            #if len(pred_score) > 0 and len(align_label) > 0:
+            pred_scores.append(pred_score)
+            align_labels.append(align_label)  
 
         return pred_scores, align_labels
 

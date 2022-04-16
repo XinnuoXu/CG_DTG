@@ -51,7 +51,10 @@ class Translator(object):
         self.generator = self.model.generator
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
-        self.cls_token = self.tokenizer.cls_token
+        if self.tokenizer.cls_token_id is None:
+            self.cls_token = self.tokenizer.eos_token
+        else:
+            self.cls_token = self.tokenizer.cls_token
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -105,6 +108,7 @@ class Translator(object):
                         self.tree_out_file.write(json.dumps(tree_structure) + '\n')
 
                     if edge_pred_score is not None:
+                        edge_pred_score = [float(item) for item in edge_pred_score]
                         edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': len(src_list)}
                         self.edge_out_file.write(json.dumps(edge_structure) + '\n')
 

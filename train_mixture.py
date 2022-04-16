@@ -17,15 +17,14 @@ import distributed
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer
+from models.model_builder import ExtAbsSummarizer
 from models.predictor import build_predictor
-from models.trainer_abs import build_trainer
+from models.trainer_mix import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
-model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
-               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
-               'model_name']
+model_flags = ['ext_layers', 'ext_hidden_size', 'ext_heads', 
+               'ext_ff_size', 'tree_gumbel_softmax_tau', 'tokenizer_path',]
 
 
 def str2bool(v):
@@ -49,7 +48,7 @@ def run(args, device_id, error_queue):
             raise AssertionError("An error occurred in \
                   Distributed initialization")
 
-        train_abs_single(args, device_id)
+        train_mix_single(args, device_id)
     except KeyboardInterrupt:
         pass  # killed by parent, do nothing
     except Exception:
@@ -94,14 +93,14 @@ class ErrorHandler(object):
         raise Exception(msg)
 
 
-def train_abs(args, device_id):
+def train_mix(args, device_id):
     if (args.world_size > 1):
-        train_abs_multi(args)
+        train_mix_multi(args)
     else:
-        train_abs_single(args, device_id)
+        train_mix_single(args, device_id)
 
 
-def train_abs_multi(args):
+def train_mix_multi(args):
     """ Spawns 1 process per GPU """
     init_logger()
 
@@ -124,7 +123,7 @@ def train_abs_multi(args):
         p.join()
 
 
-def train_abs_single(args, device_id):
+def train_mix_single(args, device_id):
     init_logger(args.log_file)
     logger.info(str(args))
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
@@ -138,6 +137,8 @@ def train_abs_single(args, device_id):
         torch.cuda.set_device(device_id)
         torch.cuda.manual_seed(args.seed)
 
+    # Load Checkpoint
+    checkpoint = None
     if args.train_from != '':
         logger.info('Loading checkpoint from %s' % args.train_from)
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
@@ -145,14 +146,18 @@ def train_abs_single(args, device_id):
         for k in opt.keys():
             if (k in model_flags):
                 setattr(args, k, opt[k])
-    else:
-        checkpoint = None
 
+    # Load finetuned extractive checkpoint
+    ext_checkpoint = None
     if args.load_from_ext != '':
         logger.info('Loading EXT checkpoint from %s' % args.load_from_ext)
         ext_checkpoint = torch.load(args.load_from_ext, map_location=lambda storage, loc: storage)
-    else:
-        ext_checkpoint = None
+
+    # Load finetuned abstractive checkpoint
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -162,33 +167,31 @@ def train_abs_single(args, device_id):
         return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
                                       args.batch_size, device, shuffle=True, is_test=False)
 
+    # Create model
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
+    logger.info(model)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, ext_checkpoint)
-
+    # Create optimizers
     if args.lr_tmt != -1 and args.lr_enc_dec != -1:
         optim_enc_dec = model_builder.build_optim_enc_dec(args, model, checkpoint)
         optim_tmt = model_builder.build_optim_tmt(args, model, checkpoint)
         optim = [optim_enc_dec, optim_tmt]
     else:
         optim = [model_builder.build_optim(args, model, checkpoint)]
-    logger.info(model)
 
+    # Create loss calculator
     symbols = {'PAD': tokenizer.pad_token_id}
-    train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
+    abstractive_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
                           train=True, label_smoothing=args.label_smoothing)
+    extractive_loss = ConentSelectionLossCompute(args.content_planning_model)
 
-    if args.abs_plus_ext_loss > 0.0:
-        ext_loss = ConentSelectionLossCompute(args.content_planning_model)
-        trainer = build_trainer(args, device_id, model, optim, train_loss, ext_loss)
-        trainer.train_mix(train_iter_fct, args.train_steps)
-    else:
-        ext_loss = None
-        trainer = build_trainer(args, device_id, model, optim, train_loss)
-        trainer.train(train_iter_fct, args.train_steps)
+    # Create trainer and run 
+    trainer = build_trainer(args, device_id, model, optim, abstractive_loss, extractive_loss)
+    trainer.train_mix(train_iter_fct, args.train_steps)
 
 
-def validate_abs(args, device_id):
+def validate_mix(args, device_id):
     timestep = 0
     if args.test_from != "":
         step = args.test_from.split('_')[-1].split('.')[0]
@@ -212,7 +215,7 @@ def validate_abs(args, device_id):
         '''
         for xent, cp in xent_lst:
             step = int(cp.split('.')[-2].split('_')[-1])
-            test_abs(args, device_id, cp, step)
+            test_mix(args, device_id, cp, step)
         '''
 
 
@@ -237,18 +240,18 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
+    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
 
     trainer = build_trainer(args, device_id, model, None, valid_loss)
-    stats = trainer.validate(valid_iter, step)
+    stats = trainer.validate_mix(valid_iter, step)
 
     return stats.xent()
 
 
-def test_abs(args, device_id, pt, step):
+def test_mix(args, device_id, pt, step):
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
     if (pt != ''):
         test_from = pt
@@ -268,7 +271,21 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
+    ext_checkpoint = None
+    if args.load_from_ext != '':
+        logger.info('Loading EXT checkpoint from %s' % args.load_from_ext)
+        ext_checkpoint = torch.load(args.load_from_ext, map_location=lambda storage, loc: storage)
+
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
+
+    if (ext_checkpoint is not None) and (abs_checkpoint is not None):
+        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
+    else:
+        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None, None)
+
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

@@ -127,11 +127,15 @@ class Trainer(object):
             mask_src = batch.mask_src
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
+            mask_tgt_sent = batch.mask_tgt_sent
+            tgt_nsent = batch.nsent
             clss = batch.clss
             mask_cls = batch.mask_cls
             labels = batch.alg
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+            outputs, tgt, mask_tgt = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels)
+            batch.tgt = tgt
+            batch.mask_tgt = mask_tgt
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
 

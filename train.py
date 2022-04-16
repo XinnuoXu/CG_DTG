@@ -8,7 +8,8 @@ import argparse
 from models.logging import init_logger
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
-from train_ext_abs import train_mix, validate_mix, test_mix
+from train_mixture import train_mix, validate_mix, test_mix
+from train_stepwise import train_stepwise, validate_stepwise, test_stepwise
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step'])
     parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
@@ -142,3 +143,16 @@ if __name__ == '__main__':
             except:
                 step = 0
             test_mix(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'step':
+        if (args.mode == 'train'):
+            train_stepwise(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_stepwise(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_stepwise(args, device_id, cp, step)
