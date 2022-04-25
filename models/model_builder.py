@@ -7,7 +7,7 @@ from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM
-from models.tree_reader import tree_to_content_mask
+from models.tree_reader import tree_to_content_mask, tree_building
 
 def build_optim_enc_dec(args, model, checkpoint):
     """ Build optimizer """
@@ -157,7 +157,7 @@ class ExtSummarizer(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, gt_selection):
+    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls):
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         # return transformers.modeling_outputs.BaseModelOutput
         top_vec = encoder_outputs.last_hidden_state
@@ -282,7 +282,7 @@ class StepAbsSummarizer(nn.Module):
         tgt = torch.stack(extend_tgt)
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":content_selection_weights}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
@@ -359,7 +359,7 @@ class ExtAbsSummarizer(nn.Module):
         value = 1 / top_k
         y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
         ret = y_hard - y_soft.detach() + y_soft
-        ret = (ret == value)
+        #ret = (ret == value)
         return ret
 
 
@@ -438,6 +438,121 @@ class ExtAbsSummarizer(nn.Module):
             return {"encoder_outpus":top_vec, 
                     "encoder_attention_mask":content_selection_weights, 
                     "sent_probs":root_probs,
+                    "sent_relations":aj_matrixes[0]}
+
+        # Decoding for Generator
+        decoder_outputs = self.decoder(input_ids=tgt, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=mask_src,
+                                       content_selection_mask=content_selection_weights)
+
+        return decoder_outputs.last_hidden_state, sent_scores_layers
+
+
+
+class PlanAbsSummarizer(nn.Module):
+
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_finetune=None, abs_finetune=None):
+        super(PlanAbsSummarizer, self).__init__()
+
+        self.args = args
+        self.device = device
+        self.vocab_size = vocab_size
+        self.cls_token_id = cls_token_id
+        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+        model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+
+        if self.vocab_size > model.config.vocab_size:
+            model.resize_token_embeddings(self.vocab_size)
+
+        # Encoder for Generator
+        self.encoder = model.get_encoder()
+
+        # Decoder for Generator
+        self.decoder = model.get_decoder()
+        self.generator = get_generator(self.vocab_size, model.config.hidden_size, device)
+
+        # Planner (parameters are initialized)
+        self.planning_layer = ExtSummarizer(args, device, vocab_size, ext_finetune, args.content_planning_model)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            if abs_finetune is not None:
+                print ('Load parameters from abs_finetune...')
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('encoder')]
+                self.encoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('decoder')]
+                self.decoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[10:], p) for n, p in abs_finetune['model'].items() if n.startswith('generator')]
+                self.generator.load_state_dict(dict(tree_params), strict=True)
+            else:
+                print ('Initialize parameters for generator...')
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
+
+        if args.freeze_encoder_decoder:
+            for param in self.encoder.parameters():
+                param.requires_grad = False
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+        if args.freeze_tmt:
+            for param in self.planning_layer.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+
+    def gumbel_softmax_function(self, scores, tau, top_k):
+        top_k = int(top_k)
+        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
+        gumbels = (scores + gumbels) / tau
+        y_soft = gumbels.softmax(-1)
+        top_k = min(top_k, y_soft.size(1))
+        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
+        #value = 1 / top_k
+        value = 1
+        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
+        ret = y_hard - y_soft.detach() + y_soft
+        #ret = (ret == value)
+        return ret
+
+
+    def topn_function(self, scores, mask_block, top_n):
+        if top_n >= 1:
+            top_n = int(top_n)
+            indices = torch.topk(scores, min(scores.size(1), top_n))[1]
+            y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
+        else:
+            y_hard = []
+            nsent_selection = (mask_block.sum(dim=1) * top_n).int().tolist()
+            for b in range(len(nsent_selection)):
+                indices = torch.topk(scores[b], nsent_selection[b])[1]
+                y_h = torch.zeros_like(scores[b].contiguous()).scatter_(-1, indices, 1)
+                y_hard.append(y_h)
+            y_hard = torch.stack(y_hard)
+        return y_hard
+
+
+    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, run_decoder=True):
+
+        # Planner
+        sent_scores_layers, mask_cls, aj_matrixes, _ = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls)
+        tree_building(sent_scores_layers[0], aj_matrixes[0], mask_cls, src.device)
+
+        # Encoder for Generator
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, 
+                    "encoder_attention_mask":content_selection_weights, 
+                    "sent_probs":root_probs,
                     "sent_relations":aj_matrixes}
 
         # Decoding for Generator
@@ -448,3 +563,6 @@ class ExtAbsSummarizer(nn.Module):
                                        content_selection_mask=content_selection_weights)
 
         return decoder_outputs.last_hidden_state, sent_scores_layers
+
+
+

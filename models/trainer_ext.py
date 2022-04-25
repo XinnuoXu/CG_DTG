@@ -187,7 +187,7 @@ class Trainer(object):
                 mask_cls = batch.mask_cls
                 labels = batch.gt_selection
 
-                sent_scores, mask, _, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                sent_scores, mask, _, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
 
                 loss = self.loss._compute_loss_test(labels, sent_scores, mask)
                 loss = (loss * mask.float()).sum()
@@ -262,7 +262,7 @@ class Trainer(object):
                     selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in
                                     range(batch.batch_size)]
                 else:
-                    sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                    sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
 
                     if (self.args.content_planning_model == 'tree'):
                         device = mask.device
@@ -375,7 +375,7 @@ class Trainer(object):
             labels = batch.gt_selection
             nsent = batch.nsent
 
-            sent_scores, mask, attn, top_vec = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+            sent_scores, mask, attn, top_vec = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
 
             # TMP_CODE: training of the edge prediction
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]

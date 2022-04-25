@@ -3,14 +3,14 @@ import numpy
 import torch
 
 def tree_building(roots, edges, mask, device):
-    edge_prob = edges[-1]
+    edge_prob = edges
     roots = roots.unsqueeze(1)
     new_matrix = torch.cat([roots, edge_prob], dim=1)
     dumy_column = torch.zeros((new_matrix.size(0), new_matrix.size(1), 1)).to(device)
     new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
 
     batch_size = new_matrix.size(0)
-    nsents = torch.sum(mask, dim=1).tolist()
+    nsents = (torch.sum(mask, dim=1)+1).tolist()
     matrix_npy = new_matrix.cpu().detach().numpy()
 
     heads_ret = []

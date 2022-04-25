@@ -18,7 +18,7 @@ from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
 from models.model_builder import StepAbsSummarizer
-from models.predictor import build_predictor
+from models.predictor_stepwise import build_predictor
 from models.trainer_step import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer

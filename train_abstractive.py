@@ -14,19 +14,19 @@ import json
 
 import torch
 import distributed
+from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
 from models.model_builder import AbsSummarizer
-from models.predictor import build_predictor
 from models.trainer_abs import build_trainer
+from models.predictor import build_predictor
+from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
-from transformers import AutoTokenizer
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
                'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
                'model_name']
-
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -271,7 +271,10 @@ def test_abs(args, device_id, pt, step):
     model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
     model.eval()
 
-    predictor = build_predictor(args, tokenizer, model, logger)
+    if args.inference_mode == 'non_prjective_tree':
+        predictor = build_predictor_tree(args, tokenizer, model, logger)
+    else: 
+        predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 

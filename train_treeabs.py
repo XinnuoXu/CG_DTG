@@ -17,9 +17,9 @@ import distributed
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import ExtAbsSummarizer
+from models.model_builder import PlanAbsSummarizer
 from models.predictor import build_predictor
-from models.trainer_abs import build_trainer
+from models.trainer_treeabs import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
@@ -48,7 +48,7 @@ def run(args, device_id, error_queue):
             raise AssertionError("An error occurred in \
                   Distributed initialization")
 
-        train_mix_single(args, device_id)
+        train_treeabs_single(args, device_id)
     except KeyboardInterrupt:
         pass  # killed by parent, do nothing
     except Exception:
@@ -93,14 +93,14 @@ class ErrorHandler(object):
         raise Exception(msg)
 
 
-def train_mix(args, device_id):
+def train_treeabs(args, device_id):
     if (args.world_size > 1):
-        train_mix_multi(args)
+        train_treeabs_multi(args)
     else:
-        train_mix_single(args, device_id)
+        train_treeabs_single(args, device_id)
 
 
-def train_mix_multi(args):
+def train_treeabs_multi(args):
     """ Spawns 1 process per GPU """
     init_logger()
 
@@ -123,7 +123,7 @@ def train_mix_multi(args):
         p.join()
 
 
-def train_mix_single(args, device_id):
+def train_treeabs_single(args, device_id):
     init_logger(args.log_file)
     logger.info(str(args))
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
@@ -169,8 +169,7 @@ def train_mix_single(args, device_id):
 
     # Create model
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    #model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
-    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, ext_checkpoint, abs_checkpoint)
+    model = PlanAbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, ext_checkpoint, abs_checkpoint)
     logger.info(model)
 
     # Create optimizers
@@ -189,10 +188,10 @@ def train_mix_single(args, device_id):
 
     # Create trainer and run 
     trainer = build_trainer(args, device_id, model, optim, abstractive_loss, extractive_loss)
-    trainer.train_mix(train_iter_fct, args.train_steps)
+    trainer.train_treeabs(train_iter_fct, args.train_steps)
 
 
-def validate_mix(args, device_id):
+def validate_treeabs(args, device_id):
     timestep = 0
     if args.test_from != "":
         step = args.test_from.split('_')[-1].split('.')[0]
@@ -216,7 +215,7 @@ def validate_mix(args, device_id):
         '''
         for xent, cp in xent_lst:
             step = int(cp.split('.')[-2].split('_')[-1])
-            test_mix(args, device_id, cp, step)
+            test_treeabs(args, device_id, cp, step)
         '''
 
 
@@ -241,18 +240,18 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
+    model = PlanAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
 
     trainer = build_trainer(args, device_id, model, None, valid_loss)
-    stats = trainer.validate(valid_iter, step)
+    stats = trainer.validate_treeabs(valid_iter, step)
 
     return stats.xent()
 
 
-def test_mix(args, device_id, pt, step):
+def test_treeabs(args, device_id, pt, step):
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
     if (pt != ''):
         test_from = pt
@@ -283,9 +282,9 @@ def test_mix(args, device_id, pt, step):
         abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
 
     if (ext_checkpoint is not None) and (abs_checkpoint is not None):
-        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
+        model = PlanAbsSummarizer(args, device, tokenizer.cls_token_id, None, ext_checkpoint, abs_checkpoint)
     else:
-        model = ExtAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None, None)
+        model = PlanAbsSummarizer(args, device, tokenizer.cls_token_id, checkpoint, None, None)
 
     model.eval()
 

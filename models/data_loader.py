@@ -62,10 +62,10 @@ class Batch(object):
         for i, ex_tgt in enumerate(tgt):
             cls_index = (ex_tgt == cls_id).nonzero(as_tuple=True)[0]
             cls_index = cls_index.tolist() + [tgt.size(1)]
-            for i in range(len(cls_index)-1):
+            for j in range(len(cls_index)-1):
                 mask = torch.zeros(tgt.size(1))
-                sid = cls_index[i]
-                eid = cls_index[i+1]
+                sid = cls_index[j]
+                eid = cls_index[j+1]
                 mask[sid:eid] = 1
                 mask = mask * mask_tgt[i]
                 tgt_sentence_mask.append(mask)
