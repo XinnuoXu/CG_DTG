@@ -191,6 +191,7 @@ class AbsSummarizer(nn.Module):
         self.cls_token_id = cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
 
+        print (self.vocab_size, self.model.config.vocab_size)
         if self.vocab_size > self.model.config.vocab_size:
             self.model.resize_token_embeddings(self.vocab_size)
 
@@ -213,7 +214,10 @@ class AbsSummarizer(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, mask_src, mask_tgt,clss, mask_cls, alignments, run_decoder=True):
+    def forward(self, src, tgt, mask_src, mask_tgt, 
+                mask_tgt_sent=None, tgt_nsent=None, 
+                clss=None, mask_cls=None, labels=None, 
+                run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state

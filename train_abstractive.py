@@ -25,8 +25,8 @@ from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
-               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
-               'model_name']
+               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',]
+               #'model_name']
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):

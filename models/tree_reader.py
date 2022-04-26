@@ -23,6 +23,21 @@ def tree_building(roots, edges, mask, device):
     return heads_ret
 
 
+def gumbel_softmax_function(scores, tau, top_k):
+        top_k = int(top_k)
+        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
+        gumbels = (scores + gumbels) / tau
+        y_soft = gumbels.softmax(-1)
+        top_k = min(top_k, y_soft.size(1))
+        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
+        #value = 1 / top_k
+        value = 1
+        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
+        ret = y_hard - y_soft.detach() + y_soft
+        #ret = (ret == value)
+        return ret
+
+
 def decode_mst(energy: numpy.ndarray, length: int, has_labels: bool = True) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
     Note: Counter to typical intuition, this function decodes the _maximum_
@@ -358,7 +373,7 @@ def tree_to_content_mask(tree, src, mask_src, tgt_nsent, cls_id):
 
 
 if __name__ == '__main__':
-    root = [[0, 1, 0, 0, 1, 0]]
+    root = [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]]
     adjacency = [[0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0]]
     root = numpy.array(root)
     adjacency = numpy.array(adjacency)

@@ -6,8 +6,9 @@ import os
 import json
 import math
 import torch
+from models.neural import CalculateSelfAttention
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import list_to_tree, tree_to_content_mask
+from models.tree_reader import list_to_tree, tree_to_content_mask, gumbel_softmax_function
 from tool.analysis import Analysis
 
 def tile(x, count, dim=0):
@@ -61,7 +62,7 @@ class Translator(object):
         self.dump_beam = dump_beam
 
         self.model_analysis = Analysis()
-
+        self.self_attn_layer = CalculateSelfAttention()
 
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
@@ -234,9 +235,26 @@ class Translator(object):
         device = src.device
         results = {}
 
-        # Run encoder and tree prediction
+        ## Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels, run_decoder=False)
         src_features = src_res['encoder_outpus']
+
+        ## Create trees
+        # self-attention using predicates
+        predicates = src >= 32120
+        predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
+        width = max(len(d) for d in predicate_idx)
+        predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
+        sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
+        self_attns = self.self_attn_layer(sents_vec, sents_vec, mask_cls)
+        # gumble
+        gumble_attns = gumbel_softmax_function(self_attns.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
+        # fake root
+        fake_roots = torch.zeros((gumble_attns.size(0), gumble_attns.size(1))).to(device)+0.1
+        # run tree-building
+        heads_ret = tree_building(fake_roots, gumble_attns, mask_cls, device)
+        # convert to lable format
+
         mask_src = tree_to_content_mask(labels, src, mask_src, tgt_nsent, self.cls_token_id)
 
         # Tile states and memory beam_size times.
