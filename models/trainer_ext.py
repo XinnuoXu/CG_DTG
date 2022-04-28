@@ -8,7 +8,7 @@ from models.reporter_ext import StatisticsExt as Statistics
 from models.reporter_ext import ReportMgrExt
 from models.logging import logger
 from models.loss import ConentSelectionLossCompute
-from models.tree_reader import tree_building, list_to_tree
+from models.tree_reader import tree_building, headlist_to_string
 
 from tool.analysis import Analysis, attention_evaluation
 
@@ -342,7 +342,7 @@ class Trainer(object):
 
                     trees = tree_building(root_selection, aj_matrixes, mask, device)
                     for i in range(batch.batch_size):
-                        tree, height = list_to_tree(trees[i])
+                        tree, height = headlist_to_string(trees[i])
                         src_list = batch.src_str[i]
                         tree_structure = {'Tree':' '.join(tree), 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height, 'tgt_nsent':nsent[i], 'src_nsent':len(src_list)}
                         save_trees.write(json.dumps(tree_structure)+'\n')

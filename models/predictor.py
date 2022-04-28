@@ -7,7 +7,7 @@ import json
 import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import tree_building, list_to_tree
+from models.tree_reader import tree_building, headlist_to_string
 from tool.analysis import Analysis
 
 def tile(x, count, dim=0):
@@ -173,7 +173,7 @@ class Translator(object):
 
             tree_str = None; height = None
             if trees is not None:
-                tree, height = list_to_tree(trees[b])
+                tree, height = headlist_to_string(trees[b])
                 tree_str = ' '.join(tree)
 
             edge_pred_score = None; edge_align_label = None

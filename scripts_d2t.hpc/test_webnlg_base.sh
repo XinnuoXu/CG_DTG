@@ -4,6 +4,8 @@ BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
 MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.base/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
 
+mkdir -p ${LOG_PATH}
+
 python train.py \
 	-mode test \
 	-input_path ${BERT_DATA_PATH} \

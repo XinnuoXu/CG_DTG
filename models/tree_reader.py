@@ -2,40 +2,35 @@ from typing import List, Set, Tuple, Dict
 import numpy
 import torch
 
-def tree_building(roots, edges, mask, device):
-    edge_prob = edges
-    roots = roots.unsqueeze(1)
-    new_matrix = torch.cat([roots, edge_prob], dim=1)
-    dumy_column = torch.zeros((new_matrix.size(0), new_matrix.size(1), 1)).to(device)
-    new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
-
-    batch_size = new_matrix.size(0)
-    nsents = (torch.sum(mask, dim=1)+1).tolist()
-    matrix_npy = new_matrix.cpu().detach().numpy()
-
-    heads_ret = []
-    for eid in range(batch_size):
-        matrix = matrix_npy[eid]
-        sent_num = nsents[eid]
-        heads, _ = decode_mst(matrix, sent_num, has_labels=False)
-        heads_ret.append(heads)
-        
-    return heads_ret
-
-
 def gumbel_softmax_function(scores, tau, top_k):
-        top_k = int(top_k)
-        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
-        gumbels = (scores + gumbels) / tau
-        y_soft = gumbels.softmax(-1)
-        top_k = min(top_k, y_soft.size(1))
-        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
-        #value = 1 / top_k
-        value = 1
-        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
-        ret = y_hard - y_soft.detach() + y_soft
-        #ret = (ret == value)
-        return ret
+    top_k = int(top_k)
+    gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
+    gumbels = (scores + gumbels) / tau
+    y_soft = gumbels.softmax(-1)
+    top_k = min(top_k, y_soft.size(1))
+    indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
+    #value = 1 / top_k
+    value = 1
+    y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
+    ret = y_hard - y_soft.detach() + y_soft
+    #ret = (ret == value)
+    return ret
+
+
+def topn_function(scores, mask_block, top_n):
+    if top_n >= 1:
+        top_n = int(top_n)
+        indices = torch.topk(scores, min(scores.size(1), top_n))[1]
+        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
+    else:
+        y_hard = []
+        nsent_selection = (mask_block.sum(dim=1) * top_n).int().tolist()
+        for b in range(len(nsent_selection)):
+            indices = torch.topk(scores[b], nsent_selection[b])[1]
+            y_h = torch.zeros_like(scores[b].contiguous()).scatter_(-1, indices, 1)
+            y_hard.append(y_h)
+        y_hard = torch.stack(y_hard)
+    return y_hard
 
 
 def decode_mst(energy: numpy.ndarray, length: int, has_labels: bool = True) -> Tuple[numpy.ndarray, numpy.ndarray]:
@@ -317,7 +312,28 @@ def _find_cycle(
     return has_cycle, list(cycle)
 
 
-def list_to_tree(list_input):
+def tree_building(roots, edges, mask, device):
+    edge_prob = edges
+    roots = roots.unsqueeze(1)
+    new_matrix = torch.cat([roots, edge_prob], dim=1)
+    dumy_column = torch.zeros((new_matrix.size(0), new_matrix.size(1), 1)).to(device)
+    new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
+
+    batch_size = new_matrix.size(0)
+    nsents = (torch.sum(mask, dim=1)+1).tolist()
+    matrix_npy = new_matrix.cpu().detach().numpy()
+
+    heads_ret = []
+    for eid in range(batch_size):
+        matrix = matrix_npy[eid]
+        sent_num = nsents[eid]
+        heads, _ = decode_mst(matrix, sent_num, has_labels=False)
+        heads_ret.append(heads)
+        
+    return heads_ret
+
+
+def headlist_to_string(list_input):
 
     def create_tree_str(cnode, childrens, string_list):
         if cnode not in childrens:
@@ -372,6 +388,32 @@ def tree_to_content_mask(tree, src, mask_src, tgt_nsent, cls_id):
     return torch.stack(src_subtree_mask)
 
 
+def headlist_to_alignments(headlist, length):
+
+    def find_children(headlist, idx):
+        children = numpy.where(headlist == idx)[0]
+        grand_children_list = []
+        for children_idx in children:
+            grand_children_list.append(children_idx)
+            grand_children = find_children(headlist, children_idx)
+            grand_children_list.extend(grand_children)
+        return grand_children_list
+            
+    roots = numpy.where(headlist == 0)[0]
+    sub_trees = []
+    for idx in roots:
+        if idx >= length:
+            break
+        grand_children_list = find_children(headlist, idx)
+        sub_trees.append(grand_children_list+[idx])
+
+    updated_sub_tress = []
+    for sub_tree in sub_trees:
+        sub_tree = [int(idx-1) for idx in sorted(sub_tree)]
+        updated_sub_tress.append(sub_tree)
+
+    return updated_sub_tress
+
 if __name__ == '__main__':
     root = [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]]
     adjacency = [[0, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0]]
@@ -381,8 +423,12 @@ if __name__ == '__main__':
     row_number = matrix.shape[0]
     dummy_column = numpy.zeros((row_number, 1))
     matrix = numpy.concatenate((dummy_column, matrix), axis=1)
-    heads, _ = decode_mst(matrix, row_number, has_labels=False)
+    heads, _ = decode_mst(matrix, row_number-3, has_labels=False)
+    sub_trees = headlist_to_alignments(heads, row_number-3)
     print ('Matris:')
     print (matrix)
     print ('Predicted Head:')
     print (heads)
+    print ('Predicted alignments:')
+    print (sub_trees)
+

@@ -8,7 +8,7 @@ import math
 import torch
 from models.neural import CalculateSelfAttention
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import list_to_tree, tree_to_content_mask, gumbel_softmax_function
+from models.tree_reader import headlist_to_string, tree_to_content_mask, gumbel_softmax_function, tree_building, headlist_to_alignments
 from tool.analysis import Analysis
 
 def tile(x, count, dim=0):
@@ -67,23 +67,17 @@ class Translator(object):
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
-        ext_path = self.args.result_path + '.%d.ext_str' % step
-        sel_path = self.args.result_path + '.%d.select_ids' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
         eid_path = self.args.result_path + '.%d.eid' % step
         alg_path = self.args.result_path + '.%d.alignments' % step
         tree_path = self.args.result_path + '.%d.trees' % step
-        edge_pred_path = self.args.result_path + '.%d.edge' % step
 
         self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
         self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-        self.ext_out_file = codecs.open(ext_path, 'w', 'utf-8')
-        self.sel_out_file = codecs.open(sel_path, 'w', 'utf-8')
         self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
         self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
         self.alg_out_file = codecs.open(alg_path, 'w', 'utf-8')
         self.tree_out_file = codecs.open(tree_path, 'w', 'utf-8')
-        self.edge_out_file = codecs.open(edge_pred_path, 'w', 'utf-8')
 
         self.model.eval()
         with torch.no_grad():
@@ -94,45 +88,27 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid, alignments, selected_sents, selected_ids, tree, height, edge_pred_score, edge_align_label = trans
+                    pred_str, gold_str, src_str, src_list, eid, alignments, trees = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
                     self.eid_out_file.write(eid + '\n')
                     self.alg_out_file.write(alignments + '\n')
-
-                    if selected_sents is not None:
-                        self.ext_out_file.write(selected_sents.strip() + '\n')
-                        self.sel_out_file.write(json.dumps(selected_ids) + '\n')
-
-                    if tree is not None:
-                        tree_structure = {'Tree':tree, 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height}
-                        self.tree_out_file.write(json.dumps(tree_structure) + '\n')
-
-                    if edge_pred_score is not None:
-                        edge_pred_score = [float(item) for item in edge_pred_score]
-                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': len(src_list)}
-                        self.edge_out_file.write(json.dumps(edge_structure) + '\n')
+                    self.tree_out_file.write(json.dumps(trees)+'\n')
 
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
-                self.ext_out_file.flush()
-                self.sel_out_file.flush()
                 self.eid_out_file.flush()
                 self.alg_out_file.flush()
                 self.tree_out_file.flush()
-                self.edge_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
-        self.ext_out_file.close()
-        self.sel_out_file.close()
         self.eid_out_file.close()
         self.alg_out_file.close()
         self.tree_out_file.close()
-        self.edge_out_file.close()
 
 
     def from_batch(self, translation_batch):
@@ -141,26 +117,13 @@ class Translator(object):
         batch_size = batch.batch_size
         preds = translation_batch["predictions"]
         pred_score = translation_batch["scores"]
+        trees = translation_batch["trees"]
     
         src_str = batch.src_str
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
         alg = batch.alg
-
-        trees = None
-        edge_pred_scores = None
-        edge_align_labels = None
-        selected_ids = None
-
-        if "analysis" in translation_batch:
-            if "trees" in translation_batch["analysis"]:
-                trees = translation_batch["analysis"]["trees"]
-            if "edge_ranking" in translation_batch["analysis"]:
-                edge_pred_scores, edge_align_labels = translation_batch["analysis"]["edge_ranking"] 
-
-        if 'selected_ids' in translation_batch:
-            selected_ids = translation_batch["selected_ids"]
 
         translations = []
         for b in range(batch_size):
@@ -176,33 +139,13 @@ class Translator(object):
                 alignments.append(' ; '.join([src_list[idx] for idx in sent]))
             alignments = ' ||| '.join(alignments)
 
-            selected_sents = None; selected_id = None
-            if selected_ids is not None:
-                selected_id = selected_ids[b]
-                selected_sents = '<q>'.join([src_list[id] for id in selected_id if id < len(src_list)])
-
-            tree_str = None; height = None
-            if trees is not None:
-                tree, height = list_to_tree(trees[b])
-                tree_str = ' '.join(tree)
-
-            edge_pred_score = None; edge_align_label = None
-            if edge_pred_scores is not None:
-                edge_pred_score = edge_pred_scores[b]
-                edge_align_label = edge_align_labels[b]
-
             translation = (pred_sent, 
                            gold_sent, 
                            raw_src, 
                            src_list, 
                            eid[b], 
                            alignments,
-                           selected_sents, 
-                           selected_id, 
-                           tree_str, 
-                           height,
-                           edge_pred_score, 
-                           edge_align_label)
+                           trees[b])
 
             translations.append(translation)
 
@@ -241,12 +184,13 @@ class Translator(object):
 
         ## Create trees
         # self-attention using predicates
-        predicates = src >= 32120
+        predicates = (src >= self.args.predicates_start_from_id)
         predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
-        width = max(len(d) for d in predicate_idx)
+        width = mask_cls.size(1)
         predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
         sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
         self_attns = self.self_attn_layer(sents_vec, sents_vec, mask_cls)
+        # we do not set dial as 0 since we want to keep the situation where tripes are independent
         # gumble
         gumble_attns = gumbel_softmax_function(self_attns.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
         # fake root
@@ -254,7 +198,8 @@ class Translator(object):
         # run tree-building
         heads_ret = tree_building(fake_roots, gumble_attns, mask_cls, device)
         # convert to lable format
-
+        labels = [headlist_to_alignments(headlist, mask_cls[i].sum()+1) for i, headlist in enumerate(heads_ret)]
+        # generate stepwise mask
         mask_src = tree_to_content_mask(labels, src, mask_src, tgt_nsent, self.cls_token_id)
 
         # Tile states and memory beam_size times.
@@ -287,6 +232,7 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
+        results["trees"] = labels
 
         for step in range(max_length):
 

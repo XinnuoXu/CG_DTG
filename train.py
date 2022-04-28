@@ -10,7 +10,6 @@ from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
 from train_mixture import train_mix, validate_mix, test_mix
 from train_stepwise import train_stepwise, validate_stepwise, test_stepwise
-from train_treeabs import train_treeabs, validate_treeabs, test_treeabs
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -25,8 +24,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
+    parser.add_argument("-predicates_start_from_id", default=-1, type=int)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'plan'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree'])
     parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree'])
     parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
 
@@ -159,15 +159,15 @@ if __name__ == '__main__':
                 step = 0
             test_stepwise(args, device_id, cp, step)
 
-    elif args.ext_or_abs == 'plan':
+    elif args.ext_or_abs == 'marginal_projective_tree':
         if (args.mode == 'train'):
-            train_treeabs(args, device_id)
+            train_abs(args, device_id)
         elif (args.mode == 'validate'):
-            validate_treeabs(args, device_id)
+            validate_abs(args, device_id)
         if (args.mode == 'test'):
             cp = args.test_from
             try:
                 step = int(cp.split('.')[-2].split('_')[-1])
             except:
                 step = 0
-            test_treeabs(args, device_id, cp, step)
+            test_abs(args, device_id, cp, step)

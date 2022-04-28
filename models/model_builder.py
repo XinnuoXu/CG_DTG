@@ -6,8 +6,8 @@ from torch.nn.init import xavier_uniform_
 from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
-from transformers import AutoModelForSeq2SeqLM
-from models.tree_reader import tree_to_content_mask, tree_building
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from models.tree_reader import tree_to_content_mask, tree_building, gumbel_softmax_function, topn_function
 
 def build_optim_enc_dec(args, model, checkpoint):
     """ Build optimizer """
@@ -117,7 +117,9 @@ class ExtSummarizer(nn.Module):
         self.vocab_size = vocab_size
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
-        if self.vocab_size > self.model.config.vocab_size:
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
@@ -191,8 +193,9 @@ class AbsSummarizer(nn.Module):
         self.cls_token_id = cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
 
-        print (self.vocab_size, self.model.config.vocab_size)
-        if self.vocab_size > self.model.config.vocab_size:
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
@@ -246,7 +249,9 @@ class StepAbsSummarizer(nn.Module):
         self.cls_token_id = cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
 
-        if self.vocab_size > self.model.config.vocab_size:
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
@@ -269,11 +274,17 @@ class StepAbsSummarizer(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, alignments, run_decoder=True):
+    def forward(self, src, tgt, mask_src, mask_tgt, 
+                mask_tgt_sent, tgt_nsent, 
+                clss, mask_cls, alignments, 
+                run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
         content_selection_weights = mask_src
+
+        if not run_decoder:
+            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":content_selection_weights}
 
         content_selection_weights = tree_to_content_mask(alignments, src, mask_src, tgt_nsent, self.cls_token_id)
         mask_tgt = mask_tgt_sent
@@ -284,9 +295,6 @@ class StepAbsSummarizer(nn.Module):
             extend_tgt.extend([tgt[i]]*nsent)
         top_vec = torch.stack(extend_top_vec)
         tgt = torch.stack(extend_tgt)
-
-        if not run_decoder:
-            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":content_selection_weights}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
@@ -353,36 +361,6 @@ class ExtAbsSummarizer(nn.Module):
         self.to(device)
 
 
-    def gumbel_softmax_function(self, scores, tau, top_k):
-        top_k = int(top_k)
-        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
-        gumbels = (scores + gumbels) / tau
-        y_soft = gumbels.softmax(-1)
-        top_k = min(top_k, y_soft.size(1))
-        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
-        value = 1 / top_k
-        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
-        ret = y_hard - y_soft.detach() + y_soft
-        #ret = (ret == value)
-        return ret
-
-
-    def topn_function(self, scores, mask_block, top_n):
-        if top_n >= 1:
-            top_n = int(top_n)
-            indices = torch.topk(scores, min(scores.size(1), top_n))[1]
-            y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
-        else:
-            y_hard = []
-            nsent_selection = (mask_block.sum(dim=1) * top_n).int().tolist()
-            for b in range(len(nsent_selection)):
-                indices = torch.topk(scores[b], nsent_selection[b])[1]
-                y_h = torch.zeros_like(scores[b].contiguous()).scatter_(-1, indices, 1)
-                y_hard.append(y_h)
-            y_hard = torch.stack(y_hard)
-        return y_hard
-
-
     def from_tree_to_mask(self, roots, input_ids, attention_mask, mask_block, gt_selection):
         #root_probs = torch.sum(torch.stack(roots), 0)/len(roots)
         root_probs = roots[-1]
@@ -390,7 +368,7 @@ class ExtAbsSummarizer(nn.Module):
         if self.args.planning_method == 'ground_truth':
             root_probs = gt_selection
         elif self.args.planning_method == 'topk_tree':
-            root_probs = self.topn_function(root_probs, mask_block, self.args.ext_topn)
+            root_probs = topn_function(root_probs, mask_block, self.args.ext_topn)
         elif self.args.planning_method == 'lead_k':
             root_probs = torch.zeros(gt_selection.size(), device=self.device).int()
             root_probs[:, :min(gt_selection.size(1), int(self.args.ext_topn))] = 1
@@ -408,7 +386,7 @@ class ExtAbsSummarizer(nn.Module):
                     root_probs[i][idx] = 1
             root_probs = root_probs * mask_block
         else:
-            root_probs = self.gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
+            root_probs = gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
 
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
@@ -455,10 +433,10 @@ class ExtAbsSummarizer(nn.Module):
 
 
 
-class PlanAbsSummarizer(nn.Module):
+class MarginalProjectiveTreeSumm(nn.Module):
 
     def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_finetune=None, abs_finetune=None):
-        super(PlanAbsSummarizer, self).__init__()
+        super(MarginalProjectiveTreeSumm, self).__init__()
 
         self.args = args
         self.device = device
@@ -467,18 +445,21 @@ class PlanAbsSummarizer(nn.Module):
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
         model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
-        if self.vocab_size > model.config.vocab_size:
-            model.resize_token_embeddings(self.vocab_size)
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
 
         # Encoder for Generator
         self.encoder = model.get_encoder()
-
         # Decoder for Generator
         self.decoder = model.get_decoder()
         self.generator = get_generator(self.vocab_size, model.config.hidden_size, device)
-
-        # Planner (parameters are initialized)
-        self.planning_layer = ExtSummarizer(args, device, vocab_size, ext_finetune, args.content_planning_model)
+        # Tree inference
+        self.planning_layer = TreeInference(self.model.config.hidden_size, 
+                                            args.ext_ff_size, 
+                                            args.ext_dropout, 
+                                            args.ext_layers)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -500,53 +481,31 @@ class PlanAbsSummarizer(nn.Module):
                     else:
                         p.data.zero_()
 
-        if args.freeze_encoder_decoder:
-            for param in self.encoder.parameters():
-                param.requires_grad = False
-            for param in self.decoder.parameters():
-                param.requires_grad = False
-        if args.freeze_tmt:
-            for param in self.planning_layer.parameters():
-                param.requires_grad = False
-
         self.to(device)
 
 
-    def gumbel_softmax_function(self, scores, tau, top_k):
-        top_k = int(top_k)
-        gumbels = -torch.empty_like(scores.contiguous()).exponential_().log()
-        gumbels = (scores + gumbels) / tau
-        y_soft = gumbels.softmax(-1)
-        top_k = min(top_k, y_soft.size(1))
-        indices = torch.topk(y_soft, dim=-1, k=top_k)[1]
-        #value = 1 / top_k
-        value = 1
-        y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, value)
-        ret = y_hard - y_soft.detach() + y_soft
-        #ret = (ret == value)
-        return ret
+    def forward(self, src, tgt, mask_src, mask_tgt, 
+                mask_tgt_sent, tgt_nsent, 
+                clss, mask_cls, alignments, 
+                run_decoder=True):
 
+        # Run encoder
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
 
-    def topn_function(self, scores, mask_block, top_n):
-        if top_n >= 1:
-            top_n = int(top_n)
-            indices = torch.topk(scores, min(scores.size(1), top_n))[1]
-            y_hard = torch.zeros_like(scores.contiguous()).scatter_(-1, indices, 1)
-        else:
-            y_hard = []
-            nsent_selection = (mask_block.sum(dim=1) * top_n).int().tolist()
-            for b in range(len(nsent_selection)):
-                indices = torch.topk(scores[b], nsent_selection[b])[1]
-                y_h = torch.zeros_like(scores[b].contiguous()).scatter_(-1, indices, 1)
-                y_hard.append(y_h)
-            y_hard = torch.stack(y_hard)
-        return y_hard
+        # Extract embedding for predicates
+        predicates = (src >= self.args.predicates_start_from_id)
+        predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
+        width = mask_cls.size(1)
+        predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
+        sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+        print (sents_vec.size(), mask_cls.size())
 
+        sents_vec = sents_vec * mask_cls[:, :, None].float()
+        sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
 
-    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls, run_decoder=True):
 
         # Planner
-        sent_scores_layers, mask_cls, aj_matrixes, _ = self.planning_layer(src, tgt, mask_src, mask_tgt, clss, mask_cls)
         tree_building(sent_scores_layers[0], aj_matrixes[0], mask_cls, src.device)
 
         # Encoder for Generator

@@ -16,8 +16,8 @@ python train.py  \
 	-ext_or_abs abs \
 	-content_planning_model none \
 	-log_file ${LOG_PATH}/train.log \
-	-train_steps 12000 \
-	-save_checkpoint_steps 4000 \
+	-train_steps 6000 \
+	-save_checkpoint_steps 2000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \

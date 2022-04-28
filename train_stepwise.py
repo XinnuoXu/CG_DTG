@@ -14,6 +14,7 @@ import json
 
 import torch
 import distributed
+from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
@@ -21,7 +22,7 @@ from models.model_builder import StepAbsSummarizer
 from models.predictor_stepwise import build_predictor
 from models.trainer_step import build_trainer
 from models.logging import logger, init_logger
-from transformers import AutoTokenizer
+from models.predictor_tree import build_predictor_tree
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
                'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
@@ -271,7 +272,10 @@ def test_stepwise(args, device_id, pt, step):
     model = StepAbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
     model.eval()
 
-    predictor = build_predictor(args, tokenizer, model, logger)
+    if args.inference_mode == 'non_prjective_tree':
+        predictor = build_predictor_tree(args, tokenizer, model, logger)
+    else:
+        predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 

@@ -25,8 +25,8 @@ from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
-               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',]
-               #'model_name']
+               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
+               'model_name']
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -138,6 +138,7 @@ def train_abs_single(args, device_id):
         torch.cuda.set_device(device_id)
         torch.cuda.manual_seed(args.seed)
 
+    # Load checkpoint
     if args.train_from != '':
         logger.info('Loading checkpoint from %s' % args.train_from)
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
@@ -148,12 +149,6 @@ def train_abs_single(args, device_id):
     else:
         checkpoint = None
 
-    if args.load_from_ext != '':
-        logger.info('Loading EXT checkpoint from %s' % args.load_from_ext)
-        ext_checkpoint = torch.load(args.load_from_ext, map_location=lambda storage, loc: storage)
-    else:
-        ext_checkpoint = None
-
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     torch.backends.cudnn.deterministic = True
@@ -162,30 +157,28 @@ def train_abs_single(args, device_id):
         return data_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
                                       args.batch_size, device, shuffle=True, is_test=False)
 
+    # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, ext_checkpoint)
-
-    if args.lr_tmt != -1 and args.lr_enc_dec != -1:
-        optim_enc_dec = model_builder.build_optim_enc_dec(args, model, checkpoint)
-        optim_tmt = model_builder.build_optim_tmt(args, model, checkpoint)
-        optim = [optim_enc_dec, optim_tmt]
+    # Load model
+    if args.ext_or_abs == 'marginal_projective_tree':
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     else:
-        optim = [model_builder.build_optim(args, model, checkpoint)]
+        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+
+    # Load optimizer
+    optim = [model_builder.build_optim(args, model, checkpoint)]
     logger.info(model)
 
+    # Load loss
     symbols = {'PAD': tokenizer.pad_token_id}
     train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
                           train=True, label_smoothing=args.label_smoothing)
+    # Load trainer
+    trainer = build_trainer(args, device_id, model, optim, train_loss)
 
-    if args.abs_plus_ext_loss > 0.0:
-        ext_loss = ConentSelectionLossCompute(args.content_planning_model)
-        trainer = build_trainer(args, device_id, model, optim, train_loss, ext_loss)
-        trainer.train_mix(train_iter_fct, args.train_steps)
-    else:
-        ext_loss = None
-        trainer = build_trainer(args, device_id, model, optim, train_loss)
-        trainer.train(train_iter_fct, args.train_steps)
+    # Start training
+    trainer.train(train_iter_fct, args.train_steps)
 
 
 def validate_abs(args, device_id):

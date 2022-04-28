@@ -13,8 +13,9 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-mode train \
-	-ext_or_abs plan \
+	-ext_or_abs marginal_projective_tree \
 	-content_planning_model tree \
+        -predicates_start_from_id 32101 \
 	-log_file ${LOG_PATH}/train.log \
 	-train_steps 12000 \
 	-save_checkpoint_steps 4000 \
