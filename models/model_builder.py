@@ -443,7 +443,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
-        model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         print (self.vocab_size, len(self.original_tokenizer))
@@ -451,10 +451,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
             self.model.resize_token_embeddings(self.vocab_size)
 
         # Encoder for Generator
-        self.encoder = model.get_encoder()
+        self.encoder = self.model.get_encoder()
         # Decoder for Generator
-        self.decoder = model.get_decoder()
-        self.generator = get_generator(self.vocab_size, model.config.hidden_size, device)
+        self.decoder = self.model.get_decoder()
+        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
         # Tree inference
         self.planning_layer = TreeInference(self.model.config.hidden_size, 
                                             args.ext_ff_size, 

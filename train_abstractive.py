@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer
+from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
