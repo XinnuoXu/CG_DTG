@@ -23,13 +23,15 @@ class Batch(object):
             pre_clss = [x[2] for x in data]
             pre_gt_selection = [x[3] for x in data]
             pre_alg = [x[4] for x in data]
-            nsent = [x[5] for x in data]
+            nsent_src = [x[5] for x in data]
+            nsent_tgt = [x[6] for x in data]
 
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
             mask_tgt = ~(tgt == pad_id)
-            tgt_sentence_mask = self.sent_mask(tgt, mask_tgt, cls_id)
+            src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
+            tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id)
 
             gt_selection = torch.tensor(self._pad(pre_gt_selection, 0))
             clss = torch.tensor(self._pad(pre_clss, -1))
@@ -41,7 +43,8 @@ class Batch(object):
             setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
             setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
-            setattr(self, 'nsent', nsent)
+            setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
+            setattr(self, 'nsent_tgt', nsent_tgt)
 
             setattr(self, 'clss', clss.to(device))
             setattr(self, 'mask_cls', mask_cls.to(device))
@@ -57,7 +60,21 @@ class Batch(object):
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
 
-    def sent_mask(self, tgt, mask_tgt, cls_id):
+    def create_sentlevel_mask_src(self, src, mask_src, cls_id, max_sent_len):
+        src_sentence_mask = []
+        for i, ex_src in enumerate(src):
+            cls_index = (ex_src == cls_id).nonzero(as_tuple=True)[0]
+            cls_index = cls_index.tolist() + [src.size(1)]
+            mask = torch.zeros((max_sent_len, src.size(1)))
+            for j in range(len(cls_index)-1):
+                sid = cls_index[j]
+                eid = cls_index[j+1]
+                mask[j][sid:eid] = 1
+                mask[j] = mask[j] * mask_src[i]
+            src_sentence_mask.append(mask)
+        return torch.stack(src_sentence_mask)
+
+    def create_sentlevel_mask_tgt(self, tgt, mask_tgt, cls_id):
         tgt_sentence_mask = []
         for i, ex_tgt in enumerate(tgt):
             cls_index = (ex_tgt == cls_id).nonzero(as_tuple=True)[0]
@@ -189,7 +206,8 @@ class DataIterator(object):
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
         eid = ex['eid']
-        nsent = ex['nsent']
+        nsent_tgt = ex['nsent_tgt']
+        nsent_src = ex['nsent_src']
         alg = ex['alignments']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
@@ -199,9 +217,9 @@ class DataIterator(object):
         clss = clss[:max_sent_id]
 
         if(is_test):
-            return src, tgt, clss, gt_selection, alg, nsent, src_txt, tgt_txt, eid
+            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, src_txt, tgt_txt, eid
         else:
-            return src, tgt, clss, gt_selection, alg, nsent
+            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

@@ -104,7 +104,8 @@ def _process(params):
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
                        "gt_selection": gt_selection, "clss": cls_ids,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
-                       "nsent":len(tgt), "alignments": alg, "eid": eid}
+                       "nsent_src":len(src), "nsent_tgt":len(tgt), 
+                       "alignments": alg, "eid": eid}
 
         datasets.append(b_data_dict)
         max_src_len = max(max_src_len, len(source_tokens))

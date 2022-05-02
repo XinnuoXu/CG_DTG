@@ -8,6 +8,7 @@ from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from models.tree_reader import tree_to_content_mask, tree_building, gumbel_softmax_function, topn_function
+from models.neural import CalculateSelfAttention
 
 def build_optim_enc_dec(args, model, checkpoint):
     """ Build optimizer """
@@ -460,6 +461,16 @@ class MarginalProjectiveTreeSumm(nn.Module):
                                             args.ext_ff_size, 
                                             args.ext_dropout, 
                                             args.ext_layers)
+        self.softmax = nn.Softmax(dim=-1)
+
+        '''
+        self.planning_layer = CalculateSelfAttention()
+        '''
+
+        # Tree embedding
+        self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
+        self.tree_info_tanh = nn.Tanh()
+        self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -480,18 +491,35 @@ class MarginalProjectiveTreeSumm(nn.Module):
                         xavier_uniform_(p)
                     else:
                         p.data.zero_()
+                print ('Initialize parameters for TreeInference...')
+                if args.param_init != 0.0:
+                    for p in self.planning_layer.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                if args.param_init_glorot:
+                    for p in self.planning_layer.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
+                print ('Initialize parameters for TreeInference...')
+                if args.param_init != 0.0:
+                    for p in self.tree_info_wr.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                if args.param_init_glorot:
+                    for p in self.tree_info_wr.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
 
         self.to(device)
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_tgt_sent, tgt_nsent, 
-                clss, mask_cls, alignments, 
+                mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
+                clss=None, mask_cls=None, labels=None, 
                 run_decoder=True):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
+        content_selection_weights = mask_src
 
         # Extract embedding for predicates
         predicates = (src >= self.args.predicates_start_from_id)
@@ -499,33 +527,41 @@ class MarginalProjectiveTreeSumm(nn.Module):
         width = mask_cls.size(1)
         predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
         sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
-        print (sents_vec.size(), mask_cls.size())
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
-        sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
-
+        roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
+        aj_matrixes = self.softmax(aj_matrixes[-1])
+        '''
+        aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
+        '''
 
         # Planner
-        tree_building(sent_scores_layers[0], aj_matrixes[0], mask_cls, src.device)
+        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
+        # Get children embedding
+        children_embs = torch.matmul(aj_matrixes, sents_vec)
+        # Get parents embedding
+        parents_embs = torch.matmul(aj_matrixes.transpose(1, 2), sents_vec)
+        # Merge tree information
+        tree_info_embs = torch.cat([sents_vec, children_embs, parents_embs], dim=-1)
+        tree_info_embs = self.tree_info_wr(tree_info_embs)
+        tree_info_embs = self.tree_info_tanh(tree_info_embs)
 
-        # Encoder for Generator
-        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
-        top_vec = encoder_outputs.last_hidden_state
+        # Add embedding of tree information to the token embedding
+        top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
+        tree_info_embs = tree_info_embs.unsqueeze(2).repeat((1, 1, src.size(1), 1))
+        top_vec = top_vec + tree_info_embs
+        top_vec = top_vec * mask_src_sent[:, :, :, None].float()
+        top_vec = top_vec.sum(dim=1)
+        top_vec = self.tree_info_layer_norm(top_vec)
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, 
-                    "encoder_attention_mask":content_selection_weights, 
-                    "sent_probs":root_probs,
-                    "sent_relations":aj_matrixes}
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
 
-        # Decoding for Generator
+        # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
-                                       encoder_attention_mask=mask_src,
-                                       content_selection_mask=content_selection_weights)
+                                       encoder_attention_mask=content_selection_weights)
 
-        return decoder_outputs.last_hidden_state, sent_scores_layers
-
-
+        return decoder_outputs.last_hidden_state
 

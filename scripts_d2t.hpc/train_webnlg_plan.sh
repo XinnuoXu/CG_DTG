@@ -26,6 +26,7 @@ python train.py  \
 	-max_tgt_len 250 \
 	-ext_dropout 0.1 \
 	-lr 3e-4 \
+        -tree_gumbel_softmax_tau 0.2 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0
