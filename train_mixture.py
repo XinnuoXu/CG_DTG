@@ -23,7 +23,7 @@ from models.trainer_mix import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
-model_flags = ['ext_layers', 'ext_hidden_size', 'ext_heads', 
+model_flags = ['ext_layers', 'ext_heads', 
                'ext_ff_size', 'tree_gumbel_softmax_tau', 'tokenizer_path',]
 
 

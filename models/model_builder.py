@@ -2,6 +2,7 @@ import copy, random
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
 from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
@@ -219,7 +220,7 @@ class AbsSummarizer(nn.Module):
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_tgt_sent=None, tgt_nsent=None, 
+                mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
                 clss=None, mask_cls=None, labels=None, 
                 run_decoder=True):
 
@@ -468,6 +469,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         '''
 
         # Tree embedding
+        print (self.model.config.hidden_size, self.args.tree_info_dim)
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
         self.tree_info_tanh = nn.Tanh()
         self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
@@ -530,13 +532,20 @@ class MarginalProjectiveTreeSumm(nn.Module):
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
-        aj_matrixes = self.softmax(aj_matrixes[-1])
         '''
         aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
         '''
+        
+        aj_matrixes = aj_matrixes[-1]
+        mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
+        aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
+
+        # Softmax
+        aj_matrixes = self.softmax(aj_matrixes)
+        #aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
+        #aj_matrixes = F.gumbel_softmax(aj_matrixes, tau=self.args.tree_gumbel_softmax_tau, dim=-1)
 
         # Planner
-        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
         # Get children embedding
         children_embs = torch.matmul(aj_matrixes, sents_vec)
         # Get parents embedding

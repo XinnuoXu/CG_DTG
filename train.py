@@ -46,7 +46,6 @@ if __name__ == '__main__':
     parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
     parser.add_argument("-ext_dropout", default=0.2, type=float)
     parser.add_argument("-ext_layers", default=3, type=int)
-    parser.add_argument("-ext_hidden_size", default=768, type=int)
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
@@ -54,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
     parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k'])
     parser.add_argument("-ext_topn", default=3, type=float)
-    parser.add_argument("-tree_info_dim", default=768, type=float)
+    parser.add_argument("-tree_info_dim", default=768, type=int)
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

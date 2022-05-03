@@ -25,7 +25,7 @@ class BertData():
 
         self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
-        if args.tokenizer == 't5-base':
+        if args.tokenizer.startswith('t5-'):
             special_tokens_dict = {"cls_token": "<s>", "bos_token": "<s>"}
             self.tokenizer.add_special_tokens(special_tokens_dict)
 
@@ -54,7 +54,7 @@ class BertData():
 
         src_txt = (' '+self.cls_token+' ').join(src)
         tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt])
-        if self.args.tokenizer == 't5-base':
+        if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
 
