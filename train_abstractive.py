@@ -26,7 +26,7 @@ from models.logging import logger, init_logger
 
 model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
                'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
-               'model_name']
+               'model_name', 'ext_or_abs']
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -230,7 +230,10 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
+    if args.ext_or_abs == 'marginal_projective_tree':
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    else:
+        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
     valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
@@ -261,7 +264,10 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, None)
+    if args.ext_or_abs == 'marginal_projective_tree':
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    else:
+        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
     if args.inference_mode == 'non_prjective_tree':

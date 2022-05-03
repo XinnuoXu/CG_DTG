@@ -185,7 +185,7 @@ def get_generator(vocab_size, dec_hidden_size, device):
 
 
 class AbsSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_checkpoint=None):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None):
         super(AbsSummarizer, self).__init__()
         self.args = args
         self.device = device
@@ -436,7 +436,7 @@ class ExtAbsSummarizer(nn.Module):
 
 class MarginalProjectiveTreeSumm(nn.Module):
 
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_finetune=None, abs_finetune=None):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, abs_finetune=None):
         super(MarginalProjectiveTreeSumm, self).__init__()
 
         self.args = args

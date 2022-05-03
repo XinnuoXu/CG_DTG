@@ -132,7 +132,10 @@ class Trainer(object):
             mask_cls = batch.mask_cls
             labels = batch.alg
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, clss=clss, mask_cls=mask_cls, labels=labels, mask_src_sent=mask_src_sent)
+            outputs = self.model(src, tgt, mask_src, mask_tgt, 
+                                 clss=clss, mask_cls=mask_cls, 
+                                 labels=labels, mask_src_sent=mask_src_sent)
+
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
 
@@ -172,15 +175,19 @@ class Trainer(object):
 
         with torch.no_grad():
             for batch in valid_iter:
+
                 src = batch.src
                 mask_src = batch.mask_src
+                mask_src_sent = batch.mask_src_sent
                 tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
                 clss = batch.clss
                 mask_cls = batch.mask_cls
                 labels = batch.alg
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls, labels)
+                outputs = self.model(src, tgt, mask_src, mask_tgt, 
+                                     clss=clss, mask_cls=mask_cls, 
+                                     labels=labels, mask_src_sent=mask_src_sent)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

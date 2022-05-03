@@ -4,29 +4,23 @@ BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
 MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.plan/
 LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.plan/
 
-mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
-python train.py  \
+python train.py \
+	-mode test \
 	-input_path ${BERT_DATA_PATH} \
-	-model_name t5-base \
-	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-mode train \
+	-test_from ${MODEL_PATH}/model_step_4000.pt \
+	-result_path ${LOG_PATH}/test.res \
+	-log_file ${LOG_PATH}/test.log \
+        -model_name t5-base \
 	-ext_or_abs marginal_projective_tree \
 	-content_planning_model tree \
+	-inference_mode abs \
         -predicates_start_from_id 32101 \
-	-log_file ${LOG_PATH}/train.log \
-	-train_steps 12000 \
-	-save_checkpoint_steps 4000 \
-	-warmup_steps 1000 \
-	-batch_size 3000 \
-	-report_every 100 \
-	-max_pos 250 \
-	-max_tgt_len 250 \
-	-ext_dropout 0.1 \
-	-lr 3e-4 \
-        -tree_gumbel_softmax_tau 0.2 \
-        -decay_method linear_warmup \
-	-accum_count 2 \
-	-visible_gpus 0,1,2
+	-block_trigram true \
+	-max_pos 150 \
+	-batch_size 6000 \
+        -test_min_length 10 \
+        -test_max_length 150 \
+	-visible_gpus 0 \
