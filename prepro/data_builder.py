@@ -93,10 +93,10 @@ def _process(params):
     datasets = []; max_src_len = 0; max_tgt_len = 0
     for d in jobs:
         eid = d['example_id']
-        sent_labels = d['selections']
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
+        sent_labels = d['selections']
 
         b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg)
         source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
