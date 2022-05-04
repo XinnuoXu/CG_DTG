@@ -437,13 +437,13 @@ class ExtAbsSummarizer(nn.Module):
 
 class MarginalProjectiveTreeSumm(nn.Module):
 
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, abs_finetune=None):
+    def __init__(self, args, device, tokenizer, vocab_size, checkpoint=None, abs_finetune=None):
         super(MarginalProjectiveTreeSumm, self).__init__()
 
         self.args = args
         self.device = device
         self.vocab_size = vocab_size
-        self.cls_token_id = cls_token_id
+        self.cls_token_id = tokenizer.cls_token_id
         self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
@@ -469,10 +469,11 @@ class MarginalProjectiveTreeSumm(nn.Module):
         '''
 
         # Tree embedding
-        print (self.model.config.hidden_size, self.args.tree_info_dim)
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
+        #self.tree_info_wr = nn.Linear(self.model.config.hidden_size, self.args.tree_info_dim, bias=True)
         self.tree_info_tanh = nn.Tanh()
         self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
+        self.root_and_end_ids = torch.Tensor(tokenizer.convert_tokens_to_ids(['-Pred-ROOT', '-Pred-END'])).int().to(device)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -536,20 +537,35 @@ class MarginalProjectiveTreeSumm(nn.Module):
         aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
         '''
         
+        roots = roots[-1]
+        reverse_mask = (~ mask_cls).bool()
+        roots = roots.masked_fill(reverse_mask, float('-inf'))
+
         aj_matrixes = aj_matrixes[-1]
         mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
         aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
 
         # Softmax
+        roots = self.softmax(roots)
         aj_matrixes = self.softmax(aj_matrixes)
-        #aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
+        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
         #aj_matrixes = F.gumbel_softmax(aj_matrixes, tau=self.args.tree_gumbel_softmax_tau, dim=-1)
 
         # Planner
+        root_and_end_embeddings = self.encoder.embed_tokens(self.root_and_end_ids)
+        root_embedding = root_and_end_embeddings[0]
+        child_end_embedding = root_and_end_embeddings[1]
         # Get children embedding
         children_embs = torch.matmul(aj_matrixes, sents_vec)
+        child_end_embedding = child_end_embedding.unsqueeze(0).unsqueeze(0).expand_as(children_embs)
+        children_embs += child_end_embedding * 1e-5
         # Get parents embedding
         parents_embs = torch.matmul(aj_matrixes.transpose(1, 2), sents_vec)
+        root_embedding = root_embedding.unsqueeze(0).expand(parents_embs.size(0), parents_embs.size(-1))
+        root_embedding = root_embedding.unsqueeze(1)
+        roots = roots.unsqueeze(2)
+        parents_embs = parents_embs + torch.matmul(roots, root_embedding)
+        
         # Merge tree information
         tree_info_embs = torch.cat([sents_vec, children_embs, parents_embs], dim=-1)
         tree_info_embs = self.tree_info_wr(tree_info_embs)

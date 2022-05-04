@@ -1,8 +1,10 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.base/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
+BASE_DIR=./outputs.webnlg/
+
+BERT_DATA_PATH=${BASE_DIR}/data/
+MODEL_PATH=${BASE_DIR}/models.base/
+LOG_PATH=${BASE_DIR}/logs.base/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

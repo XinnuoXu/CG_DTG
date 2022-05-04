@@ -24,9 +24,8 @@ from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
 
-model_flags = ['hidden_size', 'ff_size', 'heads', 'emb_size', 'enc_layers', 'enc_hidden_size', 'enc_ff_size',
-               'dec_layers', 'dec_hidden_size', 'dec_ff_size', 'encoder', 'ff_actv', 'use_interval',
-               'model_name', 'ext_or_abs']
+model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 'predicates_start_from_id', 'content_planning_model',
+               'ext_layers', 'ext_heads', 'ext_ff_size', 'tree_info_dim',]
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -162,7 +161,7 @@ def train_abs_single(args, device_id):
 
     # Load model
     if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
 
@@ -231,7 +230,7 @@ def validate(args, device_id, pt, step):
     symbols = {'PAD': tokenizer.pad_token_id}
 
     if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
@@ -265,7 +264,7 @@ def test_abs(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()

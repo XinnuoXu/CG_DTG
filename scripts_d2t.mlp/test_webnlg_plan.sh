@@ -3,26 +3,26 @@
 BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.base/
-LOG_PATH=${BASE_DIR}/logs.base/
+MODEL_PATH=${BASE_DIR}/models.plan/
+LOG_PATH=${BASE_DIR}/logs.plan/
 
-mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode test \
-        -model_name t5-small \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_4000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
-	-ext_or_abs abs \
-	-content_planning_model none \
-        -inference_mode abs \
+        -model_name t5-small \
+	-ext_or_abs marginal_projective_tree \
+	-content_planning_model tree \
+	-inference_mode abs \
+        -predicates_start_from_id 32101 \
 	-block_trigram true \
-	-max_pos 250 \
+	-max_pos 150 \
 	-batch_size 6000 \
         -test_min_length 10 \
-        -test_max_length 250 \
+        -test_max_length 150 \
 	-visible_gpus 0 \

@@ -11,21 +11,21 @@ mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py  \
+	-mode train \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
-	-model_name ./t5-small \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-mode train \
+	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
 	-content_planning_model none \
-	-log_file ${LOG_PATH}/train.log \
+	-model_name ./t5-small \
 	-train_steps 12000 \
 	-save_checkpoint_steps 4000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \
-	-max_pos 150 \
-	-max_tgt_len 150 \
+	-max_pos 250 \
+	-max_tgt_len 250 \
 	-ext_dropout 0.1 \
 	-lr 3e-4 \
         -decay_method linear_warmup \

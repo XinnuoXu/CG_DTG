@@ -3,38 +3,35 @@
 import sys, os
 
 path_prefix = sys.argv[1] #'./outputs.webnlg/logs.base/test.res.5000'
-target_format = sys.argv[2] # ['one-to-one', 'first-to-many', 'first-to-first']
 
-def first_to_many(example_ids, refereces, candidates):
+def postprocess(string):
+    string = string.replace('.', ' . ').replace(',', ' , ').replace('\'', ' \' ').replace('/', ' / ')
+    string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ')
+    return string
 
-    res = {}
-    for i, example_id in enumerate(example_ids):
-        reference = refereces[i].replace('<q>', ' ')
-        candidate = candidates[i].replace('<q>', ' ')
-        eid, rid = example_id.split('_')
-        if eid not in res:
-            res[eid] = {'ref':[], 'cand':''}
-        if rid == 'Id1':
-            res[eid]['cand'] = candidate
-        if rid in ['Id1', 'Id2', 'Id3']:
-            res[eid]['ref'].append(reference)
+def process(refereces, candidates):
 
     fpout_cand = open(path_prefix+'.bleu_cand', 'w')
     fpout_ref1 = open(path_prefix+'.bleu_ref1', 'w')
     fpout_ref2 = open(path_prefix+'.bleu_ref2', 'w')
     fpout_ref3 = open(path_prefix+'.bleu_ref3', 'w')
 
-    for eid in res:
-        ref = res[eid]['ref']
-        cand = res[eid]['cand']
-        fpout_cand.write(cand+'\n')
-        fpout_ref1.write(ref[0]+'\n')
+    for i in range(len(refereces)):
+        references = refereces[i].replace('<q>', ' ')
+        candidate = candidates[i].replace('<q>', ' ')
+
+        references = postprocess(references)
+        candidate = postprocess(candidate)
+        ref = references.split('<ref - sep> ')[1:]
+
+        fpout_cand.write(candidate+'\n')
+        fpout_ref1.write(ref[0].strip()+'\n')
         if len(ref) > 1:
-            fpout_ref2.write(ref[1]+'\n')
+            fpout_ref2.write(ref[1].strip()+'\n')
         else:
             fpout_ref2.write('\n')
         if len(ref) > 2:
-            fpout_ref3.write(ref[2]+'\n')
+            fpout_ref3.write(ref[2].strip()+'\n')
         else:
             fpout_ref3.write('\n')
 
@@ -45,9 +42,7 @@ def first_to_many(example_ids, refereces, candidates):
 
 
 if __name__ == '__main__':
-    example_ids = [line.strip() for line in open(path_prefix+'.eid')]
     refereces = [line.strip() for line in open(path_prefix+'.gold')]
     candidates = [line.strip() for line in open(path_prefix+'.candidate')]
-    if target_format == 'first-to-many':
-        first_to_many(example_ids, refereces, candidates)
+    process(refereces, candidates)
     
