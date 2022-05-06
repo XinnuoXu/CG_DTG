@@ -9,7 +9,7 @@ from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from models.tree_reader import tree_to_content_mask, tree_building, gumbel_softmax_function, topn_function
-from models.neural import CalculateSelfAttention
+from models.neural import SimpleSelfAttention
 
 def build_optim_enc_dec(args, model, checkpoint):
     """ Build optimizer """
@@ -458,19 +458,17 @@ class MarginalProjectiveTreeSumm(nn.Module):
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
         # Tree inference
-        self.planning_layer = TreeInference(self.model.config.hidden_size, 
-                                            args.ext_ff_size, 
-                                            args.ext_dropout, 
-                                            args.ext_layers)
+        if args.planning_method == 'self_attn':
+            self.planning_layer = SimpleSelfAttention(self.model.config.hidden_size)
+        else:
+            self.planning_layer = TreeInference(self.model.config.hidden_size, 
+                                                args.ext_ff_size, 
+                                                args.ext_dropout, 
+                                                args.ext_layers)
         self.softmax = nn.Softmax(dim=-1)
-
-        '''
-        self.planning_layer = CalculateSelfAttention()
-        '''
 
         # Tree embedding
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
-        #self.tree_info_wr = nn.Linear(self.model.config.hidden_size, self.args.tree_info_dim, bias=True)
         self.tree_info_tanh = nn.Tanh()
         self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
         self.root_and_end_ids = torch.Tensor(tokenizer.convert_tokens_to_ids(['-Pred-ROOT', '-Pred-END'])).int().to(device)
@@ -532,24 +530,26 @@ class MarginalProjectiveTreeSumm(nn.Module):
         sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
-        roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
-        '''
-        aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
-        '''
+        if self.args.planning_method == 'self_attn':
+            aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
+            roots = None
+        else:
+            roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
+            aj_matrixes = aj_matrixes[-1]
         
-        roots = roots[-1]
-        reverse_mask = (~ mask_cls).bool()
-        roots = roots.masked_fill(reverse_mask, float('-inf'))
-
-        aj_matrixes = aj_matrixes[-1]
+        # Softmax aj_matrixes
         mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
         aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
-
-        # Softmax
-        roots = self.softmax(roots)
         aj_matrixes = self.softmax(aj_matrixes)
         aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
         #aj_matrixes = F.gumbel_softmax(aj_matrixes, tau=self.args.tree_gumbel_softmax_tau, dim=-1)
+
+        # Softmax roots
+        if roots is not None:
+            roots = roots[-1]
+            reverse_mask = (~ mask_cls).bool()
+            roots = roots.masked_fill(reverse_mask, float('-inf'))
+            roots = self.softmax(roots)
 
         # Planner
         root_and_end_embeddings = self.encoder.embed_tokens(self.root_and_end_ids)
@@ -563,8 +563,11 @@ class MarginalProjectiveTreeSumm(nn.Module):
         parents_embs = torch.matmul(aj_matrixes.transpose(1, 2), sents_vec)
         root_embedding = root_embedding.unsqueeze(0).expand(parents_embs.size(0), parents_embs.size(-1))
         root_embedding = root_embedding.unsqueeze(1)
-        roots = roots.unsqueeze(2)
-        parents_embs = parents_embs + torch.matmul(roots, root_embedding)
+        if roots is not None:
+            roots = roots.unsqueeze(2)
+            parents_embs = parents_embs + torch.matmul(roots, root_embedding)
+        else:
+            parents_embs += root_embedding * 1e-5
         
         # Merge tree information
         tree_info_embs = torch.cat([sents_vec, children_embs, parents_embs], dim=-1)

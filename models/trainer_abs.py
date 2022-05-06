@@ -1,4 +1,4 @@
-import os
+import os, json
 
 import numpy as np
 import torch
@@ -7,6 +7,7 @@ import distributed
 from models.reporter_abs import ReportMgr, Statistics
 from models.reporter_ext import ReportMgrExt, StatisticsExt
 from models.logging import logger
+from tool.debug_tool import parameter_reporter
 
 def _tally_parameters(model):
     n_params = sum([p.nelement() for p in model.parameters()])
@@ -51,6 +52,11 @@ class Trainer(object):
 
         self.report_manager = ReportMgr(args.report_every, start_time=-1)
         self.report_manager_ext = ReportMgrExt(args.report_every, start_time=-1)
+
+        if args.log_gradient == '':
+            self.log_gradient = None
+        else:
+            self.log_gradient = open(args.log_gradient, 'w')
 
         assert grad_accum_count > 0
         # Set model in training mode.
@@ -141,6 +147,10 @@ class Trainer(object):
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
+
+            if self.log_gradient is not None:
+                gradients = parameter_reporter(self.model)
+                self.log_gradient.write(json.dumps(gradients)+'\n')
 
             # 4. Update the parameters and statistics.
             if self.grad_accum_count == 1:

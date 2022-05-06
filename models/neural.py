@@ -442,6 +442,28 @@ class MultiHeadedAttention(nn.Module):
         # Return one attn
 
 
+class SimpleSelfAttention(nn.Module):
+
+    def __init__(self, model_dim, dropout=0.1):
+        super(SimpleSelfAttention, self).__init__()
+        self.linear_keys = nn.Linear(model_dim, model_dim)
+        self.linear_query = nn.Linear(model_dim, model_dim)
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, key, query, mask=None):
+
+        key = self.linear_keys(key)
+        query = self.linear_query(query)
+        query = query / math.sqrt(query.size(-1))
+        scores = torch.matmul(query, key.transpose(1, 2))
+        if mask is not None:
+            mask = mask.unsqueeze(1).expand_as(scores)
+            scores = scores.masked_fill(~mask, -1e18)
+        attn = self.softmax(scores)
+
+        return attn
+
+
 class CalculateSelfAttention(nn.Module):
 
     def __init__(self, dropout=0.1):

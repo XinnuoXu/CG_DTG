@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#BASE_DIR=./outputs.webnlg/
-BASE_DIR=${SCRATCH_DIR}
+BASE_DIR=./outputs.webnlg/
+#BASE_DIR=${SCRATCH_DIR}
 
 BERT_DATA_PATH=${BASE_DIR}/data/
 MODEL_PATH=${BASE_DIR}/models.base/
@@ -16,6 +16,7 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+        -log_gradient ${LOG_PATH}/gradient.log \
 	-ext_or_abs abs \
 	-content_planning_model none \
 	-model_name ./t5-small \
@@ -30,5 +31,5 @@ python train.py  \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0,1,2
+	-visible_gpus 0
 

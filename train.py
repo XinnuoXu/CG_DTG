@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("-result_path", default='../results/cnndm')
     parser.add_argument("-temp_dir", default='./temp')
     parser.add_argument('-log_file', default='../logs/cnndm.log')
+    parser.add_argument('-log_gradient', default='')
 
     # data parameters
     parser.add_argument("-batch_size", default=140, type=int)
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
-    parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k'])
+    parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k', 'self_attn'])
     parser.add_argument("-ext_topn", default=3, type=float)
     parser.add_argument("-tree_info_dim", default=768, type=int)
 

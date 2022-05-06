@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#BASE_DIR=./outputs.webnlg/
-BASE_DIR=${SCRATCH_DIR}
+BASE_DIR=./outputs.webnlg/
+#BASE_DIR=${SCRATCH_DIR}
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.plan/
-LOG_PATH=${BASE_DIR}/logs.plan/
+MODEL_PATH=${BASE_DIR}/models.plan.777/
+LOG_PATH=${BASE_DIR}/logs.plan.777/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -16,9 +16,9 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+        -log_gradient ${LOG_PATH}/gradient.log \
 	-ext_or_abs marginal_projective_tree \
 	-content_planning_model tree \
-        -planning_method self_attn \
         -predicates_start_from_id 32101 \
 	-model_name t5-small \
         -tree_info_dim 512 \
@@ -34,4 +34,5 @@ python train.py  \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0,1,2
+        -seed 777 \
+	-visible_gpus 0
