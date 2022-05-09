@@ -106,10 +106,13 @@ class StructuredAttention(nn.Module):
         self.linear_query = nn.Linear(model_dim, self.model_dim)
         self.linear_root = nn.Linear(model_dim, 1)
         self.dropout = nn.Dropout(dropout)
+        self.softmax = nn.Softmax(dim=-1)
 
     def _getMatrixTree_multi(self, scores, root):
         A = scores.exp()
         R = root.exp()
+        #A = self.softmax(scores)
+        #R = self.softmax(root)
 
         L = torch.sum(A, 1)
         L = torch.diag_embed(L)
@@ -144,8 +147,6 @@ class StructuredAttention(nn.Module):
         scores = scores - mask * 50
         scores = scores - torch.transpose(mask, 1, 2) * 50
         scores = torch.clamp(scores, min=-40)
-        # _logits = _logits + (tf.transpose(bias, [0, 2, 1]) - 1) * 40
-        # _logits = tf.clip_by_value(_logits, -40, 1e10)
 
         d, d0 = self._getMatrixTree_multi(scores, root)
         attn = torch.transpose(d, 1,2)
@@ -172,6 +173,7 @@ class TreeInference(nn.Module):
         sent_vec = sent_vec + global_pos_emb
 
         sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
+        #sent_vec = self.layer_norm2(sent_vec)
         structure_vec = sent_vec
 
         roots = []; structure_vecs = []; attns = []

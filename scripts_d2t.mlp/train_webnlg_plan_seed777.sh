@@ -35,4 +35,6 @@ python train.py  \
         -decay_method linear_warmup \
 	-accum_count 2 \
         -seed 777 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2
+        
+        #-planning_method self_attn \

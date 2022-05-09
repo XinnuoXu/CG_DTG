@@ -541,7 +541,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
         aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
         aj_matrixes = self.softmax(aj_matrixes)
-        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1, 2), self.args.tree_gumbel_softmax_tau, 1).transpose(1, 2)
+        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), self.args.tree_gumbel_softmax_tau, 1).transpose(1,2)
         #aj_matrixes = F.gumbel_softmax(aj_matrixes, tau=self.args.tree_gumbel_softmax_tau, dim=-1)
 
         # Softmax roots

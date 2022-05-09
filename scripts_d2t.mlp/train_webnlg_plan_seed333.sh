@@ -1,7 +1,7 @@
 #!/bin/bash
 
-BASE_DIR=./outputs.webnlg/
-#BASE_DIR=${SCRATCH_DIR}
+#BASE_DIR=./outputs.webnlg/
+BASE_DIR=${SCRATCH_DIR}
 
 BERT_DATA_PATH=${BASE_DIR}/data/
 MODEL_PATH=${BASE_DIR}/models.plan.333/
@@ -18,6 +18,7 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs marginal_projective_tree \
 	-content_planning_model tree \
+        -planning_method self_attn \
         -predicates_start_from_id 32101 \
 	-model_name t5-small \
         -tree_info_dim 512 \

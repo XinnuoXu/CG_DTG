@@ -60,17 +60,17 @@ def read_gradient_file(filename, output_file):
                 sort_info[para] = max(parameter_log[key][para])
             print (key+':')
             for item in sorted(sort_info.items(), key = lambda d:d[1], reverse = True)[:5]:
-                print (item[0], parameter_log[key][item[0]][0], parameter_log[key][item[0]][-1])
+                print (item[0], parameter_log[key][item[0]][0], parameter_log[key][item[0]][-1], max(parameter_log[key][item[0]]))
 
         if key.endswith('-min'):
             for para in parameter_log[key]:
                 sort_info[para] = min(parameter_log[key][para])
             print (key+':')
             for item in sorted(sort_info.items(), key = lambda d:d[1])[:5]:
-                print (item[0], parameter_log[key][item[0]][0], parameter_log[key][item[0]][-1])
+                print (item[0], parameter_log[key][item[0]][0], parameter_log[key][item[0]][-1], min(parameter_log[key][item[0]]))
 
         print ('\n')
 
 if __name__ == '__main__':
-    #read_gradient_file('./outputs.webnlg/logs.plan.777/gradient.log', './outputs.webnlg/logs.plan.777/gradient')
-    read_gradient_file('./outputs.webnlg/logs.base/gradient.log', './outputs.webnlg/logs.base/gradient')
+    read_gradient_file('./outputs.webnlg/logs.plan.777/gradient.log', './outputs.webnlg/logs.plan.777/gradient')
+    #read_gradient_file('./outputs.webnlg/logs.base/gradient.log', './outputs.webnlg/logs.base/gradient')

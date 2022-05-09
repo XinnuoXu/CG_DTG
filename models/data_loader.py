@@ -181,7 +181,6 @@ class DataIterator(object):
         self.iterations = 0
         self.device = device
         self.shuffle = shuffle
-        print (args.tokenizer_path)
         self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
         if self.tokenizer.cls_token_id is None:
             self.cls_token = self.tokenizer.eos_token

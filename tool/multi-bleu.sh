@@ -5,6 +5,9 @@
 #path_prefix='./outputs.webnlg/logs.tree_during_infer/test.res.4000'
 #path_prefix='./outputs.webnlg/logs.base/test.res.4000'
 path_prefix='./outputs.webnlg/logs.plan/test.res.4000'
+#path_prefix='./outputs.webnlg/logs.plan.777/test.res.4000'
+#path_prefix='./outputs.webnlg/logs.plan.333/test.res.4000'
+#path_prefix='./outputs.webnlg/logs.plan.self-attn/test.res.4000'
 #path_prefix='./outputs.webnlg/logs.plan.no_gbsoftmax/test.res.4000'
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix}

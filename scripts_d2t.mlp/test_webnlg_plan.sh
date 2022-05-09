@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR=/home/s1687314/Planning/Tree_enc_dec/outputs.webnlg/
+BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
 MODEL_PATH=${BASE_DIR}/models.plan/
