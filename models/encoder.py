@@ -111,8 +111,6 @@ class StructuredAttention(nn.Module):
     def _getMatrixTree_multi(self, scores, root):
         A = scores.exp()
         R = root.exp()
-        #A = self.softmax(scores)
-        #R = self.softmax(root)
 
         L = torch.sum(A, 1)
         L = torch.diag_embed(L)
@@ -141,11 +139,11 @@ class StructuredAttention(nn.Module):
 
         key = self.linear_keys(x)
         query = self.linear_query(x)
-        root = self.linear_root(x).squeeze(-1)
-
         query = query / math.sqrt(self.model_dim)
         scores = torch.matmul(query, key.transpose(1, 2))
         scores = nn.functional.normalize(scores) # not in the original code
+
+        root = self.linear_root(x).squeeze(-1)
 
         mask = mask.float()
         root = root - mask.squeeze(1) * 50
