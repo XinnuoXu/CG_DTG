@@ -24,7 +24,8 @@ from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
 
-model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'tokenizer_path', 'predicates_start_from_id', 
+model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'sentence_embedding', 
+               'tokenizer_path', 'predicates_start_from_id', 
                'ext_layers', 'ext_heads', 'ext_ff_size', 'tree_info_dim',]
 
 def str2bool(v):

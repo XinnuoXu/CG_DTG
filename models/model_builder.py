@@ -467,6 +467,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
                                                 args.ext_layers)
         self.softmax = nn.Softmax(dim=-1)
 
+        # Sentence embedding
+        if self.args.sentence_embedding == 'maxpool':
+            self.maxpool_linear = nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size, bias=True)
+
         # Tree embedding
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
         self.tree_info_tanh = nn.Tanh()
@@ -508,9 +512,15 @@ class MarginalProjectiveTreeSumm(nn.Module):
                     for p in self.tree_info_wr.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
-
         self.to(device)
 
+    def _get_sentence_maxpool(self, top_vec, mask_src_sent):
+        top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
+        mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
+        top_vec = top_vec.masked_fill(~mask_src_sent.bool(), -1e18)
+        sents_vec = torch.max(top_vec, -2)[0]
+        sents_vec = self.maxpool_linear(sents_vec)
+        return sents_vec
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
@@ -530,7 +540,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
             predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
         else:
-            
+            sents_vec = self._get_sentence_maxpool(top_vec, mask_src_sent)
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         if self.args.planning_method == 'self_attn':

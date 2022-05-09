@@ -215,6 +215,7 @@ class DataIterator(object):
         max_sent_id = bisect.bisect_left(clss, self.args.max_pos)
         gt_selection = gt_selection[:max_sent_id]
         clss = clss[:max_sent_id]
+        nsent_src = len(clss)
 
         if(is_test):
             return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, src_txt, tgt_txt, eid

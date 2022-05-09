@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/plan.777
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/plan.777
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/plan.333
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/plan.333
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
@@ -37,8 +37,8 @@ echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data/ ${SCR
 # ====================
 #sh ./scripts_d2t.mlp/train_webnlg_base.sh 
 #sh ./scripts_d2t.mlp/train_webnlg_plan.sh 
-sh ./scripts_d2t.mlp/train_webnlg_plan_seed777.sh
-#sh ./scripts_d2t.mlp/train_webnlg_plan_seed333.sh
+#sh ./scripts_d2t.mlp/train_webnlg_plan_seed777.sh
+sh ./scripts_d2t.mlp/train_webnlg_plan_seed333.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system

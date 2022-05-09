@@ -3,8 +3,8 @@
 BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.plan/
-LOG_PATH=${BASE_DIR}/logs.plan/
+MODEL_PATH=${BASE_DIR}/models.plan.333/
+LOG_PATH=${BASE_DIR}/logs.plan.333/
 
 mkdir -p ${LOG_PATH}
 
@@ -17,7 +17,6 @@ python train.py \
 	-log_file ${LOG_PATH}/test.log \
         -model_name t5-small \
 	-ext_or_abs marginal_projective_tree \
-	-content_planning_model tree \
 	-inference_mode abs \
         -predicates_start_from_id 32101 \
 	-block_trigram true \

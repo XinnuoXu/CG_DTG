@@ -17,8 +17,6 @@ python train.py  \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs marginal_projective_tree \
-	-content_planning_model tree \
-        -planning_method self_attn \
         -sentence_embedding predicate \
         -predicates_start_from_id 32101 \
 	-model_name t5-small \
@@ -37,3 +35,5 @@ python train.py  \
 	-accum_count 2 \
         -seed 333 \
 	-visible_gpus 0,1,2
+
+        #-planning_method self_attn \
