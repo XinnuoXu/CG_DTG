@@ -25,7 +25,7 @@ from models.predictor_tree import build_predictor_tree
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'tokenizer_path', 'predicates_start_from_id', 
-               'content_planning_model', 'ext_layers', 'ext_heads', 'ext_ff_size', 'tree_info_dim',]
+               'ext_layers', 'ext_heads', 'ext_ff_size', 'tree_info_dim',]
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):

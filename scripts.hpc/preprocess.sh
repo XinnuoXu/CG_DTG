@@ -12,7 +12,7 @@ LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.cnn_dm/logs/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${BERT_DATA_PATH}
-#rm -rf ${BERT_DATA_PATH}/*
+rm -rf ${BERT_DATA_PATH}/*
 
 python preprocess.py \
 	-mode format_for_training \

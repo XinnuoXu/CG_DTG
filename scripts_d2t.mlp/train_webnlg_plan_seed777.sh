@@ -19,6 +19,7 @@ python train.py  \
         -log_gradient ${LOG_PATH}/gradient.log \
 	-ext_or_abs marginal_projective_tree \
 	-content_planning_model tree \
+        -sentence_embedding predicate \
         -predicates_start_from_id 32101 \
 	-model_name t5-small \
         -tree_info_dim 512 \

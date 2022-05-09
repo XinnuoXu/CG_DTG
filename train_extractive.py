@@ -92,7 +92,7 @@ def validate(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.content_planning_model)
+    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.sentence_modelling_for_ext)
     model.eval()
 
     valid_iter = data_loader.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
@@ -118,7 +118,7 @@ def test_ext(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.content_planning_model)
+    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.sentence_modelling_for_ext)
     model.eval()
 
     test_iter = data_loader.Dataloader(args, load_dataset(args, args.test_data_source, shuffle=False),
@@ -207,7 +207,7 @@ def train_single_ext(args, device_id):
 
     print (args.tokenizer_path)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.content_planning_model)
+    model = ExtSummarizer(args, device, len(tokenizer), checkpoint, args.sentence_modelling_for_ext)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

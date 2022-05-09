@@ -27,8 +27,6 @@ if __name__ == '__main__':
     parser.add_argument("-predicates_start_from_id", default=-1, type=int)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
     parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree'])
-    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree'])
-    parser.add_argument("-content_planning_model", default='', type=str, choices=['transformer', 'tree', 'none'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')
@@ -42,13 +40,15 @@ if __name__ == '__main__':
     parser.add_argument("-max_pos", default=1024, type=int)
     parser.add_argument("-max_tgt_len", default=250, type=int)
 
-    # planning parameters
-    parser.add_argument("-param_init", default=0, type=float)
-    parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
+    # parameters for extractive models and tmt
     parser.add_argument("-ext_dropout", default=0.2, type=float)
     parser.add_argument("-ext_layers", default=3, type=int)
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
+    parser.add_argument("-sentence_modelling_for_ext", default='', type=str, choices=['transformer', 'tree', 'none'])
+
+    # planning parameters
+    parser.add_argument("-sentence_embedding", default='maxpool', type=str, choices=['predicate', 'maxpool'])
     parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
@@ -63,6 +63,8 @@ if __name__ == '__main__':
     parser.add_argument("-beam_size", default=5, type=int)
 
     # traning parameters
+    parser.add_argument("-param_init", default=0, type=float)
+    parser.add_argument("-param_init_glorot", type=str2bool, nargs='?',const=True,default=True)
     parser.add_argument("-optim", default='adam', type=str)
     parser.add_argument("-lr", default=1, type=float)
     parser.add_argument("-lr_tmt", default=-1, type=float)
@@ -88,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument("-abs_plus_ext_loss", type=float, nargs='?', default=0.0)
 
     # test parameters
+    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree'])
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)

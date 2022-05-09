@@ -184,7 +184,7 @@ def train_mix_single(args, device_id):
     symbols = {'PAD': tokenizer.pad_token_id}
     abstractive_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
                           train=True, label_smoothing=args.label_smoothing)
-    extractive_loss = ConentSelectionLossCompute(args.content_planning_model)
+    extractive_loss = ConentSelectionLossCompute(args.sentence_modelling_for_ext)
 
     # Create trainer and run 
     trainer = build_trainer(args, device_id, model, optim, abstractive_loss, extractive_loss)

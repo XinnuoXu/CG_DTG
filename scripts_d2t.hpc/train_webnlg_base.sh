@@ -21,8 +21,8 @@ python train.py  \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \
-	-max_pos 150 \
-	-max_tgt_len 150 \
+	-max_pos 250 \
+	-max_tgt_len 250 \
 	-ext_dropout 0.1 \
 	-lr 3e-4 \
         -decay_method linear_warmup \

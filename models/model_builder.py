@@ -112,7 +112,7 @@ def build_optim(args, model, checkpoint):
 
 
 class ExtSummarizer(nn.Module):
-    def __init__(self, args, device, vocab_size, checkpoint, content_planning_model):
+    def __init__(self, args, device, vocab_size, checkpoint, sentence_modelling_for_ext):
         super(ExtSummarizer, self).__init__()
         self.args = args
         self.device = device
@@ -125,7 +125,7 @@ class ExtSummarizer(nn.Module):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
-        if content_planning_model == 'tree':
+        if sentence_modelling_for_ext == 'tree':
             self.planning_layer = TreeInference(self.model.config.hidden_size, 
                                                 args.ext_ff_size, 
                                                 args.ext_dropout, 
@@ -327,7 +327,7 @@ class ExtAbsSummarizer(nn.Module):
         self.generator = get_generator(self.vocab_size, model.config.hidden_size, device)
 
         # Planner (parameters are initialized)
-        self.planning_layer = ExtSummarizer(args, device, ext_finetune, args.content_planning_model)
+        self.planning_layer = ExtSummarizer(args, device, ext_finetune, args.sentence_modelling_for_ext)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -523,11 +523,14 @@ class MarginalProjectiveTreeSumm(nn.Module):
         content_selection_weights = mask_src
 
         # Extract embedding for predicates
-        predicates = (src >= self.args.predicates_start_from_id)
-        predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
-        width = mask_cls.size(1)
-        predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
-        sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+        if self.args.sentence_embedding == 'predicate':
+            predicates = (src >= self.args.predicates_start_from_id)
+            predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
+            width = mask_cls.size(1)
+            predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
+            sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+        else:
+            
 
         sents_vec = sents_vec * mask_cls[:, :, None].float()
         if self.args.planning_method == 'self_attn':
