@@ -118,6 +118,11 @@ class StructuredAttention(nn.Module):
         L = torch.diag_embed(L)
         L = L - A
         LL = L + torch.diag_embed(R)
+        for i in range(A.size(0)):
+            try:
+                torch.inverse(LL[i])
+            except:
+                print (LL[i], A[i], R[i], scores[i], root[i], '\n')
         LL_inv = torch.inverse(LL)  # batch_l, doc_l, doc_l
         LL_inv_diag = torch.diagonal(LL_inv, 0, 1, 2)
         d0 = R * LL_inv_diag
@@ -140,6 +145,7 @@ class StructuredAttention(nn.Module):
 
         query = query / math.sqrt(self.model_dim)
         scores = torch.matmul(query, key.transpose(1, 2))
+        scores = nn.functional.normalize(scores) # not in the original code
 
         mask = mask.float()
         root = root - mask.squeeze(1) * 50
@@ -173,7 +179,6 @@ class TreeInference(nn.Module):
         sent_vec = sent_vec + global_pos_emb
 
         sent_vec = self.layer_norm2(sent_vec)* mask_block.unsqueeze(-1).float()
-        #sent_vec = self.layer_norm2(sent_vec)
         structure_vec = sent_vec
 
         roots = []; structure_vecs = []; attns = []
