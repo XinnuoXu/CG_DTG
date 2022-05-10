@@ -183,10 +183,10 @@ class TreeInference(nn.Module):
         roots = []; structure_vecs = []; attns = []
         for i in range(self.num_inter_layers):
             structure_vec, root, attn = self.transformer_inter[i](sent_vec, structure_vec, ~ mask_block)
-            structure_vec = structure_vec* mask_block.unsqueeze(-1).float() # not in oritinal code
-            attn = nn.functional.normalize(attn) # not in the original code
             roots.append(root)
+            attn = nn.functional.normalize(attn) # not in the original code
             attns.append(attn)
+            structure_vec = structure_vec * mask_block.unsqueeze(-1).float() # not in oritinal code
             structure_vecs.append(structure_vec)
 
         return roots, attns

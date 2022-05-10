@@ -27,7 +27,7 @@ python train.py  \
 	-max_pos 1024 \
 	-max_tgt_len 250 \
 	-ext_dropout 0.1 \
-	-lr 6e-5 \
+	-lr 3e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2
