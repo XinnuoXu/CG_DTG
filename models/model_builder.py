@@ -468,8 +468,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
         # Sentence embedding
-        if self.args.sentence_embedding == 'maxpool':
-            self.maxpool_linear = nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size, bias=True)
+        self.maxpool_linear = nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size, bias=True)
 
         # Tree embedding
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
@@ -508,11 +507,17 @@ class MarginalProjectiveTreeSumm(nn.Module):
                 if args.param_init != 0.0:
                     for p in self.tree_info_wr.parameters():
                         p.data.uniform_(-args.param_init, args.param_init)
+                    for p in self.maxpool_linear.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
                 if args.param_init_glorot:
                     for p in self.tree_info_wr.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
+                    for p in self.maxpool_linear.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
         self.to(device)
+
 
     def _get_sentence_maxpool(self, top_vec, mask_src_sent):
         top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
@@ -521,6 +526,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         sents_vec = torch.max(top_vec, -2)[0]
         sents_vec = self.maxpool_linear(sents_vec)
         return sents_vec
+
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 

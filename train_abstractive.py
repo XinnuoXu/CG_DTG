@@ -162,7 +162,11 @@ def train_abs_single(args, device_id):
 
     # Load model
     if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
+        abs_checkpoint = None
+        if args.load_from_abs != '':
+            logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+            abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
+        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint, abs_finetune=abs_checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
 
