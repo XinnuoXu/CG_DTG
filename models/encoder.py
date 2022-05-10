@@ -186,7 +186,7 @@ class TreeInference(nn.Module):
             roots.append(root)
             attn = nn.functional.normalize(attn) # not in the original code
             attns.append(attn)
-            structure_vec = structure_vec * mask_block.unsqueeze(-1).float() # not in oritinal code
+            #structure_vec = structure_vec * mask_block.unsqueeze(-1).float() # not in oritinal code
             structure_vecs.append(structure_vec)
 
         return roots, attns

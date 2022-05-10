@@ -528,6 +528,13 @@ class MarginalProjectiveTreeSumm(nn.Module):
         return sents_vec
 
 
+    def _get_sentence_meanpool(self, top_vec, mask_src_sent):
+        top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
+        mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
+        top_vec = top_vec * mask_src_sent.float()
+        return torch.sum(top_vec, -2)/torch.clamp(mask_src_sent.sum(-2), min=1e-9)
+
+
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
                 clss=None, mask_cls=None, labels=None, 
@@ -537,31 +544,33 @@ class MarginalProjectiveTreeSumm(nn.Module):
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
         content_selection_weights = mask_src
-
-        # Extract embedding for predicates
+       
+        # Extract embedding for sentence(or triples)
         if self.args.sentence_embedding == 'predicate':
             predicates = (src >= self.args.predicates_start_from_id)
             predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
             width = mask_cls.size(1)
             predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+        elif self.args.sentence_embedding == 'meanpool':
+            sents_vec = self._get_sentence_meanpool(top_vec, mask_src_sent)
         else:
             sents_vec = self._get_sentence_maxpool(top_vec, mask_src_sent)
-
         sents_vec = sents_vec * mask_cls[:, :, None].float()
+
+        # Get adjacency matrix
         if self.args.planning_method == 'self_attn':
             aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
             roots = None
         else:
             roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
             aj_matrixes = aj_matrixes[-1]
-        
         # Softmax aj_matrixes
         mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
         aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
         aj_matrixes = self.softmax(aj_matrixes)
-        aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), self.args.tree_gumbel_softmax_tau, 1).transpose(1,2)
-
+        if self.args.tree_gumbel_softmax_tau > 0:
+            aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), self.args.tree_gumbel_softmax_tau, 1).transpose(1,2)
         # Softmax roots
         if roots is not None:
             roots = roots[-1]
@@ -569,7 +578,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
             roots = roots.masked_fill(reverse_mask, float('-inf'))
             roots = self.softmax(roots)
 
-        # Planner
+        # Get children/parents token embedding
         root_and_end_embeddings = self.encoder.embed_tokens(self.root_and_end_ids)
         root_embedding = root_and_end_embeddings[0]
         child_end_embedding = root_and_end_embeddings[1]
@@ -598,7 +607,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         top_vec = top_vec + tree_info_embs
         top_vec = top_vec * mask_src_sent[:, :, :, None].float()
         top_vec = top_vec.sum(dim=1)
-        top_vec = self.tree_info_layer_norm(top_vec)
+        #top_vec = self.tree_info_layer_norm(top_vec)
 
         if not run_decoder:
             return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}

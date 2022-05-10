@@ -4,7 +4,7 @@
 #SBATCH --nodes=1	  # nodes requested
 #SBATCH --gres=gpu:3  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
-#SBATCH -t 24:00:00  # time requested in hour:minute:seconds
+#SBATCH -t 30:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
 #SBATCH --no-requeue
 
@@ -58,6 +58,7 @@ echo "Creating directory to save model weights"
 #sh scripts_d2t.hpc/train_webnlg_base.sh
 #sh scripts.hpc/train_cnn_ext.sh
 #sh scripts_d2t.hpc/train_webnlg_step.sh
-sh scripts_d2t.hpc/train_webnlg_plan.sh
+#sh scripts_d2t.hpc/train_webnlg_plan.sh
+sh scripts_cnn.hpc/train_cnn_plan_nogumbal.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
