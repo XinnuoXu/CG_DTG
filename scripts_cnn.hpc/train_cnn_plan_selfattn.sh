@@ -36,3 +36,4 @@ python train.py  \
         
 #ABS_PATH=${BASE_DIR}/models.bartbase/
         #-load_from_abs ${ABS_PATH}/model_step_320000.pt \
+	#-train_from ${MODEL_PATH}/model_step_200000.pt \
