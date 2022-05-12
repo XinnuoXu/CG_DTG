@@ -121,7 +121,7 @@ class StructuredAttention(nn.Module):
             try:
                 torch.inverse(LL[i])
             except:
-                print (LL[i], A[i], R[i], scores[i], root[i], '\n')
+                print (LL[i], A[i], R[i], scores[i], root[i], '\n\n\n')
         '''
         LL_inv = torch.inverse(LL)  # batch_l, doc_l, doc_l
         LL_inv_diag = torch.diagonal(LL_inv, 0, 1, 2)
@@ -193,7 +193,7 @@ class TreeInference(nn.Module):
             roots.append(root)
             attn = nn.functional.normalize(attn) # not in the original code
             attns.append(attn)
-            structure_vec = structure_vec * mask_block.unsqueeze(-1).float() # not in oritinal code
+            #structure_vec = structure_vec * mask_block.unsqueeze(-1).float() # not in oritinal code
             structure_vecs.append(structure_vec)
 
         return roots, attns
