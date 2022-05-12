@@ -143,15 +143,22 @@ class StructuredAttention(nn.Module):
         query = self.linear_query(x)
         query = query / math.sqrt(self.model_dim)
         scores = torch.matmul(query, key.transpose(1, 2))
-        #scores = nn.functional.normalize(scores) # not in the original code, affect performance
         root = self.linear_root(x).squeeze(-1)
 
+        '''
         mask = mask.float()
         root = root - mask.squeeze(1) * 50
         root = torch.clamp(root, min=-40)
         scores = scores - mask * 50
         scores = scores - torch.transpose(mask, 1, 2) * 50
         scores = torch.clamp(scores, min=-40)
+        '''
+        mask = mask.float()
+        root = root - mask.squeeze(1) * 40
+        root = torch.clamp(root, min=-50)
+        scores = scores - mask * 40
+        scores = scores - torch.transpose(mask, 1, 2) * 40
+        scores = torch.clamp(scores, min=-50)
 
         d, d0 = self._getMatrixTree_multi(scores, root)
         attn = torch.transpose(d, 1,2)

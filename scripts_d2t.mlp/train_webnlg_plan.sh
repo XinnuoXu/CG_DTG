@@ -16,6 +16,7 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+        -log_gradient ${LOG_PATH}/gradient.log \
 	-ext_or_abs marginal_projective_tree \
         -sentence_embedding predicate \
         -predicates_start_from_id 32101 \
@@ -33,6 +34,6 @@ python train.py  \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0,1,2
+	-visible_gpus 0,1,2 \
         
         #-planning_method self_attn \

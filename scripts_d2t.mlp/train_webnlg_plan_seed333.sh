@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#BASE_DIR=./outputs.webnlg/
-BASE_DIR=${SCRATCH_DIR}
+BASE_DIR=./outputs.webnlg/
+#BASE_DIR=${SCRATCH_DIR}
 
 BERT_DATA_PATH=${BASE_DIR}/data/
 MODEL_PATH=${BASE_DIR}/models.plan.333/

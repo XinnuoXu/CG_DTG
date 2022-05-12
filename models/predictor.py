@@ -259,13 +259,15 @@ class Translator(object):
             width = max(len(d) for d in predicate_idx)
             predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
             sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
-            '''
             sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
             edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
             results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
+            '''
 
             # Tree analysis
-            if (sent_probs is not None) and (sent_relations is not None):
+            if sent_relations is not None:
+                if sent_probs is None:
+                    sent_probs = torch.ones((sent_relations.size(0), sent_relations.size(1), sent_relations.size(2)))
                 trees = tree_building(sent_probs, sent_relations, mask_cls, device)
                 results["analysis"]["trees"] = trees
 

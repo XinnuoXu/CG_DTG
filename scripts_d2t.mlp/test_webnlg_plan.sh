@@ -3,8 +3,8 @@
 BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.plan.333/
-LOG_PATH=${BASE_DIR}/logs.plan.333/
+MODEL_PATH=${BASE_DIR}/models.plan/
+LOG_PATH=${BASE_DIR}/logs.plan/
 
 mkdir -p ${LOG_PATH}
 

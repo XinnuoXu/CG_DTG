@@ -569,6 +569,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
         aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
         aj_matrixes = self.softmax(aj_matrixes)
+        raw_aj_matrixes = aj_matrixes
         if self.args.tree_gumbel_softmax_tau > 0:
             aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), self.args.tree_gumbel_softmax_tau, 1).transpose(1,2)
         # Softmax roots
@@ -610,7 +611,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
         #top_vec = self.tree_info_layer_norm(top_vec)
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+            return {"encoder_outpus":top_vec, 
+                    "encoder_attention_mask":content_selection_weights,
+                    "sent_probs":roots,
+                    "sent_relations":raw_aj_matrixes}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
