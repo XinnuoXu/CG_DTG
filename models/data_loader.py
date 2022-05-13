@@ -216,7 +216,6 @@ class DataIterator(object):
         if self.args.sentence_embedding.startswith('predicate'):
             self.pred_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.pred_special_tok])[0]
             self.obj_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.obj_special_tok])[0]
-            print (self.pred_special_tok_id, self.obj_special_tok_id)
         else:
             self.pred_special_tok_id = None
             self.obj_special_tok_id = None
