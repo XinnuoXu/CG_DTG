@@ -3,7 +3,7 @@
 # Setup for Webnlg
 BASE_DIR=./outputs.webnlg/
 
-RAW_PATH=${BASE_DIR}/webnlg_data/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
 JSON_PATH=${BASE_DIR}/jsons/
 LOG_PATH=${BASE_DIR}/logs/
 

@@ -14,7 +14,7 @@ class Batch(object):
         rtn_data = [d + [pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
-    def __init__(self, data=None, device=None, is_test=False, pad_id=None, cls_id=None):
+    def __init__(self, data=None, device=None, is_test=False, pad_id=None, cls_id=None, pred_special_tok_id=None, obj_special_tok_id=None):
         """Create a Batch from a list of examples."""
         if data is not None:
             self.batch_size = len(data)
@@ -33,6 +33,11 @@ class Batch(object):
             src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
             tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id)
 
+            if (pred_special_tok_id is not None) and (obj_special_tok_id is not None):
+                src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
+            else:
+                src_predicate_mask = None
+
             gt_selection = torch.tensor(self._pad(pre_gt_selection, 0))
             clss = torch.tensor(self._pad(pre_clss, -1))
             mask_cls = ~(clss == -1)
@@ -44,6 +49,11 @@ class Batch(object):
             setattr(self, 'mask_tgt', mask_tgt.to(device))
             setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
             setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
+            if src_predicate_mask is not None:
+                setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
+            else:
+                setattr(self, 'src_predicate_mask', src_predicate_mask)
+
             setattr(self, 'nsent_tgt', nsent_tgt)
 
             setattr(self, 'clss', clss.to(device))
@@ -59,6 +69,20 @@ class Batch(object):
                 setattr(self, 'tgt_str', tgt_str)
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
+
+    def create_predicate_mask_src(self, src, mask_src, pred_special_tok_id, obj_special_tok_id, max_sent_len):
+        src_sentence_mask = []
+        for i, ex_src in enumerate(src):
+            pred_index = (ex_src == pred_special_tok_id).nonzero(as_tuple=True)[0]
+            obj_index = (ex_src == obj_special_tok_id).nonzero(as_tuple=True)[0]
+            mask = torch.zeros((max_sent_len, src.size(1)))
+            for j in range(len(pred_index)):
+                sid = pred_index[j]+1
+                eid = obj_index[j]
+                mask[j][sid:eid] = 1
+                mask[j] = mask[j] * mask_src[i]
+            src_sentence_mask.append(mask)
+        return torch.stack(src_sentence_mask)
 
     def create_sentlevel_mask_src(self, src, mask_src, cls_id, max_sent_len):
         src_sentence_mask = []
@@ -189,6 +213,14 @@ class DataIterator(object):
         self.pad_token_id = self.tokenizer.pad_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
 
+        if self.args.sentence_embedding.startswith('predicate'):
+            self.pred_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.pred_special_tok])[0]
+            self.obj_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.obj_special_tok])[0]
+            print (self.pred_special_tok_id, self.obj_special_tok_id)
+        else:
+            self.pred_special_tok_id = None
+            self.obj_special_tok_id = None
+
         self._iterations_this_epoch = 0
         self.batch_size_fn = ext_batch_size_fn
 
@@ -279,7 +311,10 @@ class DataIterator(object):
                     continue
                 self.iterations += 1
                 self._iterations_this_epoch += 1
-                batch = Batch(minibatch, self.device, self.is_test, self.pad_token_id, self.cls_token_id)
+                batch = Batch(minibatch, self.device, self.is_test, 
+                              self.pad_token_id, cls_id=self.cls_token_id, 
+                              pred_special_tok_id=self.pred_special_tok_id, 
+                              obj_special_tok_id=self.obj_special_tok_id)
 
                 yield batch
             return

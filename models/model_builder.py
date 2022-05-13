@@ -536,7 +536,8 @@ class MarginalProjectiveTreeSumm(nn.Module):
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
+                mask_src_sent=None, mask_tgt_sent=None, 
+                mask_src_predicate=None, tgt_nsent=None, 
                 clss=None, mask_cls=None, labels=None, 
                 run_decoder=True):
 
@@ -552,6 +553,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
             width = mask_cls.size(1)
             predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
             sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+        elif self.args.sentence_embedding == 'predicate_maxpool':
+            sents_vec = self._get_sentence_maxpool(top_vec, mask_src_predicate)
+        elif self.args.sentence_embedding == 'predicate_meanpool':
+            sents_vec = self._get_sentence_meanpool(top_vec, mask_src_predicate)
         elif self.args.sentence_embedding == 'meanpool':
             sents_vec = self._get_sentence_meanpool(top_vec, mask_src_sent)
         else:

@@ -223,6 +223,7 @@ class Translator(object):
         mask_src = batch.mask_src
         encoder_mask = batch.mask_src
         mask_src_sent = batch.mask_src_sent
+        mask_src_predicate = batch.src_predicate_mask
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
         clss = batch.clss
@@ -234,7 +235,9 @@ class Translator(object):
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt,
                              clss=clss, mask_cls=mask_cls,
-                             labels=labels, mask_src_sent=mask_src_sent, 
+                             labels=labels, 
+                             mask_src_sent=mask_src_sent, 
+                             mask_src_predicate=mask_src_predicate,
                              run_decoder=False)
 
         src_features = src_res['encoder_outpus']

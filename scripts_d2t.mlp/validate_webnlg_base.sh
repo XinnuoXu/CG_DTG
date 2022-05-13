@@ -15,7 +15,6 @@ python train.py \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-ext_or_abs abs \
-	-content_planning_model none \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
         -max_pos 1024 \

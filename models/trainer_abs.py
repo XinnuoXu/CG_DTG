@@ -132,6 +132,7 @@ class Trainer(object):
             src = batch.src
             mask_src = batch.mask_src
             mask_src_sent = batch.mask_src_sent
+            mask_src_predicate = batch.src_predicate_mask
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
             clss = batch.clss
@@ -140,7 +141,9 @@ class Trainer(object):
 
             outputs = self.model(src, tgt, mask_src, mask_tgt, 
                                  clss=clss, mask_cls=mask_cls, 
-                                 labels=labels, mask_src_sent=mask_src_sent)
+                                 labels=labels, 
+                                 mask_src_sent=mask_src_sent,
+                                 mask_src_predicate=mask_src_predicate)
 
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
@@ -189,6 +192,7 @@ class Trainer(object):
                 src = batch.src
                 mask_src = batch.mask_src
                 mask_src_sent = batch.mask_src_sent
+                mask_src_predicate = batch.src_predicate_mask
                 tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
                 clss = batch.clss
@@ -197,7 +201,9 @@ class Trainer(object):
 
                 outputs = self.model(src, tgt, mask_src, mask_tgt, 
                                      clss=clss, mask_cls=mask_cls, 
-                                     labels=labels, mask_src_sent=mask_src_sent)
+                                     labels=labels, 
+                                     mask_src_sent=mask_src_sent,
+                                     mask_src_predicate=mask_src_predicate)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

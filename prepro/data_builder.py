@@ -32,8 +32,9 @@ class BertData():
         if additional_tokens is not None:
            print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
            self.tokenizer.add_tokens(additional_tokens)
-           self.tokenizer.save_pretrained(args.saved_tokenizer_path)
-           print ('The vocab size after adding new tokens: %d' % (len(self.tokenizer)))
+
+        self.tokenizer.save_pretrained(args.saved_tokenizer_path)
+        print ('The vocab size after adding new tokens: %d' % (len(self.tokenizer)))
 
         self.pad_token_id = self.tokenizer.pad_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
