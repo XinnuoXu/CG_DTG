@@ -116,6 +116,7 @@ class StructuredAttention(nn.Module):
         L = torch.diag_embed(L)
         L = L - A
         LL = L + torch.diag_embed(R)
+        noise = torch.randn(LL.size(), requires_grad=False, device=LL.device) * 1e-18
         '''
         for i in range(A.size(0)):
             try:
@@ -123,7 +124,7 @@ class StructuredAttention(nn.Module):
             except:
                 print (LL[i], A[i], R[i], scores[i], root[i], '\n\n\n')
         '''
-        LL_inv = torch.inverse(LL)  # batch_l, doc_l, doc_l
+        LL_inv = torch.inverse(LL+noise)  # batch_l, doc_l, doc_l
         LL_inv_diag = torch.diagonal(LL_inv, 0, 1, 2)
         d0 = R * LL_inv_diag
         LL_inv_diag = torch.unsqueeze(LL_inv_diag, 2)
