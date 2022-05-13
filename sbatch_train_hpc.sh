@@ -60,5 +60,6 @@ echo "Creating directory to save model weights"
 #sh scripts_d2t.hpc/train_webnlg_step.sh
 #sh scripts_d2t.hpc/train_webnlg_plan.sh
 sh scripts_cnn.hpc/train_cnn_plan_nogumbal.sh
+#sh scripts_cnn.hpc/train_cnn_plan.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
