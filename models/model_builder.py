@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.init import xavier_uniform_
+from torch.nn.init import zeros_
 from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
 from models.optimizers import Optimizer
@@ -220,7 +221,8 @@ class AbsSummarizer(nn.Module):
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_src_sent=None, mask_tgt_sent=None, tgt_nsent=None, 
+                mask_src_sent=None, mask_tgt_sent=None, 
+                tgt_nsent=None, mask_src_predicate=None,
                 clss=None, mask_cls=None, labels=None, 
                 run_decoder=True):
 
@@ -435,6 +437,30 @@ class ExtAbsSummarizer(nn.Module):
 
 
 
+def _get_sentence_maxpool(top_vec, mask_src_sent, maxpool_linear):
+    top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
+    mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
+    top_vec = top_vec.masked_fill(~mask_src_sent.bool(), -1e18)
+    sents_vec = torch.max(top_vec, -2)[0]
+    return sents_vec
+
+
+def _get_sentence_meanpool(top_vec, mask_src_sent):
+    top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
+    mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
+    top_vec = top_vec * mask_src_sent.float()
+    return torch.sum(top_vec, -2)/torch.clamp(mask_src_sent.sum(-2), min=1e-9)
+
+
+def _get_predicate_embedding(top_vec, mask_src_predicate):
+    predicates = mask_src_predicate.sum(dim=1)
+    predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
+    width = mask_cls.size(1)
+    predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
+    sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+    return sents_vec
+
+
 class MarginalProjectiveTreeSumm(nn.Module):
 
     def __init__(self, args, device, tokenizer, vocab_size, checkpoint=None, abs_finetune=None):
@@ -472,9 +498,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
 
         # Tree embedding
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
-        self.tree_info_tanh = nn.Tanh()
         self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
+        self.tree_info_tanh = nn.Tanh()
         self.root_and_end_ids = torch.Tensor(tokenizer.convert_tokens_to_ids(['-Pred-ROOT', '-Pred-END'])).int().to(device)
+        self.emd_and_tree_wr = nn.Linear(self.model.config.hidden_size+self.args.tree_info_dim, self.model.config.hidden_size, bias=True)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -505,6 +532,8 @@ class MarginalProjectiveTreeSumm(nn.Module):
                             xavier_uniform_(p)
                 print ('Initialize parameters for TreeInference...')
                 if args.param_init != 0.0:
+                    for p in self.emd_and_tree_wr.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
                     for p in self.tree_info_wr.parameters():
                         p.data.uniform_(-args.param_init, args.param_init)
                     for p in self.maxpool_linear.parameters():
@@ -513,26 +542,14 @@ class MarginalProjectiveTreeSumm(nn.Module):
                     for p in self.tree_info_wr.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
+                    for p in self.emd_and_tree_wr.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p[:, :self.model.config.hidden_size])
+                            zeros_(p[:, self.model.config.hidden_size:])
                     for p in self.maxpool_linear.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
         self.to(device)
-
-
-    def _get_sentence_maxpool(self, top_vec, mask_src_sent):
-        top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
-        mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
-        top_vec = top_vec.masked_fill(~mask_src_sent.bool(), -1e18)
-        sents_vec = torch.max(top_vec, -2)[0]
-        sents_vec = self.maxpool_linear(sents_vec)
-        return sents_vec
-
-
-    def _get_sentence_meanpool(self, top_vec, mask_src_sent):
-        top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
-        mask_src_sent = mask_src_sent.unsqueeze(3).repeat((1, 1, 1, top_vec.size(-1)))
-        top_vec = top_vec * mask_src_sent.float()
-        return torch.sum(top_vec, -2)/torch.clamp(mask_src_sent.sum(-2), min=1e-9)
 
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
@@ -548,19 +565,17 @@ class MarginalProjectiveTreeSumm(nn.Module):
        
         # Extract embedding for sentence(or triples)
         if self.args.sentence_embedding == 'predicate':
-            predicates = (src >= self.args.predicates_start_from_id)
-            predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
-            width = mask_cls.size(1)
-            predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
-            sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+            sents_vec = _get_predicate_embedding(top_vec, mask_src_predicate)
         elif self.args.sentence_embedding == 'predicate_maxpool':
-            sents_vec = self._get_sentence_maxpool(top_vec, mask_src_predicate)
+            sents_vec = _get_sentence_maxpool(top_vec, mask_src_predicate)
+            sents_vec = self.maxpool_linear(sents_vec)
         elif self.args.sentence_embedding == 'predicate_meanpool':
-            sents_vec = self._get_sentence_meanpool(top_vec, mask_src_predicate)
+            sents_vec = _get_sentence_meanpool(top_vec, mask_src_predicate)
         elif self.args.sentence_embedding == 'meanpool':
-            sents_vec = self._get_sentence_meanpool(top_vec, mask_src_sent)
+            sents_vec = _get_sentence_meanpool(top_vec, mask_src_sent)
         else:
-            sents_vec = self._get_sentence_maxpool(top_vec, mask_src_sent)
+            sents_vec = _get_sentence_maxpool(top_vec, mask_src_sent)
+            sents_vec = self.maxpool_linear(sents_vec)
         sents_vec = sents_vec * mask_cls[:, :, None].float()
 
         # Get adjacency matrix
@@ -605,15 +620,16 @@ class MarginalProjectiveTreeSumm(nn.Module):
         # Merge tree information
         tree_info_embs = torch.cat([sents_vec, children_embs, parents_embs], dim=-1)
         tree_info_embs = self.tree_info_wr(tree_info_embs)
+        tree_info_embs = self.tree_info_layer_norm(tree_info_embs)
         tree_info_embs = self.tree_info_tanh(tree_info_embs)
 
         # Add embedding of tree information to the token embedding
         top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
         tree_info_embs = tree_info_embs.unsqueeze(2).repeat((1, 1, src.size(1), 1))
-        top_vec = top_vec + tree_info_embs
+        #top_vec = top_vec + tree_info_embs
+        top_vec = self.emd_and_tree_wr(torch.cat([top_vec, tree_info_embs], dim=-1))
         top_vec = top_vec * mask_src_sent[:, :, :, None].float()
         top_vec = top_vec.sum(dim=1)
-        #top_vec = self.tree_info_layer_norm(top_vec)
 
         if not run_decoder:
             return {"encoder_outpus":top_vec, 

@@ -5,7 +5,7 @@ BASE_DIR=./outputs.webnlg/
 RAW_PATH=../Plan_while_Generate/D2T_data/
 ADD_TOKEN_PATH=${RAW_PATH}/webnlg_data/predicates.txt
 JSON_PATH=${BASE_DIR}/jsons/
-BERT_DATA_PATH=${BASE_DIR}/data/
+BERT_DATA_PATH=${BASE_DIR}/data.pred/
 LOG_PATH=${BASE_DIR}/logs/
 
 mkdir -p ${LOG_PATH}

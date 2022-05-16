@@ -46,6 +46,7 @@ def read_gradient_file(filename, output_file):
     parameter_log['Para-max'] = {}
     parameter_log['Para-std'] = {}
     for line in open(filename):
+        print (line.strip())
         json_obj = json.loads(line.strip())
         for para in json_obj:
             for key in json_obj[para]:
@@ -72,5 +73,6 @@ def read_gradient_file(filename, output_file):
         print ('\n')
 
 if __name__ == '__main__':
-    read_gradient_file('./outputs.webnlg/logs.plan.777/gradient.log', './outputs.webnlg/logs.plan.777/gradient')
+    #read_gradient_file('./outputs.webnlg/logs.plan.777/gradient.log', './outputs.webnlg/logs.plan.777/gradient')
     #read_gradient_file('./outputs.webnlg/logs.base/gradient.log', './outputs.webnlg/logs.base/gradient')
+    read_gradient_file('./outputs.cnn_dm/logs.plan.no_gbsoftmax/gradient.log', './outputs.cnn_dm/logs.plan.no_gbsoftmax/gradient')

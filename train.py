@@ -86,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('-seed', default=666, type=int)
     parser.add_argument('-visible_gpus', default='-1', type=str)
     parser.add_argument('-gpu_ranks', default='0', type=str)
+    parser.add_argument('-master_port', default='10000', type=str)
     parser.add_argument("-train_from", default='')
     parser.add_argument("-load_from_ext", default='')
     parser.add_argument("-load_from_abs", default='')

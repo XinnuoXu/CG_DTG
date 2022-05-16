@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/plan.1
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/plan.1
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/plan.pred.edge_discrete
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/plan.pred.edge_discrete
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
@@ -29,8 +29,8 @@ export RAW_DATA_DIR=/home/${USER}/Planning/Tree_enc_dec/outputs.webnlg/
 export SCRATCH_DIR=/disk/scratch/${USER}/outputs.webnlg/
 
 mkdir -p ${SCRATCH_DIR}
-rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data/ ${SCRATCH_DIR}/data/
-echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data/ ${SCRATCH_DIR}/data/"
+rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data.pred/ ${SCRATCH_DIR}/data.pred/
+echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data.pred/ ${SCRATCH_DIR}/data.pred/"
 
 # ====================
 # Run training. Here we use src/gpu.py

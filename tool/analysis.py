@@ -11,9 +11,14 @@ class Analysis():
         from models.neural import CalculateSelfAttention
         self.self_attn_layer = CalculateSelfAttention()
 
-    def edge_ranking_data_processing(self, sents_vec, alignments, mask_cls):
+
+    def edge_ranking_self_attn(self, sents_vec, alignments, mask_cls):
         nsent = mask_cls.sum(1)
         self_attns = self.self_attn_layer(sents_vec, sents_vec, mask_cls)
+        return = self.edge_ranking(self_attns, alignments)
+
+
+    def edge_ranking(self, self_attns, alignments):
         pred_scores = []; align_labels = []
 
         for eid, alignment in enumerate(alignments):

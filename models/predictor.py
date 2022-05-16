@@ -8,6 +8,7 @@ import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
 from models.tree_reader import tree_building, headlist_to_string
+from models.model_builder import _get_sentence_maxpool, _get_sentence_meanpool, _get_predicate_embedding
 from tool.analysis import Analysis
 
 def tile(x, count, dim=0):
@@ -255,17 +256,21 @@ class Translator(object):
 
         if self.args.do_analysis:
             # Edge analysis
-
-            '''
-            predicates = src > 50265
-            predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
-            width = max(len(d) for d in predicate_idx)
-            predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
-            sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
-            sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
-            edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
+            if sent_relations is None:
+                if self.args.sentence_embedding == 'maxpool':
+                    sents_vec = _get_sentence_maxpool(src_features, mask_src_sent)
+                elif self.args.sentence_embedding == 'meanpool':
+                    sents_vec = _get_sentence_meanpool(src_features, mask_src_sent)
+                elif self.args.sentence_embedding == 'predicate_maxpool':
+                    sents_vec = _get_sentence_maxpool(src_features, mask_src_predicate)
+                elif self.args.sentence_embedding == 'predicate_meanpool':
+                    sents_vec = _get_sentence_meanpool(src_features, mask_src_predicate)
+                else:
+                    sents_vec = _get_predicate_embedding(src_features, mask_src_predicate)
+                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking_self_attn(sents_vec, batch.alg, mask_cls)
+            else:
+                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking(sent_relations, batch.alg)
             results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
-            '''
 
             # Tree analysis
             if sent_relations is not None:

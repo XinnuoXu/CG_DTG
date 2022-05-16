@@ -109,22 +109,23 @@ class StructuredAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def _getMatrixTree_multi(self, scores, root):
-        A = scores.exp()
-        R = root.exp()
+        #A = scores.exp()
+        #R = root.exp()
+        A = scores
+        R = root
 
         L = torch.sum(A, 1)
         L = torch.diag_embed(L)
         L = L - A
         LL = L + torch.diag_embed(R)
-        noise = torch.randn(LL.size(), requires_grad=False, device=LL.device) * 1e-18
         '''
         for i in range(A.size(0)):
             try:
                 torch.inverse(LL[i])
             except:
-                print (LL[i], A[i], R[i], scores[i], root[i], '\n\n\n')
+                print (LL[i], A[i], R[i], scores[i], root[i], noise[i], '\n\n\n')
         '''
-        LL_inv = torch.inverse(LL+noise)  # batch_l, doc_l, doc_l
+        LL_inv = torch.inverse(LL)  # batch_l, doc_l, doc_l
         LL_inv_diag = torch.diagonal(LL_inv, 0, 1, 2)
         d0 = R * LL_inv_diag
         LL_inv_diag = torch.unsqueeze(LL_inv_diag, 2)
@@ -146,20 +147,12 @@ class StructuredAttention(nn.Module):
         scores = torch.matmul(query, key.transpose(1, 2))
         root = self.linear_root(x).squeeze(-1)
 
-        '''
         mask = mask.float()
         root = root - mask.squeeze(1) * 50
         root = torch.clamp(root, min=-40)
         scores = scores - mask * 50
         scores = scores - torch.transpose(mask, 1, 2) * 50
         scores = torch.clamp(scores, min=-40)
-        '''
-        mask = mask.float()
-        root = root - mask.squeeze(1) * 40
-        root = torch.clamp(root, min=-50)
-        scores = scores - mask * 40
-        scores = scores - torch.transpose(mask, 1, 2) * 40
-        scores = torch.clamp(scores, min=-50)
 
         d, d0 = self._getMatrixTree_multi(scores, root)
         attn = torch.transpose(d, 1,2)
