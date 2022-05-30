@@ -313,7 +313,8 @@ def _find_cycle(
 
 def tree_building(roots, edges, mask, device):
     edge_prob = edges
-    roots = roots.unsqueeze(1)
+    #roots = roots.unsqueeze(1)
+    roots = roots.transpose(1, 2)
     new_matrix = torch.cat([roots, edge_prob], dim=1)
     dumy_column = torch.zeros((new_matrix.size(0), new_matrix.size(1), 1)).to(device)
     new_matrix = torch.cat([dumy_column, new_matrix], dim=2)
@@ -365,26 +366,40 @@ def headlist_to_string(list_input):
     return string_list, height-1
 
 
-def tree_to_content_mask(tree, src, mask_src, tgt_nsent, cls_id):
-    device = src.device
-    src_subtree_mask = []
-    for i, ex_src in enumerate(src):
-        subtree_idxes = tree[i]
-        if len(subtree_idxes) != tgt_nsent[i]:
-            for j in range(tgt_nsent[i]):
-                src_subtree_mask.append(mask_src[i])
-            continue
-        cls_index = (ex_src == cls_id).nonzero(as_tuple=True)[0]
-        cls_index = cls_index.tolist() + [src.size(1)]
-        for tri_ids in subtree_idxes:
-            mask = torch.zeros(src.size(1), device=device)
-            for tri_id in tri_ids:
-                sid = cls_index[tri_id]
-                eid = cls_index[tri_id+1]
-                mask[sid:eid] = 1
-            mask = mask * mask_src[i]
-            src_subtree_mask.append(mask)
-    return torch.stack(src_subtree_mask)
+def tree_to_content_mask(tree, mask_src_sent, mask_tgt_sent):
+    device = mask_src_sent.device
+    tgt_len = mask_tgt_sent.size(-1)
+    cross_attn_mask = []
+    for i, alg in enumerate(tree):
+        src_sent = mask_src_sent[i]
+        tgt_sent = mask_tgt_sent[i]
+        # for each sent in tgt
+        c_mask = []
+        for j, sent_alg in enumerate(alg):
+            sent_mask = src_sent[sent_alg].sum(dim=0)
+            sent_mask = sent_mask.unsqueeze(0)
+            sent_mask = sent_mask.repeat((int(tgt_sent[j].sum()), 1))
+            c_mask.append(sent_mask)
+        c_mask = torch.cat(c_mask)
+        # padding
+        mask_padding = torch.zeros((tgt_len-c_mask.size(0), c_mask.size(1)), device=device)
+        #print (c_mask.size(), mask_padding.size())
+        c_mask = torch.cat([c_mask, mask_padding])
+        cross_attn_mask.append(c_mask)
+    return torch.stack(cross_attn_mask)
+
+
+def tree_to_mask_list(tree, mask_src_sent):
+    cross_attn_mask = []
+    for i, alg in enumerate(tree):
+        src_sent = mask_src_sent[i]
+        # for each sent in tgt
+        c_mask = []
+        for j, sent_alg in enumerate(alg):
+            sent_mask = src_sent[sent_alg].sum(dim=0)
+            c_mask.append(sent_mask)
+        cross_attn_mask.append(c_mask)
+    return cross_attn_mask
 
 
 def headlist_to_alignments(headlist, length):

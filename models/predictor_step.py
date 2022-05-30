@@ -7,8 +7,8 @@ import json
 import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import tree_building, headlist_to_string
-from tool.analysis import Analysis
+from models.tree_reader import tree_building, headlist_to_string, tree_to_mask_list
+from tool.analysis_edge import Analysis
 
 def tile(x, count, dim=0):
     """
@@ -224,37 +224,39 @@ class Translator(object):
 
         src = batch.src
         mask_src = batch.mask_src
+        mask_src_sent = batch.mask_src_sent
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
         mask_tgt_sent = batch.mask_tgt_sent
-        tgt_nsent = batch.nsent
         clss = batch.clss
         mask_cls = batch.mask_cls
         labels = batch.alg
+        gt_aj_matrix = batch.gt_aj_matrix
         device = src.device
         results = {}
 
         # Run encoder and tree prediction
-        src_res = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels, run_decoder=False)
+        src_res = self.model(src, tgt, mask_src, mask_tgt,
+                                 mask_src_sent, mask_tgt_sent,
+                                 clss, mask_cls, labels,
+                                 run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
+        min_score = torch.topk(self.model.mask_weight_for_layers, dim=-1, k=2)[0].min()
+        mask_weight_for_layers = (self.model.mask_weight_for_layers >= min_score).int()
 
         # Tile states and memory beam_size times.
-        idx = 0
-        mask_src_list = []
+        sentence_plans = tree_to_mask_list(labels, mask_src_sent)
         current_tgt_example_id = []
-        for j, nsent in enumerate(tgt_nsent):
-            one_ex = []
-            for i in range(idx, idx+nsent):
-                one_ex.append(mask_src[i].unsqueeze(0))
-            idx += nsent
-            mask_src_list.append(one_ex)
+        for j in range(src.size(0)):
             current_tgt_example_id.extend([j] * beam_size)
-        current_tgt_generation = [0] * len(mask_src_list*beam_size)
-        current_tgt_example_id = torch.tensor(current_tgt_example_id, device=src.device)
-        current_tgt_generation = torch.tensor(current_tgt_generation, device=src.device)
+        current_tgt_sentence = [0] * src.size(0)*beam_size
+        current_tgt_example_id = torch.tensor(current_tgt_example_id, dtype=int, device=device)
+        current_tgt_sentence = torch.tensor(current_tgt_sentence, dtype=int, device=device)
+        content_weights = None
 
         src_features = tile(src_features, beam_size, dim=0)
+        mask_src = tile(mask_src, beam_size, dim=0)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
         beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=device)
@@ -274,19 +276,24 @@ class Translator(object):
 
             decoder_input = alive_seq
 
-            mask_src = []
-            for i, idx in enumerate(current_tgt_generation):
-                example_id = current_tgt_example_id[i]
-
+            content_weight = []
+            for j, ex_id in enumerate(current_tgt_example_id):
+                current_sent = current_tgt_sentence[j]
                 # For some cases where the top generation in the beam is unfinished but some of the rest have finished
-                idx = min(idx, len(mask_src_list[example_id])-1)
-
-                mask_src.append(mask_src_list[example_id][idx])
-            mask_src = torch.cat(mask_src)
+                if current_sent >= len(sentence_plans[ex_id]):
+                    current_sent = -1
+                content_weight.append(sentence_plans[ex_id][current_sent].unsqueeze(0))
+            content_weight = torch.cat(content_weight, dim=0).unsqueeze(1)
+            if content_weights is None:
+                content_weights = content_weight
+            else:
+                content_weights = torch.cat([content_weights, content_weight], dim=1)
 
             decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
-                                           encoder_attention_mask=mask_src)
+                                           encoder_attention_mask=mask_src,
+                                           content_weights=content_weights,
+                                           mask_weight_for_layers=mask_weight_for_layers)
 
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
@@ -294,9 +301,8 @@ class Translator(object):
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
-                log_probs[:, self.cls_token_id] = -1e20
+            #if step < min_length:
+            #    log_probs[:, self.end_token_id] = -1e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -337,26 +343,24 @@ class Translator(object):
             # Map beam_index to batch_index in the flat representation.
             batch_index = (topk_beam_index + beam_offset[:topk_beam_index.size(0)].unsqueeze(1))
             select_indices = batch_index.view(-1)
-
-            # If one sentence finishes
+            content_weights = content_weights.index_select(0, select_indices)
             current_tgt_example_id = current_tgt_example_id.index_select(0, select_indices)
-            current_tgt_generation = current_tgt_generation.index_select(0, select_indices)
-            topk_ids = topk_ids.view(-1)
-            sent_finished = topk_ids.eq(self.cls_token_id)
-            report = False
-            for i in range(sent_finished.size(0)):
-                if sent_finished[i]:
-                    current_tgt_generation[i] += 1
-                example_id = current_tgt_example_id[i]
-                if current_tgt_generation[i] >= len(mask_src_list[example_id]):
-                    report = True
-                    topk_ids[i] = self.end_token_id
-            topk_ids = topk_ids.view(-1, beam_size)
-
+            current_tgt_sentence = current_tgt_sentence.index_select(0, select_indices)
             # Append last prediction.
             alive_seq = torch.cat(
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
+
+            # If one sentence finishes
+            topk_ids = topk_ids.view(-1)
+            sent_finished = topk_ids.eq(self.cls_token_id)
+            for i in range(sent_finished.size(0)):
+                if sent_finished[i]:
+                    current_tgt_sentence[i] += 1
+                example_id = current_tgt_example_id[i]
+                if current_tgt_sentence[i] >= len(sentence_plans[example_id]):
+                    topk_ids[i] = self.end_token_id
+            topk_ids = topk_ids.view(-1, beam_size)
 
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
@@ -393,9 +397,11 @@ class Translator(object):
             # Reorder states.
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
+            mask_src = mask_src.index_select(0, select_indices)
             if is_finished.any():
                 current_tgt_example_id = current_tgt_example_id.index_select(0, select_indices)
-                current_tgt_generation = current_tgt_generation.index_select(0, select_indices)
+                current_tgt_sentence = current_tgt_sentence.index_select(0, select_indices)
+                content_weights = content_weights.index_select(0, select_indices)
 
         return results
 

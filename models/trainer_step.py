@@ -125,17 +125,18 @@ class Trainer(object):
 
             src = batch.src
             mask_src = batch.mask_src
+            mask_src_sent = batch.mask_src_sent
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
             mask_tgt_sent = batch.mask_tgt_sent
-            tgt_nsent = batch.nsent
             clss = batch.clss
             mask_cls = batch.mask_cls
             labels = batch.alg
+            gt_aj_matrix = batch.gt_aj_matrix
 
-            outputs, tgt, mask_tgt = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels)
-            batch.tgt = tgt
-            batch.mask_tgt = mask_tgt
+            outputs = self.model(src, tgt, mask_src, mask_tgt, 
+                                 mask_src_sent, mask_tgt_sent,
+                                 clss, mask_cls, labels)
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
 
@@ -177,17 +178,18 @@ class Trainer(object):
             for batch in valid_iter:
                 src = batch.src
                 mask_src = batch.mask_src
+                mask_src_sent = batch.mask_src_sent
                 tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
                 mask_tgt_sent = batch.mask_tgt_sent
-                tgt_nsent = batch.nsent
                 clss = batch.clss
                 mask_cls = batch.mask_cls
                 labels = batch.alg
+                gt_aj_matrix = batch.gt_aj_matrix
 
-                outputs, tgt, mask_tgt = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels)
-                batch.tgt = tgt
-                batch.mask_tgt = mask_tgt
+                outputs = self.model(src, tgt, mask_src, mask_tgt, 
+                                     mask_src_sent, mask_tgt_sent,
+                                     clss, mask_cls, labels)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

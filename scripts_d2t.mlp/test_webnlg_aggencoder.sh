@@ -3,8 +3,8 @@
 BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.base/
-LOG_PATH=${BASE_DIR}/logs.base/
+MODEL_PATH=${BASE_DIR}/models.agg_encoder/
+LOG_PATH=${BASE_DIR}/logs.agg_encoder/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -14,12 +14,12 @@ python train.py \
         -model_name t5-small \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_3000.pt \
+	-test_from ${MODEL_PATH}/model_step_4000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
-	-ext_or_abs abs \
+	-ext_or_abs agg_encoder \
         -inference_mode abs \
         -sentence_embedding predicate \
 	-block_trigram true \

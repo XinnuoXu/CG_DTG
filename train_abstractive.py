@@ -18,10 +18,11 @@ from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm
+from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, AggEncoderSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
+from models.predictor_tgt_prompt import build_predictor_prompt
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'sentence_embedding', 
@@ -139,6 +140,7 @@ def train_abs_single(args, device_id):
         torch.cuda.manual_seed(args.seed)
 
     # Load checkpoint
+    checkpoint = None
     if args.train_from != '':
         logger.info('Loading checkpoint from %s' % args.train_from)
         checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
@@ -146,8 +148,11 @@ def train_abs_single(args, device_id):
         for k in opt.keys():
             if (k in model_flags):
                 setattr(args, k, opt[k])
-    else:
-        checkpoint = None
+
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -162,11 +167,9 @@ def train_abs_single(args, device_id):
 
     # Load model
     if args.ext_or_abs == 'marginal_projective_tree':
-        abs_checkpoint = None
-        if args.load_from_abs != '':
-            logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
-            abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint, abs_finetune=abs_checkpoint)
+    elif args.ext_or_abs == 'agg_encoder':
+        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
 
@@ -236,6 +239,8 @@ def validate(args, device_id, pt, step):
 
     if args.ext_or_abs == 'marginal_projective_tree':
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
+    elif args.ext_or_abs == 'agg_encoder':
+        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
@@ -270,12 +275,16 @@ def test_abs(args, device_id, pt, step):
 
     if args.ext_or_abs == 'marginal_projective_tree':
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
+    elif args.ext_or_abs == 'agg_encoder':
+        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
     if args.inference_mode == 'non_prjective_tree':
         predictor = build_predictor_tree(args, tokenizer, model, logger)
+    if args.inference_mode == 'tgt_prompt':
+        predictor = build_predictor_prompt(args, tokenizer, model, logger)
     else: 
         predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)

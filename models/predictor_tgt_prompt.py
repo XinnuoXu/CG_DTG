@@ -6,9 +6,9 @@ import os
 import json
 import math
 import torch
-from models.neural import CalculateSelfAttention
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import headlist_to_string, tree_to_content_mask, gumbel_softmax_function, tree_building, headlist_to_alignments
+from models.tree_reader import tree_building, headlist_to_string
+from models.model_builder import _get_sentence_maxpool, _get_sentence_meanpool, _get_predicate_embedding
 from tool.analysis_edge import Analysis
 
 def tile(x, count, dim=0):
@@ -33,7 +33,7 @@ def tile(x, count, dim=0):
     return x
 
 
-def build_predictor_tree(args, tokenizer, model, logger=None):
+def build_predictor_prompt(args, tokenizer, model, logger=None):
     scorer = GNMTGlobalScorer(args.alpha,length_penalty='wu')
     translator = Translator(args, model, tokenizer, global_scorer=scorer, logger=logger)
     return translator
@@ -52,8 +52,10 @@ class Translator(object):
         self.generator = self.model.generator
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
-        self.cls_token_id = self.tokenizer.cls_token_id
-        self.cls_token = self.tokenizer.cls_token
+        if self.tokenizer.cls_token_id is None:
+            self.cls_token = self.tokenizer.eos_token
+        else:
+            self.cls_token = self.tokenizer.cls_token
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -62,22 +64,18 @@ class Translator(object):
         self.dump_beam = dump_beam
 
         self.model_analysis = Analysis()
-        self.self_attn_layer = CalculateSelfAttention()
+
 
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
         eid_path = self.args.result_path + '.%d.eid' % step
-        alg_path = self.args.result_path + '.%d.alignments' % step
-        tree_path = self.args.result_path + '.%d.trees' % step
 
         self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
         self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
         self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
         self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
-        self.alg_out_file = codecs.open(alg_path, 'w', 'utf-8')
-        self.tree_out_file = codecs.open(tree_path, 'w', 'utf-8')
 
         self.model.eval()
         with torch.no_grad():
@@ -88,27 +86,21 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid, alignments, trees = trans
+                    pred_str, gold_str, src_str, src_list, eid = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
                     self.eid_out_file.write(eid + '\n')
-                    self.alg_out_file.write(alignments + '\n')
-                    self.tree_out_file.write(json.dumps(trees)+'\n')
 
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
                 self.eid_out_file.flush()
-                self.alg_out_file.flush()
-                self.tree_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
         self.eid_out_file.close()
-        self.alg_out_file.close()
-        self.tree_out_file.close()
 
 
     def from_batch(self, translation_batch):
@@ -117,35 +109,28 @@ class Translator(object):
         batch_size = batch.batch_size
         preds = translation_batch["predictions"]
         pred_score = translation_batch["scores"]
-        trees = translation_batch["trees"]
     
         src_str = batch.src_str
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
-        alg = batch.alg
 
         translations = []
         for b in range(batch_size):
             token_ids = preds[b][0]
-            pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
+            cls_index = (token_ids == self.tokenizer.cls_token_id).nonzero(as_tuple=True)
+            text_starts_from = int(cls_index[0][0])+1
+            pred_sent = self.tokenizer.decode(token_ids[text_starts_from:], skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
             gold_sent = '<q>'.join(tgt_str[b])
             src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
-            alignments = []
-            for sent in alg[b]:
-                alignments.append(' ; '.join([src_list[idx] for idx in sent]))
-            alignments = ' ||| '.join(alignments)
-
             translation = (pred_sent, 
                            gold_sent, 
                            raw_src, 
                            src_list, 
-                           eid[b], 
-                           alignments,
-                           trees[b])
+                           eid[b])
 
             translations.append(translation)
 
@@ -162,61 +147,46 @@ class Translator(object):
 
     def _fast_translate_batch(self, batch, max_length, min_length=0):
 
+        def sent_probs_to_selected_ids(sent_probs):
+            selected_ids = []
+            for i in range(sent_probs.size(0)):
+                weights = sent_probs[i, :].tolist()
+                selected_ids.append([i for i in range(len(weights)) if weights[i] == 1])
+            return selected_ids
+
         assert not self.dump_beam
         beam_size = self.beam_size
         batch_size = batch.batch_size
 
         src = batch.src
         mask_src = batch.mask_src
+        encoder_mask = batch.mask_src
+        mask_src_sent = batch.mask_src_sent
+        mask_src_predicate = batch.src_predicate_mask
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
-        mask_tgt_sent = batch.mask_tgt_sent
-        tgt_nsent = batch.nsent
         clss = batch.clss
         mask_cls = batch.mask_cls
         labels = batch.alg
+        gt_aj_matrix = batch.gt_aj_matrix
         device = src.device
         results = {}
 
-        ## Run encoder and tree prediction
-        src_res = self.model(src, tgt, mask_src, mask_tgt, mask_tgt_sent, tgt_nsent, clss, mask_cls, labels, run_decoder=False)
-        src_features = src_res['encoder_outpus']
+        # Run encoder and tree prediction
+        src_res = self.model(src, tgt, mask_src, mask_tgt,
+                             clss=clss, mask_cls=mask_cls,
+                             labels=labels,
+                             gt_aj_matrix=gt_aj_matrix, 
+                             mask_src_sent=mask_src_sent, 
+                             mask_src_predicate=mask_src_predicate,
+                             run_decoder=False)
 
-        ## Create trees
-        # self-attention using predicates
-        predicates = (src >= self.args.predicates_start_from_id)
-        predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
-        width = mask_cls.size(1)
-        predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
-        sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), predicate_idx]
-        self_attns = self.self_attn_layer(sents_vec, sents_vec, mask_cls)
-        # we do not set dial as 0 since we want to keep the situation where tripes are independent
-        # gumble
-        gumble_attns = gumbel_softmax_function(self_attns.transpose(1, 2), self.args.gumbel_tau, 1).transpose(1, 2)
-        # fake root
-        fake_roots = torch.zeros((gumble_attns.size(0), gumble_attns.size(1))).to(device)+0.1
-        # run tree-building
-        heads_ret = tree_building(fake_roots, gumble_attns, mask_cls, device)
-        # convert to lable format
-        labels = [headlist_to_alignments(headlist, mask_cls[i].sum()+1) for i, headlist in enumerate(heads_ret)]
-        # generate stepwise mask
-        mask_src = tree_to_content_mask(labels, src, mask_src, tgt_nsent, self.cls_token_id)
+        src_features = src_res['encoder_outpus']
+        mask_src = src_res['encoder_attention_mask']
 
         # Tile states and memory beam_size times.
-        idx = 0
-        mask_src_list = []
-        current_tgt_example_id = []
-        for j, nsent in enumerate(tgt_nsent):
-            one_ex = []
-            for i in range(idx, idx+nsent):
-                one_ex.append(mask_src[i].unsqueeze(0))
-            idx += nsent
-            mask_src_list.append(one_ex)
-            current_tgt_example_id.extend([j] * beam_size)
-        current_tgt_generation = [0] * len(mask_src_list*beam_size)
-        current_tgt_example_id = torch.tensor(current_tgt_example_id, device=src.device)
-        current_tgt_generation = torch.tensor(current_tgt_generation, device=src.device)
-
+        mask_src = tile(mask_src, beam_size, dim=0)
+        encoder_mask = tile(encoder_mask, beam_size, dim=0)
         src_features = tile(src_features, beam_size, dim=0)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
@@ -232,25 +202,28 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
-        results["trees"] = labels
+
+        cls_index = (tgt == self.tokenizer.cls_token_id).nonzero(as_tuple=True)
+        prompt_length = [-1] * src.size(0)
+        prompt_length_beam_expanded = []
+        for i in range(len(cls_index[0])):
+            ex_id = cls_index[0][i]
+            cls_idx = cls_index[1][i]
+            if cls_idx == 0:
+                continue
+            if prompt_length[ex_id] != -1:
+                continue
+            prompt_length[ex_id] = int(cls_idx)
+            prompt_length_beam_expanded.extend([int(cls_idx)]*beam_size)
+        prompt_length = torch.tensor(prompt_length_beam_expanded, dtype=int, device=src.device)
+        tgt = tile(tgt, beam_size, dim=0)
 
         for step in range(max_length):
 
             decoder_input = alive_seq
-
-            mask_src = []
-            for i, idx in enumerate(current_tgt_generation):
-                example_id = current_tgt_example_id[i]
-
-                # For some cases where the top generation in the beam is unfinished but some of the rest have finished
-                idx = min(idx, len(mask_src_list[example_id])-1)
-
-                mask_src.append(mask_src_list[example_id][idx])
-            mask_src = torch.cat(mask_src)
-
             decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
-                                           encoder_attention_mask=mask_src)
+                                           encoder_attention_mask=encoder_mask)
 
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
@@ -260,7 +233,6 @@ class Translator(object):
 
             if step < min_length:
                 log_probs[:, self.end_token_id] = -1e20
-                log_probs[:, self.cls_token_id] = -1e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -302,25 +274,24 @@ class Translator(object):
             batch_index = (topk_beam_index + beam_offset[:topk_beam_index.size(0)].unsqueeze(1))
             select_indices = batch_index.view(-1)
 
-            # If one sentence finishes
-            current_tgt_example_id = current_tgt_example_id.index_select(0, select_indices)
-            current_tgt_generation = current_tgt_generation.index_select(0, select_indices)
-            topk_ids = topk_ids.view(-1)
-            sent_finished = topk_ids.eq(self.cls_token_id)
-            report = False
-            for i in range(sent_finished.size(0)):
-                if sent_finished[i]:
-                    current_tgt_generation[i] += 1
-                example_id = current_tgt_example_id[i]
-                if current_tgt_generation[i] >= len(mask_src_list[example_id]):
-                    report = True
-                    topk_ids[i] = self.end_token_id
-            topk_ids = topk_ids.view(-1, beam_size)
-
             # Append last prediction.
             alive_seq = torch.cat(
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
+
+            '''
+            # Amend candidate list for prompt
+            for i in range(alive_seq.size(0)):
+                if step < prompt_length[i]:
+                    alive_seq[i][-1] = tgt[i][step+1]
+                    if i % beam_size == 0:
+                        topk_log_probs[int(i/beam_size)][i % beam_size] = 0.0
+                    else:
+                        topk_log_probs[int(i/beam_size)][i % beam_size] = float("-inf")
+            #print (alive_seq)
+            #print (topk_log_probs)
+            #print ('\n\n')
+            '''
 
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
@@ -357,9 +328,9 @@ class Translator(object):
             # Reorder states.
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
-            if is_finished.any():
-                current_tgt_example_id = current_tgt_example_id.index_select(0, select_indices)
-                current_tgt_generation = current_tgt_generation.index_select(0, select_indices)
+            mask_src = mask_src.index_select(0, select_indices)
+            encoder_mask = encoder_mask.index_select(0, select_indices)
+            prompt_length = prompt_length.index_select(0, select_indices)
 
         return results
 

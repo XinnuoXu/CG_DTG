@@ -3,10 +3,12 @@ import copy, random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 from models.encoder import Classifier, TreeInference, SentenceClassification
 from models.decoder import BartDecoderCS
+from models.t5_encoder_decoder import T5Stacker
 from models.optimizers import Optimizer
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from models.tree_reader import tree_to_content_mask, tree_building, gumbel_softmax_function, topn_function
@@ -194,7 +196,7 @@ class AbsSummarizer(nn.Module):
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
         self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
-        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+        self.gumbel_tau = args.gumbel_tau
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         print (self.vocab_size, len(self.original_tokenizer))
@@ -224,7 +226,7 @@ class AbsSummarizer(nn.Module):
                 mask_src_sent=None, mask_tgt_sent=None, 
                 tgt_nsent=None, mask_src_predicate=None,
                 clss=None, mask_cls=None, labels=None, 
-                run_decoder=True):
+                gt_aj_matrix=None, run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
@@ -243,70 +245,172 @@ class AbsSummarizer(nn.Module):
 
 
 
-class StepAbsSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, ext_checkpoint=None):
-        super(StepAbsSummarizer, self).__init__()
+class AggEncoderSummarizer(nn.Module):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, abs_finetune=None):
+        super(AggEncoderSummarizer, self).__init__()
         self.args = args
         self.device = device
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
         self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
-        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+        self.gumbel_tau = args.gumbel_tau
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        print (self.vocab_size, len(self.original_tokenizer))
         if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
 
-        self.encoder = self.model.get_encoder()
+        encoder = self.model.get_encoder()
+        self.encoder = T5Stacker(encoder)
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
-        #self.generator[0].weight = self.model.lm_head.weight
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
 
         else:
-            print ('Initialize parameters for generator...')
-            for p in self.generator.parameters():
-                if p.dim() > 1:
-                    xavier_uniform_(p)
-                else:
-                    p.data.zero_()
+            if abs_finetune is not None:
+                print ('Load parameters from abs_finetune...')
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('encoder')]
+                self.encoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('decoder')]
+                self.decoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[10:], p) for n, p in abs_finetune['model'].items() if n.startswith('generator')]
+                self.generator.load_state_dict(dict(tree_params), strict=True)
+            else:
+                print ('Initialize parameters for generator...')
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
 
         self.to(device)
 
+    def create_aggregate_mask(self, alignments, mask_src_sent, mask_src):
+        device = mask_src_sent.device
+        self_attn_mask = []
+        for i, alg in enumerate(alignments):
+            src_sent = mask_src_sent[i]
+            src_tok_mask = mask_src[i]
+            # for each group
+            c_mask = torch.zeros((src_sent.size(-1), src_sent.size(-1)), device=device)
+            for j, sent_alg in enumerate(alg):
+                sent_mask = src_sent[sent_alg].sum(dim=0)
+                sent_mask = sent_mask.unsqueeze(0)
+                sent_mask = sent_mask.repeat((src_sent.size(-1), 1))
+                attn_mask = sent_mask * sent_mask.transpose(0, 1)
+                c_mask += attn_mask
+            tok_mask = src_tok_mask.unsqueeze(0)
+            tok_mask = tok_mask.repeat((src_sent.size(-1), 1))
+            tok_mask = tok_mask * tok_mask.transpose(0, 1)
+            c_mask = c_mask * tok_mask
+            self_attn_mask.append(c_mask)
+
+        return torch.stack(self_attn_mask)
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_tgt_sent, tgt_nsent, 
-                clss, mask_cls, alignments, 
-                run_decoder=True):
+                mask_src_sent=None, mask_tgt_sent=None, 
+                tgt_nsent=None, mask_src_predicate=None,
+                clss=None, mask_cls=None, labels=None, 
+                gt_aj_matrix=None, run_decoder=True):
 
-        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        # batch_size * src_len * src_len
+        aggregate_mask = self.create_aggregate_mask(labels, mask_src_sent, mask_src)
+
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src, aggregate_mask=aggregate_mask) 
         top_vec = encoder_outputs.last_hidden_state
-        content_selection_weights = mask_src
 
         if not run_decoder:
-            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":content_selection_weights}
-
-        content_selection_weights = tree_to_content_mask(alignments, src, mask_src, tgt_nsent, self.cls_token_id)
-        mask_tgt = mask_tgt_sent
-        extend_top_vec = []
-        extend_tgt = []
-        for i, nsent in enumerate(tgt_nsent):
-            extend_top_vec.extend([top_vec[i]]*nsent)
-            extend_tgt.extend([tgt[i]]*nsent)
-        top_vec = torch.stack(extend_top_vec)
-        tgt = torch.stack(extend_tgt)
+            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":mask_src}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
-                                       encoder_attention_mask=content_selection_weights)
+                                       encoder_attention_mask=mask_src)
 
-        return decoder_outputs.last_hidden_state, tgt, mask_tgt
+        return decoder_outputs.last_hidden_state
+
+
+
+class StepAbsSummarizer(nn.Module):
+    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, abs_finetune=None):
+        super(StepAbsSummarizer, self).__init__()
+        self.args = args
+        self.device = device
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.vocab_size = vocab_size
+        self.cls_token_id = cls_token_id
+        self.gumbel_tau = args.gumbel_tau
+
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
+
+        self.encoder = self.model.get_encoder()
+        decoder = self.model.get_decoder()
+        #self.mask_weight_for_layers = Parameter(torch.empty(len(decoder.block), device=device).uniform_(0, 1))
+        #self.mask_weight_for_layers = Parameter(torch.ones(len(decoder.block), device=device)) * 0.5
+        self.mask_weight_for_layers = Parameter(torch.zeros(len(decoder.block), device=device)+0.5)
+        self.decoder = T5Stacker(decoder)
+        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        else:
+            if abs_finetune is not None:
+                print ('Load parameters from abs_finetune...')
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('encoder')]
+                self.encoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('decoder')]
+                self.decoder.load_state_dict(dict(tree_params), strict=True)
+                tree_params = [(n[10:], p) for n, p in abs_finetune['model'].items() if n.startswith('generator')]
+                self.generator.load_state_dict(dict(tree_params), strict=True)
+            else:
+                print ('Initialize parameters for generator...')
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
+
+        self.to(device)
+
+    def relaxed_bernoulli(self, probs):
+        gumbels = -torch.empty_like(probs.contiguous()).exponential_().log()
+        gumbels = (probs + gumbels) / self.gumbel_tau
+        y_soft = gumbels.sigmoid()
+        y_hard = torch.bernoulli(probs)
+        ret = y_hard - y_soft.detach() + y_soft
+        return ret
+
+    def forward(self, src, tgt, mask_src, mask_tgt, 
+                mask_src_sent, mask_tgt_sent, 
+                clss, mask_cls, alignments, 
+                run_decoder=True):
+
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":mask_src}
+
+        # batch_size * tgt_len * src_len
+        content_selection_weights = tree_to_content_mask(alignments, mask_src_sent, mask_tgt_sent)
+
+        # Decoding
+        mask_weight_for_layers = self.relaxed_bernoulli(self.mask_weight_for_layers)
+        decoder_outputs = self.decoder(input_ids=tgt, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=mask_src,
+                                       content_weights=content_selection_weights,
+                                       mask_weight_for_layers=mask_weight_for_layers)
+
+        return decoder_outputs.last_hidden_state
 
 
 
@@ -319,7 +423,7 @@ class ExtAbsSummarizer(nn.Module):
         model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
         self.vocab_size = model.config.vocab_size
         self.cls_token_id = cls_token_id
-        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+        self.gumbel_tau = args.gumbel_tau
 
         # Encoder for Generator
         self.encoder = model.get_encoder()
@@ -390,7 +494,7 @@ class ExtAbsSummarizer(nn.Module):
                     root_probs[i][idx] = 1
             root_probs = root_probs * mask_block
         else:
-            root_probs = gumbel_softmax_function(root_probs, self.tree_gumbel_softmax_tau, self.args.ext_topn)
+            root_probs = gumbel_softmax_function(root_probs, self.gumbel_tau, self.args.ext_topn)
 
         sep_id = self.cls_token_id
         batch_size, ntokens = input_ids.size()
@@ -452,12 +556,14 @@ def _get_sentence_meanpool(top_vec, mask_src_sent):
     return torch.sum(top_vec, -2)/torch.clamp(mask_src_sent.sum(-2), min=1e-9)
 
 
-def _get_predicate_embedding(top_vec, mask_src_predicate):
+def _get_predicate_embedding(top_vec, mask_src_predicate, mask_cls, predicate_linear=None):
     predicates = mask_src_predicate.sum(dim=1)
     predicate_idx = [predicates[i].nonzero(as_tuple=True)[0].tolist() for i in range(predicates.size(0))]
     width = mask_cls.size(1)
     predicate_idx = [d + [-1] * (width - len(d)) for d in predicate_idx]
     sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), predicate_idx]
+    if predicate_linear is not None:
+        sents_vec = predicate_linear(sents_vec)
     return sents_vec
 
 
@@ -470,7 +576,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
         self.device = device
         self.vocab_size = vocab_size
         self.cls_token_id = tokenizer.cls_token_id
-        self.tree_gumbel_softmax_tau = args.tree_gumbel_softmax_tau
+        self.gumbel_tau = args.gumbel_tau
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
@@ -483,25 +589,30 @@ class MarginalProjectiveTreeSumm(nn.Module):
         # Decoder for Generator
         self.decoder = self.model.get_decoder()
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
+
         # Tree inference
-        if args.planning_method == 'self_attn':
+        self.softmax = nn.Softmax(dim=-1)
+        if args.planning_method == 'ground_truth':
+            self.planning_layer = None
+        elif args.planning_method == 'self_attn':
             self.planning_layer = SimpleSelfAttention(self.model.config.hidden_size)
         else:
             self.planning_layer = TreeInference(self.model.config.hidden_size, 
                                                 args.ext_ff_size, 
                                                 args.ext_dropout, 
                                                 args.ext_layers)
-        self.softmax = nn.Softmax(dim=-1)
 
         # Sentence embedding
         self.maxpool_linear = nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size, bias=True)
+        self.predicate_linear = nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size, bias=True)
 
         # Tree embedding
         self.tree_info_wr = nn.Linear(self.model.config.hidden_size*3, self.args.tree_info_dim, bias=True)
         self.tree_info_layer_norm = nn.LayerNorm(self.model.config.hidden_size, eps=1e-6)
         self.tree_info_tanh = nn.Tanh()
         self.root_and_end_ids = torch.Tensor(tokenizer.convert_tokens_to_ids(['-Pred-ROOT', '-Pred-END'])).int().to(device)
-        self.emd_and_tree_wr = nn.Linear(self.model.config.hidden_size+self.args.tree_info_dim, self.model.config.hidden_size, bias=True)
+        #self.emd_and_tree_wr = nn.Linear(self.model.config.hidden_size+self.args.tree_info_dim, 
+                                          #self.model.config.hidden_size, bias=True)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -523,32 +634,37 @@ class MarginalProjectiveTreeSumm(nn.Module):
                     else:
                         p.data.zero_()
                 print ('Initialize parameters for TreeInference...')
-                if args.param_init != 0.0:
+                if args.param_init != 0.0 and self.planning_layer is not None:
                     for p in self.planning_layer.parameters():
                         p.data.uniform_(-args.param_init, args.param_init)
-                if args.param_init_glorot:
+                if args.param_init_glorot and self.planning_layer is not None:
                     for p in self.planning_layer.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
                 print ('Initialize parameters for TreeInference...')
                 if args.param_init != 0.0:
-                    for p in self.emd_and_tree_wr.parameters():
-                        p.data.uniform_(-args.param_init, args.param_init)
                     for p in self.tree_info_wr.parameters():
                         p.data.uniform_(-args.param_init, args.param_init)
                     for p in self.maxpool_linear.parameters():
                         p.data.uniform_(-args.param_init, args.param_init)
+                    for p in self.predicate_linear.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                    #for p in self.emd_and_tree_wr.parameters():
+                    #    p.data.uniform_(-args.param_init, args.param_init)
                 if args.param_init_glorot:
                     for p in self.tree_info_wr.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
-                    for p in self.emd_and_tree_wr.parameters():
-                        if p.dim() > 1:
-                            xavier_uniform_(p[:, :self.model.config.hidden_size])
-                            zeros_(p[:, self.model.config.hidden_size:])
                     for p in self.maxpool_linear.parameters():
                         if p.dim() > 1:
                             xavier_uniform_(p)
+                    for p in self.predicate_linear.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
+                    #for p in self.emd_and_tree_wr.parameters():
+                    #    if p.dim() > 1:
+                    #        xavier_uniform_(p[:, :self.model.config.hidden_size])
+                    #        zeros_(p[:, self.model.config.hidden_size:])
         self.to(device)
 
 
@@ -556,7 +672,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
                 mask_src_sent=None, mask_tgt_sent=None, 
                 mask_src_predicate=None, tgt_nsent=None, 
                 clss=None, mask_cls=None, labels=None, 
-                run_decoder=True):
+                gt_aj_matrix=None, run_decoder=True):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -565,7 +681,10 @@ class MarginalProjectiveTreeSumm(nn.Module):
        
         # Extract embedding for sentence(or triples)
         if self.args.sentence_embedding == 'predicate':
-            sents_vec = _get_predicate_embedding(top_vec, mask_src_predicate)
+            sents_vec = _get_predicate_embedding(top_vec, mask_src_predicate, mask_cls)
+        if self.args.sentence_embedding == 'predicate_wordemb':
+            inputs_embeds = self.encoder.embed_tokens(src)
+            sents_vec = _get_predicate_embedding(inputs_embeds, mask_src_predicate, mask_cls, self.predicate_linear)
         elif self.args.sentence_embedding == 'predicate_maxpool':
             sents_vec = _get_sentence_maxpool(top_vec, mask_src_predicate)
             sents_vec = self.maxpool_linear(sents_vec)
@@ -579,35 +698,42 @@ class MarginalProjectiveTreeSumm(nn.Module):
         sents_vec = sents_vec * mask_cls[:, :, None].float()
 
         # Get adjacency matrix
-        if self.args.planning_method == 'self_attn':
+        if self.args.planning_method == 'ground_truth':
+            aj_matrixes = gt_aj_matrix
+            roots = None
+        elif self.args.planning_method == 'self_attn':
             aj_matrixes = self.planning_layer(sents_vec, sents_vec, mask=mask_cls)
             roots = None
         else:
             roots, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
             aj_matrixes = aj_matrixes[-1]
-        # Softmax aj_matrixes
-        mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
-        aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
-        aj_matrixes = self.softmax(aj_matrixes)
-        raw_aj_matrixes = aj_matrixes
-        if self.args.tree_gumbel_softmax_tau > 0:
-            aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), self.args.tree_gumbel_softmax_tau, 1).transpose(1,2)
-        # Softmax roots
-        if roots is not None:
+            # Softmax roots
             roots = roots[-1]
             reverse_mask = (~ mask_cls).bool()
             roots = roots.masked_fill(reverse_mask, float('-inf'))
             roots = self.softmax(roots)
 
+        # Softmax aj_matrixes
+        if self.args.planning_method != 'ground_truth':
+           mask_cls_attn = (~ mask_cls).unsqueeze(1).expand_as(aj_matrixes).bool()
+           aj_matrixes = aj_matrixes.masked_fill(mask_cls_attn, float('-inf'))
+           aj_matrixes = self.softmax(aj_matrixes)
+        raw_aj_matrixes = aj_matrixes
+
+        # Edge sampling
+        if self.args.gumbel_tau > 0:
+            tau = self.args.gumbel_tau
+            aj_matrixes = gumbel_softmax_function(aj_matrixes.transpose(1,2), tau, 1).transpose(1,2)
+
         # Get children/parents token embedding
         root_and_end_embeddings = self.encoder.embed_tokens(self.root_and_end_ids)
         root_embedding = root_and_end_embeddings[0]
         child_end_embedding = root_and_end_embeddings[1]
-        # Get children embedding
+        # Get children weighted embedding
         children_embs = torch.matmul(aj_matrixes, sents_vec)
         child_end_embedding = child_end_embedding.unsqueeze(0).unsqueeze(0).expand_as(children_embs)
-        children_embs += child_end_embedding * 1e-5
-        # Get parents embedding
+        children_embs += child_end_embedding * 1e-8
+        # Get parents weighted embedding
         parents_embs = torch.matmul(aj_matrixes.transpose(1, 2), sents_vec)
         root_embedding = root_embedding.unsqueeze(0).expand(parents_embs.size(0), parents_embs.size(-1))
         root_embedding = root_embedding.unsqueeze(1)
@@ -615,19 +741,19 @@ class MarginalProjectiveTreeSumm(nn.Module):
             roots = roots.unsqueeze(2)
             parents_embs = parents_embs + torch.matmul(roots, root_embedding)
         else:
-            parents_embs += root_embedding * 1e-5
+            parents_embs += root_embedding * 1e-8
         
         # Merge tree information
         tree_info_embs = torch.cat([sents_vec, children_embs, parents_embs], dim=-1)
         tree_info_embs = self.tree_info_wr(tree_info_embs)
-        tree_info_embs = self.tree_info_layer_norm(tree_info_embs)
+        #tree_info_embs = self.tree_info_layer_norm(tree_info_embs)
         tree_info_embs = self.tree_info_tanh(tree_info_embs)
 
         # Add embedding of tree information to the token embedding
         top_vec = top_vec.unsqueeze(1).repeat((1, mask_src_sent.size(1), 1, 1))
         tree_info_embs = tree_info_embs.unsqueeze(2).repeat((1, 1, src.size(1), 1))
-        #top_vec = top_vec + tree_info_embs
-        top_vec = self.emd_and_tree_wr(torch.cat([top_vec, tree_info_embs], dim=-1))
+        top_vec = top_vec + tree_info_embs
+        #top_vec = self.emd_and_tree_wr(torch.cat([top_vec, tree_info_embs], dim=-1))
         top_vec = top_vec * mask_src_sent[:, :, :, None].float()
         top_vec = top_vec.sum(dim=1)
 
@@ -644,4 +770,3 @@ class MarginalProjectiveTreeSumm(nn.Module):
                                        encoder_attention_mask=content_selection_weights)
 
         return decoder_outputs.last_hidden_state
-

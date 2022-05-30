@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-predicates_start_from_id", default=-1, type=int)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree', 'agg_encoder'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')
@@ -50,11 +50,11 @@ if __name__ == '__main__':
     # planning parameters
     parser.add_argument("-pred_special_tok", default='<PRED>', type=str)
     parser.add_argument("-obj_special_tok", default='<OBJ>', type=str)
-    parser.add_argument("-sentence_embedding", default='maxpool', type=str, choices=['predicate', 'maxpool', 'meanpool', 'predicate_meanpool', 'predicate_maxpool'])
-    parser.add_argument("-tree_gumbel_softmax_tau", default=0.3, type=float)
+    parser.add_argument("-sentence_embedding", default='maxpool', type=str, choices=['predicate', 'maxpool', 'meanpool', 'predicate_meanpool', 'predicate_maxpool', 'predicate_wordemb'])
+    parser.add_argument("-gumbel_tau", default=0.3, type=float)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-freeze_tmt", type=str2bool, default=False)
-    parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k', 'self_attn'])
+    parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k', 'self_attn', 'ground_truth'])
     parser.add_argument("-ext_topn", default=3, type=float)
     parser.add_argument("-tree_info_dim", default=768, type=int)
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument("-abs_plus_ext_loss", type=float, nargs='?', default=0.0)
 
     # test parameters
-    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree'])
+    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree', 'tgt_prompt'])
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)
@@ -127,7 +127,7 @@ if __name__ == '__main__':
                 step = 0
             test_ext(args, device_id, cp, step)
 
-    elif args.ext_or_abs == 'abs':
+    elif args.ext_or_abs in ['abs', 'marginal_projective_tree', 'agg_encoder']:
         if (args.mode == 'train'):
             train_abs(args, device_id)
         elif (args.mode == 'validate'):

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 BASE_DIR=./outputs.webnlg/
+#BASE_DIR=${SCRATCH_DIR}
 
 #BERT_DATA_PATH=${BASE_DIR}/data/
 #MODEL_PATH=${BASE_DIR}/models.edge.discrete/
@@ -8,30 +9,28 @@ BASE_DIR=./outputs.webnlg/
         #-sentence_embedding predicate_meanpool \
 
 BERT_DATA_PATH=${BASE_DIR}/data.pred/
-MODEL_PATH=${BASE_DIR}/models.pred.edge.discrete/
-LOG_PATH=${BASE_DIR}/logs.pred.edge.discrete/
+MODEL_PATH=${BASE_DIR}/models.pred.gt.plan/
+LOG_PATH=${BASE_DIR}/logs.pred.gt.plan/
 
+mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
-python train.py \
-	-mode test \
+python train.py  \
+	-mode validate \
 	-input_path ${BERT_DATA_PATH} \
+	-model_path ${MODEL_PATH} \
+	-model_name t5-small \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_6000.pt \
-	-result_path ${LOG_PATH}/test.res \
-	-log_file ${LOG_PATH}/test.log \
-        -model_name t5-small \
 	-ext_or_abs marginal_projective_tree \
+        -planning_method ground_truth \
         -sentence_embedding predicate \
-        -tree_gumbel_softmax_tau 0.3 \
+        -gumbel_tau -1 \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
-	-inference_mode abs \
         -predicates_start_from_id 32101 \
-	-block_trigram true \
-	-max_pos 250 \
+	-log_file ${LOG_PATH}/validation.log \
+        -result_path ${LOG_PATH}/validation.res \
 	-batch_size 6000 \
-        -test_min_length 10 \
-        -test_max_length 250 \
-	-visible_gpus 0 \
-        -do_analysis \
+	-max_pos 250 \
+	-max_tgt_len 250 \
+	-visible_gpus 0

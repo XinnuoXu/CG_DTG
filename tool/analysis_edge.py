@@ -15,10 +15,10 @@ class Analysis():
     def edge_ranking_self_attn(self, sents_vec, alignments, mask_cls):
         nsent = mask_cls.sum(1)
         self_attns = self.self_attn_layer(sents_vec, sents_vec, mask_cls)
-        return = self.edge_ranking(self_attns, alignments)
+        return self.edge_ranking(self_attns, alignments, nsent)
 
 
-    def edge_ranking(self, self_attns, alignments):
+    def edge_ranking(self, self_attns, alignments, nsent):
         pred_scores = []; align_labels = []
 
         for eid, alignment in enumerate(alignments):
@@ -121,10 +121,12 @@ def edge_weights_distribution(pred_scores, data_path=None):
 
 if __name__ == '__main__':
     #data_path = 'outputs.webnlg/logs.base/test.res.20000.edge'
-    data_path = 'outputs.webnlg/logs.ext/test.res.edge'
+    #data_path = 'outputs.webnlg/logs.ext/test.res.edge'
     #data_path = 'outputs.cnn_dm/logs.ext/test_ext.res.edge'
     #data_path = 'outputs.cnn_dm/logs.bartbase/test.res.320000.edge'
     #data_path = 'outputs.cnn_dm/logs.ext_normalization//test_ext.res.edge'
+    #data_path = 'outputs.webnlg/logs.pred.base/test.res.4000.edge'
+    data_path = 'outputs.webnlg/logs.pred.edge.discrete/test.res.4000.edge'
 
     edge_ranking_evaluation(None, None, None, data_path=data_path)
     edge_weights_distribution(None, data_path=data_path)

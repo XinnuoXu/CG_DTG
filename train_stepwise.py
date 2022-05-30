@@ -19,7 +19,7 @@ from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
 from models.model_builder import StepAbsSummarizer
-from models.predictor_stepwise import build_predictor
+from models.predictor_step import build_predictor
 from models.trainer_step import build_trainer
 from models.logging import logger, init_logger
 from models.predictor_tree import build_predictor_tree
@@ -44,7 +44,7 @@ def run(args, device_id, error_queue):
     setattr(args, 'gpu_ranks', [int(i) for i in args.gpu_ranks])
 
     try:
-        gpu_rank = distributed.multi_init(device_id, args.world_size, args.gpu_ranks)
+        gpu_rank = distributed.multi_init(device_id, args.world_size, args.gpu_ranks, args.master_port)
         print('gpu_rank %d' % gpu_rank)
         if gpu_rank != args.gpu_ranks[device_id]:
             raise AssertionError("An error occurred in \
@@ -149,11 +149,11 @@ def train_stepwise_single(args, device_id):
     else:
         checkpoint = None
 
-    if args.load_from_ext != '':
-        logger.info('Loading EXT checkpoint from %s' % args.load_from_ext)
-        ext_checkpoint = torch.load(args.load_from_ext, map_location=lambda storage, loc: storage)
-    else:
-        ext_checkpoint = None
+    # Load finetuned abstractive checkpoint
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -165,7 +165,7 @@ def train_stepwise_single(args, device_id):
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = StepAbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, ext_checkpoint)
+    model = StepAbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint, abs_checkpoint)
 
     if args.lr_tmt != -1 and args.lr_enc_dec != -1:
         optim_enc_dec = model_builder.build_optim_enc_dec(args, model, checkpoint)

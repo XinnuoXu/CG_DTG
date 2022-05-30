@@ -138,10 +138,12 @@ class Trainer(object):
             clss = batch.clss
             mask_cls = batch.mask_cls
             labels = batch.alg
+            gt_aj_matrix = batch.gt_aj_matrix
 
             outputs = self.model(src, tgt, mask_src, mask_tgt, 
                                  clss=clss, mask_cls=mask_cls, 
                                  labels=labels, 
+                                 gt_aj_matrix=gt_aj_matrix,
                                  mask_src_sent=mask_src_sent,
                                  mask_src_predicate=mask_src_predicate)
 
@@ -198,10 +200,12 @@ class Trainer(object):
                 clss = batch.clss
                 mask_cls = batch.mask_cls
                 labels = batch.alg
+                gt_aj_matrix = batch.gt_aj_matrix
 
                 outputs = self.model(src, tgt, mask_src, mask_tgt, 
                                      clss=clss, mask_cls=mask_cls, 
                                      labels=labels, 
+                                     gt_aj_matrix=gt_aj_matrix,
                                      mask_src_sent=mask_src_sent,
                                      mask_src_predicate=mask_src_predicate)
 

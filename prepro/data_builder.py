@@ -51,16 +51,26 @@ class BertData():
         return _sent_labels
 
 
-    def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length, alg):
+    def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length, alg, prompt_str):
 
         src_txt = (' '+self.cls_token+' ').join(src)
-        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt])
+        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
+        if self.args.add_prompt_to_src:
+            src_txt = src_txt + ' ' + self.cls_token + ' ' + prompt_str
+        if self.args.add_prompt_to_tgt:
+            tgt_txt = prompt_str + ' ' + self.cls_token + ' ' + tgt_txt
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
+
+        if self.args.for_stepwise:
+            target_tokens = target_tokens[:-1]
+
+        #print (src_txt, source_tokens)
+        #print (tgt_txt, target_tokens)
 
         gt_selection = self.get_sent_labels(source_tokens, sent_labels)
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
@@ -97,9 +107,11 @@ def _process(params):
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
+        preds = d['predicates']
         sent_labels = d['selections']
+        prompt_str = d['prompt_str']
 
-        b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg)
+        b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg, prompt_str)
         source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
@@ -159,6 +171,8 @@ def split_shard(args):
             new_obj['tgt'] = json_obj['gold_segs']
             new_obj['example_id'] = json_obj['example_id']
             new_obj['alignments'] = json_obj['oracles_selection']
+            new_obj['predicates'] = json_obj['predicates']
+            new_obj['prompt_str'] = json_obj['prompt_str']
             selected_segs = set()
             for sent in json_obj['oracles_selection']:
                 for seg in sent:

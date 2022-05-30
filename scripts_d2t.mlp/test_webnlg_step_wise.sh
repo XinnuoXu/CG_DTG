@@ -2,9 +2,9 @@
 
 BASE_DIR=./outputs.webnlg/
 
-BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.base/
-LOG_PATH=${BASE_DIR}/logs.base/
+BERT_DATA_PATH=${BASE_DIR}/data.step_wise/
+MODEL_PATH=${BASE_DIR}/models.step_wise/
+LOG_PATH=${BASE_DIR}/logs.step_wise/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -14,12 +14,10 @@ python train.py \
         -model_name t5-small \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_3000.pt \
+	-test_from ${MODEL_PATH}/model_step_5000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
-        -pred_special_tok '<PRED>' \
-        -obj_special_tok '<OBJ>' \
-	-ext_or_abs abs \
+        -ext_or_abs step \
         -inference_mode abs \
         -sentence_embedding predicate \
 	-block_trigram true \
@@ -28,3 +26,6 @@ python train.py \
         -test_min_length 10 \
         -test_max_length 250 \
 	-visible_gpus 0 \
+        -do_analysis \
+
+	#-test_from ${MODEL_PATH}/model_step_6000.pt \

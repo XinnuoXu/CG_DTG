@@ -9,7 +9,7 @@ import torch
 from models.beam_search.beam import GNMTGlobalScorer
 from models.tree_reader import tree_building, headlist_to_string
 from models.model_builder import _get_sentence_maxpool, _get_sentence_meanpool, _get_predicate_embedding
-from tool.analysis import Analysis
+from tool.analysis_edge import Analysis
 
 def tile(x, count, dim=0):
     """
@@ -230,13 +230,15 @@ class Translator(object):
         clss = batch.clss
         mask_cls = batch.mask_cls
         labels = batch.alg
+        gt_aj_matrix = batch.gt_aj_matrix
         device = src.device
         results = {}
 
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt,
                              clss=clss, mask_cls=mask_cls,
-                             labels=labels, 
+                             labels=labels,
+                             gt_aj_matrix=gt_aj_matrix, 
                              mask_src_sent=mask_src_sent, 
                              mask_src_predicate=mask_src_predicate,
                              run_decoder=False)
@@ -257,25 +259,25 @@ class Translator(object):
         if self.args.do_analysis:
             # Edge analysis
             if sent_relations is None:
-                if self.args.sentence_embedding == 'maxpool':
-                    sents_vec = _get_sentence_maxpool(src_features, mask_src_sent)
-                elif self.args.sentence_embedding == 'meanpool':
+                #if self.args.sentence_embedding == 'maxpool':
+                #    sents_vec = _get_sentence_maxpool(src_features, mask_src_sent,)
+                #elif self.args.sentence_embedding == 'predicate_maxpool':
+                #    sents_vec = _get_sentence_maxpool(src_features, mask_src_predicate)
+                if self.args.sentence_embedding == 'meanpool':
                     sents_vec = _get_sentence_meanpool(src_features, mask_src_sent)
-                elif self.args.sentence_embedding == 'predicate_maxpool':
-                    sents_vec = _get_sentence_maxpool(src_features, mask_src_predicate)
                 elif self.args.sentence_embedding == 'predicate_meanpool':
                     sents_vec = _get_sentence_meanpool(src_features, mask_src_predicate)
                 else:
-                    sents_vec = _get_predicate_embedding(src_features, mask_src_predicate)
+                    sents_vec = _get_predicate_embedding(src_features, mask_src_predicate, mask_cls)
                 edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking_self_attn(sents_vec, batch.alg, mask_cls)
             else:
-                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking(sent_relations, batch.alg)
+                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking(sent_relations, batch.alg, mask_cls.sum(1))
             results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
 
             # Tree analysis
             if sent_relations is not None:
                 if sent_probs is None:
-                    sent_probs = torch.ones((sent_relations.size(0), sent_relations.size(1), sent_relations.size(2)))
+                    sent_probs = torch.ones((sent_relations.size(0), sent_relations.size(1), sent_relations.size(2)), device=sent_relations.device)
                 trees = tree_building(sent_probs, sent_relations, mask_cls, device)
                 results["analysis"]["trees"] = trees
 

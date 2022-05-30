@@ -24,7 +24,7 @@ from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
 model_flags = ['ext_layers', 'ext_heads', 
-               'ext_ff_size', 'tree_gumbel_softmax_tau', 'tokenizer_path',]
+               'ext_ff_size', 'gumbel_tau', 'tokenizer_path',]
 
 
 def str2bool(v):

@@ -10,7 +10,7 @@ from models.logging import logger
 from models.loss import ConentSelectionLossCompute
 from models.tree_reader import tree_building, headlist_to_string
 
-from tool.analysis import Analysis, attention_evaluation
+from tool.analysis_edge import Analysis, attention_evaluation
 
 
 def _tally_parameters(model):

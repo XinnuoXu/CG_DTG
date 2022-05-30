@@ -5,12 +5,35 @@ import sys, os
 path_prefix = sys.argv[1] #'./outputs.webnlg/logs.base/test.res.5000'
 target_format = sys.argv[2] # ['one-to-one', 'first-to-many', 'first-to-first']
 
-def first_to_many(example_ids, refereces, candidates):
+def postprocess(string):
+    string = string.replace('.', ' . ').replace(',', ' , ').replace('\'', ' \' ').replace('/', ' / ')
+    string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ')
+    return string
+
+def one_to_one(refereces, candidates):
+
+    fpout_cand = open(path_prefix+'.cand', 'w')
+    fpout_ref = open(path_prefix+'.ref', 'w')
+
+    for i, example_id in enumerate(example_ids):
+        reference = refereces[i].replace('<q>', ' ')
+        candidate = candidates[i].replace('<q>', ' ')
+        reference = postprocess(reference)
+        candidate = postprocess(candidate)
+        fpout_cand.write(candidate + '\n')
+        fpout_ref.write(reference + '\n')
+
+    fpout_cand.close()
+    fpout_ref.close()
+
+def one_to_many(example_ids, refereces, candidates):
 
     res = {}
     for i, example_id in enumerate(example_ids):
         reference = refereces[i].replace('<q>', ' ')
         candidate = candidates[i].replace('<q>', ' ')
+        reference = postprocess(reference)
+        candidate = postprocess(candidate)
         eid, rid = example_id.split('_')
         if eid not in res:
             res[eid] = {'ref':[], 'cand':''}
@@ -48,6 +71,8 @@ if __name__ == '__main__':
     example_ids = [line.strip() for line in open(path_prefix+'.eid')]
     refereces = [line.strip() for line in open(path_prefix+'.gold')]
     candidates = [line.strip() for line in open(path_prefix+'.candidate')]
-    if target_format == 'first-to-many':
-        first_to_many(example_ids, refereces, candidates)
+    if target_format == 'one-to-many':
+        one_to_many(example_ids, refereces, candidates)
+    elif target_format == 'one-to-one':
+        one_to_one(refereces, candidates)
     

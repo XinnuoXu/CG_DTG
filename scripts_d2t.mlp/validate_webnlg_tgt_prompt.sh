@@ -2,9 +2,9 @@
 
 BASE_DIR=./outputs.webnlg/
 
-BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.base/
-LOG_PATH=${BASE_DIR}/logs.base/
+BERT_DATA_PATH=${BASE_DIR}/data.tgt_prompt/
+MODEL_PATH=${BASE_DIR}/models.tgt_prompt/
+LOG_PATH=${BASE_DIR}/logs.tgt_prompt/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

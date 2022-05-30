@@ -3,14 +3,10 @@
 BASE_DIR=./outputs.webnlg/
 #BASE_DIR=${SCRATCH_DIR}
 
-#BERT_DATA_PATH=${BASE_DIR}/data/
-#MODEL_PATH=${BASE_DIR}/models.edge.marginal/
-#LOG_PATH=${BASE_DIR}/logs.edge.marginal/
-        #-sentence_embedding predicate_meanpool \
-
-BERT_DATA_PATH=${BASE_DIR}/data.pred/
-MODEL_PATH=${BASE_DIR}/models.pred.edge.marginal/
-LOG_PATH=${BASE_DIR}/logs.pred.edge.marginal/
+BERT_DATA_PATH=${BASE_DIR}/data.step_wise/
+MODEL_PATH=${BASE_DIR}/models.step_wise/
+LOG_PATH=${BASE_DIR}/logs.step_wise/
+ABS_PATH=${BASE_DIR}/models.base/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -19,12 +15,12 @@ python train.py  \
 	-mode train \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
+        -load_from_abs ${ABS_PATH}/model_step_3000.pt \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
         -log_gradient ${LOG_PATH}/gradient.log \
-	-ext_or_abs marginal_projective_tree \
-        -sentence_embedding predicate \
-        -tree_gumbel_softmax_tau -1 \
+	-ext_or_abs step \
+        -gumbel_tau 0.3 \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
         -predicates_start_from_id 32101 \
@@ -39,8 +35,8 @@ python train.py  \
 	-max_pos 250 \
 	-max_tgt_len 250 \
 	-ext_dropout 0.1 \
-	-lr 3e-4 \
+	-lr 3e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2 \
-        -master_port 10002 \
+        -master_port 10001 \

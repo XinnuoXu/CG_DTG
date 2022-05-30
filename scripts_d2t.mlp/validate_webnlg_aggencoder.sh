@@ -3,8 +3,8 @@
 BASE_DIR=./outputs.webnlg/
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.base/
-LOG_PATH=${BASE_DIR}/logs.base/
+MODEL_PATH=${BASE_DIR}/models.agg_encoder/
+LOG_PATH=${BASE_DIR}/logs.agg_encoder/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -14,7 +14,7 @@ python train.py \
 	-input_path ${BERT_DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-ext_or_abs abs \
+	-ext_or_abs agg_encoder \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
 	-max_pos 250 \
