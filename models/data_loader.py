@@ -78,12 +78,14 @@ class Batch(object):
             setattr(self, 'nsent_tgt', nsent_tgt)
 
             if (is_test):
-                src_str = [x[-3] for x in data]
+                src_str = [x[-4] for x in data]
                 setattr(self, 'src_str', src_str)
-                tgt_str = [x[-2] for x in data]
+                tgt_str = [x[-3] for x in data]
                 setattr(self, 'tgt_str', tgt_str)
-                eid = [x[-1] for x in data]
+                eid = [x[-2] for x in data]
                 setattr(self, 'eid', eid)
+                prompt_str = [x[-1] for x in data]
+                setattr(self, 'prompt_str', prompt_str)
 
     def create_groundtruth_aj_matrix(self, alg, mask_cls):
         gt_aj_matrix = torch.zeros((mask_cls.size(0), mask_cls.size(1), mask_cls.size(1)))
@@ -266,6 +268,7 @@ class DataIterator(object):
         nsent_tgt = ex['nsent_tgt']
         nsent_src = ex['nsent_src']
         alg = ex['alignments']
+        prompt_str = ex['prompt_str']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
@@ -275,7 +278,7 @@ class DataIterator(object):
         nsent_src = len(clss)
 
         if(is_test):
-            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, src_txt, tgt_txt, eid
+            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, src_txt, tgt_txt, eid, prompt_str
         else:
             return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt
 

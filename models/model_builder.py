@@ -343,6 +343,7 @@ class StepAbsSummarizer(nn.Module):
         self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
         self.gumbel_tau = args.gumbel_tau
+        self.step_training_ratio = torch.tensor(self.args.step_training_ratio)
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         if self.vocab_size > len(self.original_tokenizer):
@@ -350,9 +351,6 @@ class StepAbsSummarizer(nn.Module):
 
         self.encoder = self.model.get_encoder()
         decoder = self.model.get_decoder()
-        #self.mask_weight_for_layers = Parameter(torch.empty(len(decoder.block), device=device).uniform_(0, 1))
-        #self.mask_weight_for_layers = Parameter(torch.ones(len(decoder.block), device=device)) * 0.5
-        self.mask_weight_for_layers = Parameter(torch.zeros(len(decoder.block), device=device)+0.5)
         self.decoder = T5Stacker(decoder)
         self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
 
@@ -379,14 +377,6 @@ class StepAbsSummarizer(nn.Module):
 
         self.to(device)
 
-    def relaxed_bernoulli(self, probs):
-        gumbels = -torch.empty_like(probs.contiguous()).exponential_().log()
-        gumbels = (probs + gumbels) / self.gumbel_tau
-        y_soft = gumbels.sigmoid()
-        y_hard = torch.bernoulli(probs)
-        ret = y_hard - y_soft.detach() + y_soft
-        return ret
-
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent, mask_tgt_sent, 
                 clss, mask_cls, alignments, 
@@ -399,16 +389,16 @@ class StepAbsSummarizer(nn.Module):
             return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":mask_src}
 
         # batch_size * tgt_len * src_len
-        content_selection_weights = tree_to_content_mask(alignments, mask_src_sent, mask_tgt_sent)
+        content_selection_weights = None
+        if torch.bernoulli(self.step_training_ratio):
+            content_selection_weights = tree_to_content_mask(alignments, mask_src_sent, mask_tgt_sent)
 
         # Decoding
-        mask_weight_for_layers = self.relaxed_bernoulli(self.mask_weight_for_layers)
         decoder_outputs = self.decoder(input_ids=tgt, 
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src,
-                                       content_weights=content_selection_weights,
-                                       mask_weight_for_layers=mask_weight_for_layers)
+                                       content_weights=content_selection_weights)
 
         return decoder_outputs.last_hidden_state
 

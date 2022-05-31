@@ -57,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument("-planning_method", type=str, default='gumbel_tree', choices=['gumbel_tree', 'topk_tree', 'ground_truth', 'random', 'lead_k', 'not_lead_k', 'self_attn', 'ground_truth'])
     parser.add_argument("-ext_topn", default=3, type=float)
     parser.add_argument("-tree_info_dim", default=768, type=int)
+    parser.add_argument("-step_training_ratio", default=0.6, type=float)
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

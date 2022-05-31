@@ -20,7 +20,7 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
         -log_gradient ${LOG_PATH}/gradient.log \
 	-ext_or_abs step \
-        -gumbel_tau 0.3 \
+        -step_training_ratio 0.6 \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
         -predicates_start_from_id 32101 \

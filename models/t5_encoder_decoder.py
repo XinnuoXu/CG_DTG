@@ -34,7 +34,6 @@ class T5AttentionM(T5Attention):
         hidden_states,
         mask=None,
         content_weights=None,
-        mask_or_not=None,
         key_value_states=None,
         position_bias=None,
         past_key_value=None,
@@ -109,7 +108,7 @@ class T5AttentionM(T5Attention):
         if content_weights is not None:
             content_weights = (1.0 - content_weights) * -1e9
             content_weights = content_weights.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
-            scores += content_weights * mask_or_not
+            scores += content_weights
 
         if position_bias is None:
             if not self.has_relative_attention_bias:
@@ -199,7 +198,6 @@ class T5LayerCrossAttentionM(T5LayerCrossAttention):
         key_value_states,
         attention_mask=None,
         content_weights=None,
-        mask_or_not=None,
         position_bias=None,
         layer_head_mask=None,
         past_key_value=None,
@@ -212,7 +210,6 @@ class T5LayerCrossAttentionM(T5LayerCrossAttention):
             normed_hidden_states,
             mask=attention_mask,
             content_weights=content_weights,
-            mask_or_not=mask_or_not,
             key_value_states=key_value_states,
             position_bias=position_bias,
             layer_head_mask=layer_head_mask,
@@ -249,7 +246,6 @@ class T5BlockM(T5Block):
         encoder_attention_mask=None,
         aggregate_mask=None,
         content_weights=None,
-        mask_or_not=None,
         encoder_decoder_position_bias=None,
         layer_head_mask=None,
         cross_attn_layer_head_mask=None,
@@ -308,7 +304,6 @@ class T5BlockM(T5Block):
                 key_value_states=encoder_hidden_states,
                 attention_mask=encoder_attention_mask,
                 content_weights=content_weights,
-                mask_or_not=mask_or_not,
                 position_bias=encoder_decoder_position_bias,
                 layer_head_mask=cross_attn_layer_head_mask,
                 past_key_value=cross_attn_past_key_value,
@@ -373,8 +368,6 @@ class T5Stacker(T5Stack):
         encoder_attention_mask=None,
         aggregate_mask=None,
         content_weights=None,
-        mask_weight_for_layers=None,
-        mask_or_not=None,
         inputs_embeds=None,
         head_mask=None,
         cross_attn_head_mask=None,
@@ -510,10 +503,6 @@ class T5Stacker(T5Stack):
                     None,  # past_key_value is always None with gradient checkpointing
                 )
             else:
-                mask_or_not = None
-                if mask_weight_for_layers is not None:
-                    mask_or_not = mask_weight_for_layers[i]
-
                 layer_outputs = layer_module(
                     hidden_states,
                     attention_mask=extended_attention_mask,
@@ -522,7 +511,6 @@ class T5Stacker(T5Stack):
                     encoder_attention_mask=encoder_extended_attention_mask,
                     aggregate_mask=aggregate_mask,
                     content_weights=content_weights,
-                    mask_or_not=mask_or_not,
                     encoder_decoder_position_bias=encoder_decoder_position_bias,
                     layer_head_mask=layer_head_mask,
                     cross_attn_layer_head_mask=cross_attn_layer_head_mask,
