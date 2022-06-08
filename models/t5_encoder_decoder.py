@@ -106,7 +106,10 @@ class T5AttentionM(T5Attention):
         )  # equivalent of torch.einsum("bnqd,bnkd->bnqk", query_states, key_states), compatible with onnx op>9
 
         if content_weights is not None:
-            content_weights = (1.0 - content_weights) * -1e9
+            weight_format = content_weights['format']
+            content_weights = content_weights['weights']
+            if weight_format == 'hard':
+                content_weights = (1.0 - content_weights) * -1e9
             content_weights = content_weights.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
             scores += content_weights
 

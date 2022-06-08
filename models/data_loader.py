@@ -30,20 +30,20 @@ class Batch(object):
             pre_alg = [x[4] for x in data]
             nsent_src = [x[5] for x in data]
             nsent_tgt = [x[6] for x in data]
+            prompt_tokenized = [x[7] for x in data]
 
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
             mask_tgt = ~(tgt == pad_id)
 
-            src_sentence_mask, tgt_sentence_mask, src_predicate_mask = None, None, None
-            if ext_or_abs != 'abs':
-                src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
-                tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
-                src_predicate_mask = self.create_predicate_mask_src(src, mask_src, 
-                                                                    pred_special_tok_id, 
-                                                                    obj_special_tok_id, 
-                                                                    max(nsent_src))
+            src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
+            tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
+            src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
+            src_predicate_token_idx = self.get_src_predicate_idx(src, pred_special_tok_id)
+            src_predicate_token_idx = [item.to(device) for item in src_predicate_token_idx]
+            prompt_tokenized = [torch.tensor(item).to(device) for item in prompt_tokenized]
+
             clss = torch.tensor(self._pad(pre_clss, -1))
             mask_cls = ~(clss == -1)
             clss[clss == -1] = 0
@@ -56,18 +56,11 @@ class Batch(object):
             setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
 
-            if tgt_sentence_mask is not None:
-                setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
-            else:
-                setattr(self, 'mask_tgt_sent', None)
-            if src_sentence_mask is not None:
-                setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
-            else:
-                setattr(self, 'mask_src_sent', None)
-            if src_predicate_mask is not None:
-                setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
-            else:
-                setattr(self, 'src_predicate_mask', None)
+            setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
+            setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
+            setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
+            setattr(self, 'src_predicate_token_idx', src_predicate_token_idx)
+            setattr(self, 'prompt_tokenized', prompt_tokenized)
 
             setattr(self, 'clss', clss.to(device))
             setattr(self, 'mask_cls', mask_cls.to(device))
@@ -144,6 +137,13 @@ class Batch(object):
                 mask[j] = mask[j] * mask_src[i]
             src_sentence_mask.append(mask)
         return torch.stack(src_sentence_mask)
+
+    def get_src_predicate_idx(self, src, pred_special_tok_id):
+        src_sentence_mask = []
+        for ex_src in src:
+            pred_index = (ex_src == pred_special_tok_id).nonzero(as_tuple=True)[0]
+            src_sentence_mask.append(pred_index+1)
+        return src_sentence_mask
 
     def __len__(self):
         return self.batch_size
@@ -269,6 +269,7 @@ class DataIterator(object):
         nsent_src = ex['nsent_src']
         alg = ex['alignments']
         prompt_str = ex['prompt_str']
+        prompt_tokenized = ex['prompt_tokenized']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
@@ -278,9 +279,9 @@ class DataIterator(object):
         nsent_src = len(clss)
 
         if(is_test):
-            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, src_txt, tgt_txt, eid, prompt_str
+            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, prompt_tokenized, src_txt, tgt_txt, eid, prompt_str
         else:
-            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt
+            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, prompt_tokenized
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

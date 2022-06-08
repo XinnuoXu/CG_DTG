@@ -1,5 +1,6 @@
 import copy, random
 
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -343,7 +344,7 @@ class StepAbsSummarizer(nn.Module):
         self.vocab_size = vocab_size
         self.cls_token_id = cls_token_id
         self.gumbel_tau = args.gumbel_tau
-        self.step_training_ratio = torch.tensor(self.args.step_training_ratio)
+        self.softmax = nn.Softmax(dim=-1)
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         if self.vocab_size > len(self.original_tokenizer):
@@ -377,9 +378,52 @@ class StepAbsSummarizer(nn.Module):
 
         self.to(device)
 
+    def predicate_self_attention(self, encoder_outputs, src_mask, alignments, predicate_idx):
+        key = encoder_outputs
+        query = encoder_outputs
+        query = query / math.sqrt(query.size(-1))
+        scores = torch.matmul(query, key.transpose(1, 2))
+        src_mask = src_mask.unsqueeze(1).expand_as(scores)
+        scores = scores.masked_fill(~src_mask, -1e9)
+        attn = scores
+        #attn = self.softmax(scores)
+        step_weights = []
+        for example_id in range(attn.size(0)):
+            pred_idx = predicate_idx[example_id]
+            example_attn = attn[example_id]
+            predicate_attns = torch.index_select(example_attn, 0, pred_idx)
+            alignment = alignments[example_id]
+            step_weight = []
+            for group in alignment:
+                pred_attn_max_pool = torch.max(predicate_attns[group], dim=0)[0]
+                step_weight.append(pred_attn_max_pool)
+            step_weights.append(step_weight)
+        return step_weights
+
+    def step_weights_expand(self, step_weights, mask_tgt_sent):
+        device = mask_tgt_sent.device
+        tgt_len = mask_tgt_sent.size(-1)
+        cross_attn_mask = []
+        for i, step_weight in enumerate(step_weights):
+            tgt_sent = mask_tgt_sent[i]
+            # for each sent in tgt
+            c_mask = []
+            for j, sent_weight in enumerate(step_weight):
+                sent_mask = sent_weight.unsqueeze(0)
+                sent_mask = sent_mask.repeat((int(tgt_sent[j].sum()), 1))
+                c_mask.append(sent_mask)
+            c_mask = torch.cat(c_mask)
+            # padding
+            mask_padding = torch.zeros((tgt_len-c_mask.size(0), c_mask.size(1)), device=device)
+            #print (c_mask.size(), mask_padding.size())
+            c_mask = torch.cat([c_mask, mask_padding])
+            cross_attn_mask.append(c_mask)
+        return torch.stack(cross_attn_mask)
+
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent, mask_tgt_sent, 
-                clss, mask_cls, alignments, 
+                clss, mask_cls, alignments,
+                src_predicate_token_idx, 
                 run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -388,10 +432,12 @@ class StepAbsSummarizer(nn.Module):
         if not run_decoder:
             return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":mask_src}
 
-        # batch_size * tgt_len * src_len
-        content_selection_weights = None
-        if torch.bernoulli(self.step_training_ratio):
+        if self.args.cross_attn_weight_format == 'pred_selfattn':
+            step_weights = self.predicate_self_attention(top_vec, mask_src, alignments, src_predicate_token_idx)
+            content_selection_weights = self.step_weights_expand(step_weights, mask_tgt_sent)
+        else:
             content_selection_weights = tree_to_content_mask(alignments, mask_src_sent, mask_tgt_sent)
+        content_selection_weights = {'weights':content_selection_weights, 'format':self.args.cross_attn_weight_format}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
@@ -399,6 +445,104 @@ class StepAbsSummarizer(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src,
                                        content_weights=content_selection_weights)
+
+        return decoder_outputs.last_hidden_state
+
+
+
+class SoftSrcPromptSummarizer(nn.Module):
+    def __init__(self, args, device, tokenizer, checkpoint=None):
+        super(SoftSrcPromptSummarizer, self).__init__()
+        self.args = args
+        self.device = device
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.vocab_size = len(tokenizer)
+        self.cls_token_id = tokenizer.cls_token_id
+
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
+
+        self.encoder = self.model.get_encoder()
+        self.decoder = self.model.get_decoder()
+        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
+
+        special_token_ids = tokenizer.convert_tokens_to_ids(['|', '|||', '-Pred-ROOT'])
+        self.skip_token_id = special_token_ids[0]
+        self.seg_label_id = special_token_ids[1]
+        self.position_id = special_token_ids[2]
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        else:
+            print ('Initialize parameters for generator...')
+            for p in self.generator.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        self.to(device)
+
+    def get_prompt_segments(self, prompt_tokenized):
+        prompt_segs = []
+        for prompt in prompt_tokenized:
+            prompt_seg = []; tmp = []
+            for tok in prompt:
+                if tok == self.skip_token_id:
+                    continue
+                if tok == self.seg_label_id:
+                    prompt_seg.append(torch.stack(tmp))
+                    tmp = []
+                    continue
+                tmp.append(tok)
+            if len(tmp) > 0:
+                prompt_seg.append(torch.stack(tmp))
+            prompt_segs.append(prompt_seg)
+        return prompt_segs
+
+    def weighted_pooling(self, group_embs):
+        element_num = group_embs.size(0)
+        pooled_emb = (group_embs * (1.0/element_num)).sum(dim=0)
+        return pooled_emb
+
+    def get_embedding_with_soft_prompt(self, src, prompt_segs):
+        tokens_embs = self.encoder.embed_tokens(src)
+        for i, example in enumerate(prompt_segs):
+            prompt_emb_list = []
+            for group in example:
+                prompt_group_emb = self.encoder.embed_tokens(group)
+                prompt_emb_list.append(self.weighted_pooling(prompt_group_emb))
+            position_ids = (src[i] == self.position_id).nonzero(as_tuple=True)[0]
+            for j, position_id in enumerate(position_ids):
+                tokens_embs[i][position_id] = prompt_emb_list[j]
+        return tokens_embs
+
+    def forward(self, src, tgt, mask_src, mask_tgt, 
+                mask_src_sent=None, mask_tgt_sent=None, 
+                tgt_nsent=None, mask_src_predicate=None,
+                clss=None, mask_cls=None, labels=None, 
+                gt_aj_matrix=None, prompt_tokenized=None,
+                run_decoder=True):
+
+        prompt_segs = self.get_prompt_segments(prompt_tokenized)
+        input_embs = self.get_embedding_with_soft_prompt(src, prompt_segs)
+
+        #encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        encoder_outputs = self.encoder(inputs_embeds=input_embs, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+        content_selection_weights = mask_src
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+
+        # Decoding
+        decoder_outputs = self.decoder(input_ids=tgt, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=content_selection_weights)
 
         return decoder_outputs.last_hidden_state
 

@@ -170,6 +170,7 @@ class Translator(object):
         mask_cls = batch.mask_cls
         labels = batch.alg
         gt_aj_matrix = batch.gt_aj_matrix
+        src_predicate_token_idx = batch.src_predicate_token_idx
         device = src.device
         results = {}
 
@@ -177,12 +178,16 @@ class Translator(object):
         src_res = self.model(src, tgt, mask_src, mask_tgt,
                                  mask_src_sent, mask_tgt_sent,
                                  clss, mask_cls, labels,
+                                 src_predicate_token_idx,
                                  run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
 
         # Tile states and memory beam_size times.
-        sentence_plans = tree_to_mask_list(labels, mask_src_sent)
+        if self.args.cross_attn_weight_format == 'pred_selfattn':
+            sentence_plans = self.model.predicate_self_attention(src_features, mask_src, labels, src_predicate_token_idx)
+        else:
+            sentence_plans = tree_to_mask_list(labels, mask_src_sent)
         current_tgt_example_id = []
         for j in range(src.size(0)):
             current_tgt_example_id.extend([j] * beam_size)
@@ -225,11 +230,12 @@ class Translator(object):
                 content_weights = content_weight
             else:
                 content_weights = torch.cat([content_weights, content_weight], dim=1)
+            content_weights_dict = {'weights':content_weights, 'format':self.args.cross_attn_weight_format}
 
             decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
                                            encoder_attention_mask=mask_src,
-                                           content_weights=content_weights)
+                                           content_weights=content_weights_dict)
 
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 

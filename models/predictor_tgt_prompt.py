@@ -279,7 +279,6 @@ class Translator(object):
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
 
-            '''
             # Amend candidate list for prompt
             for i in range(alive_seq.size(0)):
                 if step < prompt_length[i]:
@@ -288,6 +287,7 @@ class Translator(object):
                         topk_log_probs[int(i/beam_size)][i % beam_size] = 0.0
                     else:
                         topk_log_probs[int(i/beam_size)][i % beam_size] = float("-inf")
+            '''
             #print (alive_seq)
             #print (topk_log_probs)
             #print ('\n\n')

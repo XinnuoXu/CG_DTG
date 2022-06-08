@@ -7,8 +7,7 @@ import json
 import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
-from models.tree_reader import tree_building, headlist_to_string
-from models.model_builder import _get_sentence_maxpool, _get_sentence_meanpool, _get_predicate_embedding
+from models.tree_reader import tree_building, headlist_to_string, tree_to_mask_list
 from tool.analysis_edge import Analysis
 
 def tile(x, count, dim=0):
@@ -33,7 +32,7 @@ def tile(x, count, dim=0):
     return x
 
 
-def build_predictor(args, tokenizer, model, logger=None):
+def build_predictor_intersec(args, tokenizer, model, logger=None):
     scorer = GNMTGlobalScorer(args.alpha,length_penalty='wu')
     translator = Translator(args, model, tokenizer, global_scorer=scorer, logger=logger)
     return translator
@@ -52,10 +51,12 @@ class Translator(object):
         self.generator = self.model.generator
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
-        if self.tokenizer.cls_token_id is None:
-            self.cls_token = self.tokenizer.eos_token
-        else:
-            self.cls_token = self.tokenizer.cls_token
+        self.cls_token_id = self.tokenizer.cls_token_id
+        self.cls_token = self.tokenizer.cls_token
+
+        plan_special_token_ids = self.tokenizer.convert_tokens_to_ids(['|', '|||'])
+        self.plan_beg_id = plan_special_token_ids[0]
+        self.plan_end_id = plan_special_token_ids[1]
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -69,21 +70,15 @@ class Translator(object):
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
-        ext_path = self.args.result_path + '.%d.ext_str' % step
-        sel_path = self.args.result_path + '.%d.select_ids' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
         eid_path = self.args.result_path + '.%d.eid' % step
-        tree_path = self.args.result_path + '.%d.trees' % step
-        edge_pred_path = self.args.result_path + '.%d.edge' % step
+        alg_path = self.args.result_path + '.%d.alignments' % step
 
         self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
         self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-        self.ext_out_file = codecs.open(ext_path, 'w', 'utf-8')
-        self.sel_out_file = codecs.open(sel_path, 'w', 'utf-8')
         self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
         self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
-        self.tree_out_file = codecs.open(tree_path, 'w', 'utf-8')
-        self.edge_out_file = codecs.open(edge_pred_path, 'w', 'utf-8')
+        self.alg_out_file = codecs.open(alg_path, 'w', 'utf-8')
 
         self.model.eval()
         with torch.no_grad():
@@ -94,42 +89,24 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid, selected_sents, selected_ids, tree, height, edge_pred_score, edge_align_label = trans
+                    pred_str, gold_str, src_str, src_list, eid, alignments, prompt_str = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
                     self.eid_out_file.write(eid + '\n')
-
-                    if selected_sents is not None:
-                        self.ext_out_file.write(selected_sents.strip() + '\n')
-                        self.sel_out_file.write(json.dumps(selected_ids) + '\n')
-
-                    if tree is not None:
-                        tree_structure = {'Tree':tree, 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height}
-                        self.tree_out_file.write(json.dumps(tree_structure) + '\n')
-
-                    if edge_pred_score is not None:
-                        edge_pred_score = [float(item) for item in edge_pred_score]
-                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': len(src_list)}
-                        self.edge_out_file.write(json.dumps(edge_structure) + '\n')
+                    self.alg_out_file.write(prompt_str + '\n')
 
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
-                self.ext_out_file.flush()
-                self.sel_out_file.flush()
                 self.eid_out_file.flush()
-                self.tree_out_file.flush()
-                self.edge_out_file.flush()
+                self.alg_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
-        self.ext_out_file.close()
-        self.sel_out_file.close()
         self.eid_out_file.close()
-        self.tree_out_file.close()
-        self.edge_out_file.close()
+        self.alg_out_file.close()
 
 
     def from_batch(self, translation_batch):
@@ -143,57 +120,30 @@ class Translator(object):
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
-
-        trees = None
-        edge_pred_scores = None
-        edge_align_labels = None
-        selected_ids = None
-
-        if "analysis" in translation_batch:
-            if "trees" in translation_batch["analysis"]:
-                trees = translation_batch["analysis"]["trees"]
-            if "edge_ranking" in translation_batch["analysis"]:
-                edge_pred_scores, edge_align_labels = translation_batch["analysis"]["edge_ranking"] 
-
-        if 'selected_ids' in translation_batch:
-            selected_ids = translation_batch["selected_ids"]
+        alg = batch.alg
+        prompt_str = batch.prompt_str
 
         translations = []
         for b in range(batch_size):
             token_ids = preds[b][0]
-            
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
             gold_sent = '<q>'.join(tgt_str[b])
             src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
-            selected_sents = None; selected_id = None
-            if selected_ids is not None:
-                selected_id = selected_ids[b]
-                selected_sents = '<q>'.join([src_list[id] for id in selected_id if id < len(src_list)])
-
-            tree_str = None; height = None
-            if trees is not None:
-                tree, height = headlist_to_string(trees[b])
-                tree_str = ' '.join(tree)
-
-            edge_pred_score = None; edge_align_label = None
-            if edge_pred_scores is not None:
-                edge_pred_score = edge_pred_scores[b]
-                edge_align_label = edge_align_labels[b]
+            alignments = []
+            for sent in alg[b]:
+                alignments.append(' ; '.join([src_list[idx] for idx in sent]))
+            alignments = ' ||| '.join(alignments)
 
             translation = (pred_sent, 
                            gold_sent, 
                            raw_src, 
                            src_list, 
                            eid[b], 
-                           selected_sents, 
-                           selected_id, 
-                           tree_str, 
-                           height,
-                           edge_pred_score, 
-                           edge_align_label)
+                           alignments,
+                           prompt_str[b])
 
             translations.append(translation)
 
@@ -210,82 +160,45 @@ class Translator(object):
 
     def _fast_translate_batch(self, batch, max_length, min_length=0):
 
-        def sent_probs_to_selected_ids(sent_probs):
-            selected_ids = []
-            for i in range(sent_probs.size(0)):
-                weights = sent_probs[i, :].tolist()
-                selected_ids.append([i for i in range(len(weights)) if weights[i] == 1])
-            return selected_ids
-
         assert not self.dump_beam
         beam_size = self.beam_size
         batch_size = batch.batch_size
 
         src = batch.src
         mask_src = batch.mask_src
-        encoder_mask = batch.mask_src
         mask_src_sent = batch.mask_src_sent
-        mask_src_predicate = batch.src_predicate_mask
+        prompt_tokenized = batch.prompt_tokenized
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
+        mask_tgt_sent = batch.mask_tgt_sent
         clss = batch.clss
         mask_cls = batch.mask_cls
         labels = batch.alg
         gt_aj_matrix = batch.gt_aj_matrix
+        src_predicate_token_idx = batch.src_predicate_token_idx
         device = src.device
         results = {}
 
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt,
-                             clss=clss, mask_cls=mask_cls,
-                             labels=labels,
-                             gt_aj_matrix=gt_aj_matrix, 
-                             mask_src_sent=mask_src_sent, 
-                             mask_src_predicate=mask_src_predicate,
-                             run_decoder=False)
-
+                                 mask_src_sent, mask_tgt_sent,
+                                 clss, mask_cls, labels,
+                                 src_predicate_token_idx,
+                                 run_decoder=False)
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
 
-        if 'sent_probs' not in src_res:
-            sent_probs = None
-        else:
-            sent_probs = src_res['sent_probs']
+        sentence_plans = prompt_tokenized
+        current_tgt_example_id = []
+        for j in range(src.size(0)):
+            current_tgt_example_id.extend([j] * beam_size)
+        current_tgt_example_id = torch.tensor(current_tgt_example_id, dtype=int, device=device)
+        current_plan_idx = torch.zeros(src.size(0)*beam_size, device=device).int()
+        current_is_plan_tokens = torch.ones(batch_size * beam_size, device=device).bool()
+        current_sent_length = torch.zeros(batch_size * beam_size, device=device)
 
-        if 'sent_relations' not in src_res:
-            sent_relations = None
-        else:
-            sent_relations = src_res['sent_relations']
-
-        if self.args.do_analysis:
-            # Edge analysis
-            if sent_relations is None:
-                #if self.args.sentence_embedding == 'maxpool':
-                #    sents_vec = _get_sentence_maxpool(src_features, mask_src_sent,)
-                #elif self.args.sentence_embedding == 'predicate_maxpool':
-                #    sents_vec = _get_sentence_maxpool(src_features, mask_src_predicate)
-                if self.args.sentence_embedding == 'meanpool':
-                    sents_vec = _get_sentence_meanpool(src_features, mask_src_sent)
-                elif self.args.sentence_embedding == 'predicate_meanpool':
-                    sents_vec = _get_sentence_meanpool(src_features, mask_src_predicate)
-                else:
-                    sents_vec = _get_predicate_embedding(src_features, mask_src_predicate, mask_cls)
-                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking_self_attn(sents_vec, batch.alg, mask_cls)
-            else:
-                edge_pred_scores,edge_align_labels = self.model_analysis.edge_ranking(sent_relations, batch.alg, mask_cls.sum(1))
-            results["analysis"] = {'edge_ranking': (edge_pred_scores, edge_align_labels)}
-
-            # Tree analysis
-            if sent_relations is not None:
-                if sent_probs is None:
-                    sent_probs = torch.ones((sent_relations.size(0), sent_relations.size(1), sent_relations.size(2)), device=sent_relations.device)
-                trees = tree_building(sent_probs, sent_relations, mask_cls, device)
-                results["analysis"]["trees"] = trees
-
-        # Tile states and memory beam_size times.
-        mask_src = tile(mask_src, beam_size, dim=0)
-        encoder_mask = tile(encoder_mask, beam_size, dim=0)
         src_features = tile(src_features, beam_size, dim=0)
+        mask_src = tile(mask_src, beam_size, dim=0)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
         beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=device)
@@ -300,32 +213,43 @@ class Translator(object):
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
-        if sent_probs is not None:
-            results["selected_ids"] = sent_probs_to_selected_ids(sent_probs)
 
         for step in range(max_length):
 
-            #decoder_input = alive_seq[:, -1].view(1, -1)
+            for row in alive_seq:
+                print (self.tokenizer.decode(row))
+            print ('\n\n')
             decoder_input = alive_seq
-            if self.args.ext_or_abs == 'mix':
-                decoder_outputs = self.model.decoder(input_ids=decoder_input,
+            decoder_outputs = self.model.decoder(input_ids=decoder_input,
                                            encoder_hidden_states=src_features,
-                                           encoder_attention_mask=encoder_mask,
-                                           content_selection_mask=mask_src,
-                                           content_selection_layers = [0])
-            else:
-                decoder_outputs = self.model.decoder(input_ids=decoder_input,
-                                           encoder_hidden_states=src_features,
-                                           encoder_attention_mask=encoder_mask)
-
+                                           encoder_attention_mask=mask_src)
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
             # Generator forward.
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
+            for i, current_state in enumerate(current_is_plan_tokens):
+                if not current_is_plan_tokens[i]:
+                    current_sent_length[i] += 1
+
+            for i in range(current_sent_length.size(0)):
+                if current_sent_length[i] < min_length:
+                    log_probs[i, self.cls_token_id] = -1e20
+
+            # Consider about the plan
+            for i, example_id in enumerate(current_tgt_example_id):
+                sentence_plan = sentence_plans[example_id]
+                read_plan_token = current_is_plan_tokens[i]
+                if not read_plan_token:
+                    continue
+                token_in_plan = sentence_plan[current_plan_idx[i]]
+                if token_in_plan == self.end_token_id:
+                    continue
+                log_probs[i, token_in_plan] = 0.0
+                if token_in_plan == self.plan_end_id:
+                    current_is_plan_tokens[i] = 0
+                current_plan_idx[i] += 1
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -366,11 +290,27 @@ class Translator(object):
             # Map beam_index to batch_index in the flat representation.
             batch_index = (topk_beam_index + beam_offset[:topk_beam_index.size(0)].unsqueeze(1))
             select_indices = batch_index.view(-1)
-
+            current_plan_idx = current_plan_idx.index_select(0, select_indices)
+            current_is_plan_tokens = current_is_plan_tokens.index_select(0, select_indices)
+            current_sent_length = current_sent_length.index_select(0, select_indices)
             # Append last prediction.
             alive_seq = torch.cat(
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
+
+            # If one sentence finishes
+            topk_ids = topk_ids.view(-1)
+            sent_finished = topk_ids.eq(self.cls_token_id)
+            for i in range(sent_finished.size(0)):
+                if sent_finished[i]:
+                    current_sent_length[i] = 0
+                    current_is_plan_tokens[i] = 1
+                    example_id = current_tgt_example_id[i]
+                    sentence_plan = sentence_plans[example_id]
+                    token_in_plan = sentence_plan[current_plan_idx[i]]
+                    if token_in_plan == self.end_token_id:
+                        topk_ids[i] = self.end_token_id
+            topk_ids = topk_ids.view(-1, beam_size)
 
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
@@ -408,7 +348,11 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
             mask_src = mask_src.index_select(0, select_indices)
-            encoder_mask = encoder_mask.index_select(0, select_indices)
+            if is_finished.any():
+                current_tgt_example_id = current_tgt_example_id.index_select(0, select_indices)
+                current_sent_length = current_sent_length.index_select(0, select_indices)
+                current_plan_idx = current_plan_idx.index_select(0, select_indices)
+                current_is_plan_tokens = current_is_plan_tokens.index_select(0, select_indices)
 
         return results
 

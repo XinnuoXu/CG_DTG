@@ -54,17 +54,36 @@ class BertData():
     def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length, alg, prompt_str):
 
         src_txt = (' '+self.cls_token+' ').join(src)
-        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
-        if self.args.add_prompt_to_src:
+        if self.args.add_plan_to_src == 'hard_prompt':
             src_txt = src_txt + ' ' + self.cls_token + ' ' + prompt_str
-        if self.args.add_prompt_to_tgt:
+        elif self.args.add_plan_to_src == 'soft_prompt':
+            plan_seg_number = len(prompt_str.split('|||'))
+            src_txt = src_txt + ' ' + self.cls_token + ' ||| ' + ' '.join(['-Pred-ROOT']*plan_seg_number)
+
+        if self.args.add_plan_to_tgt == 'intersec':
+            prompts = [' '.join(item.split(' | ')) for item in prompt_str.split(' ||| ')]
+            sents = []; new_format_prompts = []
+            for i, sent in enumerate(tgt):
+                prompt = '| ' + prompts[i] + ' ||| '
+                sent = prompt + ' '.join(sent) + ' ' + self.cls_token
+                sents.append(sent)
+                new_format_prompts.append(prompt)
+            tgt_txt = ' '.join(sents)
+            prompt_str = ' '.join(new_format_prompts)
+        elif self.args.add_plan_to_tgt == 'prompt':
+            tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
             tgt_txt = prompt_str + ' ' + self.cls_token + ' ' + tgt_txt
+        else:
+            # self.args.add_plan_to_tgt is 'none'
+            tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
+
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
+        prompt_tokens = self.tokenizer(prompt_str, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
 
         if self.args.for_stepwise:
             target_tokens = target_tokens[:-1]
@@ -83,7 +102,7 @@ class BertData():
             if len(s) > 0:
                 new_alg.append(s)
 
-        return source_tokens, target_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
+        return source_tokens, target_tokens, prompt_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
 
 
 def _process(params):
@@ -112,13 +131,15 @@ def _process(params):
         prompt_str = d['prompt_str']
 
         b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg, prompt_str)
-        source_tokens, target_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
+        source_tokens, target_tokens, prompt_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
                        "gt_selection": gt_selection, "clss": cls_ids,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
                        "nsent_src":len(src), "nsent_tgt":len(tgt), 
-                       "alignments": alg, "prompt_str":prompt_str, "eid": eid}
+                       "alignments": alg, "prompt_str":prompt_str, 
+                       "prompt_tokenized": prompt_tokens,
+                       "eid": eid}
 
         datasets.append(b_data_dict)
         max_src_len = max(max_src_len, len(source_tokens))
@@ -173,14 +194,6 @@ def split_shard(args):
             new_obj['alignments'] = json_obj['oracles_selection']
             new_obj['predicates'] = json_obj['predicates']
             new_obj['prompt_str'] = json_obj['prompt_str']
-            selected_segs = set()
-            for sent in json_obj['oracles_selection']:
-                for seg in sent:
-                    if args.oracle_topn == -1:
-                        selected_segs |= set(seg)
-                    else:
-                        selected_segs |= set(seg[:args.oracle_topn])
-            new_obj['selections'] = sorted(list(selected_segs))
             json_objs.append(new_obj)
 
         dataset = []; p_ct = 0

@@ -40,6 +40,7 @@ mkdir -p ${SCRATCH_DIR}
 #sh ./scripts_d2t.mlp/train_webnlg_tgt_prompt.sh
 sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
 #sh ./scripts_d2t.mlp/train_webnlg_aggencoder.sh
+#sh scripts_d2t.mlp/train_webnlg_tgt_intersec.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system

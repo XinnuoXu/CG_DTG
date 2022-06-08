@@ -18,11 +18,12 @@ from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, AggEncoderSummarizer
+from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, AggEncoderSummarizer, SoftSrcPromptSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
 from models.predictor_tgt_prompt import build_predictor_prompt
+from models.predictor_tgt_intersec import build_predictor_intersec
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'sentence_embedding', 
@@ -170,6 +171,8 @@ def train_abs_single(args, device_id):
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint, abs_finetune=abs_checkpoint)
     elif args.ext_or_abs == 'agg_encoder':
         model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    elif args.ext_or_abs == 'soft_src_prompt':
+        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
 
@@ -283,8 +286,10 @@ def test_abs(args, device_id, pt, step):
 
     if args.inference_mode == 'non_prjective_tree':
         predictor = build_predictor_tree(args, tokenizer, model, logger)
-    if args.inference_mode == 'tgt_prompt':
+    elif args.inference_mode == 'tgt_prompt':
         predictor = build_predictor_prompt(args, tokenizer, model, logger)
+    elif args.inference_mode == 'intersec':
+        predictor = build_predictor_intersec(args, tokenizer, model, logger)
     else: 
         predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
