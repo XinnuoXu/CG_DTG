@@ -26,11 +26,10 @@ class Batch(object):
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
             pre_clss = [x[2] for x in data]
-            pre_gt_selection = [x[3] for x in data]
-            pre_alg = [x[4] for x in data]
-            nsent_src = [x[5] for x in data]
-            nsent_tgt = [x[6] for x in data]
-            prompt_tokenized = [x[7] for x in data]
+            pre_alg = [x[3] for x in data]
+            nsent_src = [x[4] for x in data]
+            nsent_tgt = [x[5] for x in data]
+            prompt_tokenized = [x[6] for x in data]
 
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
@@ -49,7 +48,6 @@ class Batch(object):
             clss[clss == -1] = 0
             
             groundtruth_aj_matrix = self.create_groundtruth_aj_matrix(pre_alg, mask_cls)
-            gt_selection = torch.tensor(self._pad(pre_gt_selection, 0))
 
             setattr(self, 'src', src.to(device))
             setattr(self, 'tgt', tgt.to(device))
@@ -65,7 +63,6 @@ class Batch(object):
             setattr(self, 'clss', clss.to(device))
             setattr(self, 'mask_cls', mask_cls.to(device))
 
-            setattr(self, 'gt_selection', gt_selection.to(device))
             setattr(self, 'gt_aj_matrix', groundtruth_aj_matrix.to(device))
             setattr(self, 'alg', pre_alg)
             setattr(self, 'nsent_tgt', nsent_tgt)
@@ -261,7 +258,6 @@ class DataIterator(object):
         src = ex['src']
         tgt = ex['tgt']
         clss = ex['clss']
-        gt_selection = ex['gt_selection']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
         eid = ex['eid']
@@ -274,14 +270,13 @@ class DataIterator(object):
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
         max_sent_id = bisect.bisect_left(clss, self.args.max_pos)
-        gt_selection = gt_selection[:max_sent_id]
         clss = clss[:max_sent_id]
         nsent_src = len(clss)
 
         if(is_test):
-            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, prompt_tokenized, src_txt, tgt_txt, eid, prompt_str
+            return src, tgt, clss, alg, nsent_src, nsent_tgt, prompt_tokenized, src_txt, tgt_txt, eid, prompt_str
         else:
-            return src, tgt, clss, gt_selection, alg, nsent_src, nsent_tgt, prompt_tokenized
+            return src, tgt, clss, alg, nsent_src, nsent_tgt, prompt_tokenized
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

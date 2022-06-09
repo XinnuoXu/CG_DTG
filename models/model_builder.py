@@ -227,7 +227,8 @@ class AbsSummarizer(nn.Module):
                 mask_src_sent=None, mask_tgt_sent=None, 
                 tgt_nsent=None, mask_src_predicate=None,
                 clss=None, mask_cls=None, labels=None, 
-                gt_aj_matrix=None, run_decoder=True):
+                gt_aj_matrix=None, prompt_tokenized=None,
+                run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state

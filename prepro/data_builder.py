@@ -42,16 +42,7 @@ class BertData():
         self.bos_token = self.tokenizer.bos_token
 
 
-    def get_sent_labels(self, src_subtoken_idxs, sent_labels):
-        _sent_labels = [0 for t in src_subtoken_idxs if t == self.cls_token_id]
-        for l in sent_labels:
-            if l >= len(_sent_labels):
-                continue
-            _sent_labels[l] = 1
-        return _sent_labels
-
-
-    def preprocess(self, src, tgt, sent_labels, max_src_sent_length, max_tgt_length, alg, prompt_str):
+    def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, alg, prompt_str):
 
         src_txt = (' '+self.cls_token+' ').join(src)
         if self.args.add_plan_to_src == 'hard_prompt':
@@ -91,7 +82,6 @@ class BertData():
         #print (src_txt, source_tokens)
         #print (tgt_txt, target_tokens)
 
-        gt_selection = self.get_sent_labels(source_tokens, sent_labels)
         cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
 
         new_alg = []
@@ -102,7 +92,7 @@ class BertData():
             if len(s) > 0:
                 new_alg.append(s)
 
-        return source_tokens, target_tokens, prompt_tokens, gt_selection, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
+        return source_tokens, target_tokens, prompt_tokens, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
 
 
 def _process(params):
@@ -126,15 +116,12 @@ def _process(params):
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
-        preds = d['predicates']
-        sent_labels = d['selections']
         prompt_str = d['prompt_str']
 
-        b_data = bert.preprocess(src, tgt, sent_labels, args.max_src_ntokens, args.max_tgt_ntokens, alg, prompt_str)
-        source_tokens, target_tokens, prompt_tokens, gt_selection, cls_ids, src_txt, tgt_txt, alg = b_data
+        b_data = bert.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, alg, prompt_str)
+        source_tokens, target_tokens, prompt_tokens, cls_ids, src_txt, tgt_txt, alg = b_data
 
-        b_data_dict = {"src": source_tokens, "tgt": target_tokens,
-                       "gt_selection": gt_selection, "clss": cls_ids,
+        b_data_dict = {"src": source_tokens, "tgt": target_tokens, "clss": cls_ids,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
                        "nsent_src":len(src), "nsent_tgt":len(tgt), 
                        "alignments": alg, "prompt_str":prompt_str, 

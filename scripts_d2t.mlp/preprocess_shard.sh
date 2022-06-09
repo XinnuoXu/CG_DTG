@@ -3,8 +3,12 @@
 # Setup for Webnlg
 BASE_DIR=./outputs.webnlg/
 
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
-JSON_PATH=${BASE_DIR}/jsons/
+#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
+#JSON_PATH=${BASE_DIR}/jsons/
+#LOG_PATH=${BASE_DIR}/logs/
+
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_sentences/
+JSON_PATH=${BASE_DIR}/jsons.sentences/
 LOG_PATH=${BASE_DIR}/logs/
 
 mkdir -p ${LOG_PATH}

@@ -244,6 +244,8 @@ def validate(args, device_id, pt, step):
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
     elif args.ext_or_abs == 'agg_encoder':
         model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    elif args.ext_or_abs == 'soft_src_prompt':
+        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
@@ -280,6 +282,8 @@ def test_abs(args, device_id, pt, step):
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
     elif args.ext_or_abs == 'agg_encoder':
         model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    elif args.ext_or_abs == 'soft_src_prompt':
+        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
         model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()

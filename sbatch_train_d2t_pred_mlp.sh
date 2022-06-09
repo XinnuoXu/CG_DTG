@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/step
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/step
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/src_prompt
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/src_prompt
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
@@ -36,11 +36,12 @@ mkdir -p ${SCRATCH_DIR}
 # Run training. Here we use src/gpu.py
 # ====================
 #sh ./scripts_d2t.mlp/train_webnlg_base.sh
-#sh ./scripts_d2t.mlp/train_webnlg_src_prompt.sh
+sh ./scripts_d2t.mlp/train_webnlg_src_prompt.sh
 #sh ./scripts_d2t.mlp/train_webnlg_tgt_prompt.sh
-sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
+#sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
 #sh ./scripts_d2t.mlp/train_webnlg_aggencoder.sh
 #sh scripts_d2t.mlp/train_webnlg_tgt_intersec.sh
+#sh scripts_d2t.mlp/train_webnlg_soft_src_prompt.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system

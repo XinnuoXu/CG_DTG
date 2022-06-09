@@ -3,9 +3,13 @@
 BASE_DIR=./outputs.webnlg/
 #BASE_DIR=${SCRATCH_DIR}
 
-BERT_DATA_PATH=${BASE_DIR}/data.src_prompt/
-MODEL_PATH=${BASE_DIR}/models.src_prompt/
-LOG_PATH=${BASE_DIR}/logs.src_prompt/
+#BERT_DATA_PATH=${BASE_DIR}/data.src_prompt/
+#MODEL_PATH=${BASE_DIR}/models.src_prompt/
+#LOG_PATH=${BASE_DIR}/logs.src_prompt/
+
+BERT_DATA_PATH=${BASE_DIR}/data.single_sentences/
+MODEL_PATH=${BASE_DIR}/models.single_sentences/
+LOG_PATH=${BASE_DIR}/logs.single_sentences/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -18,7 +22,7 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
 	-model_name t5-small \
-	-train_steps 8000 \
+	-train_steps 10000 \
 	-save_checkpoint_steps 1000 \
 	-warmup_steps 500 \
 	-batch_size 3000 \

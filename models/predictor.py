@@ -232,6 +232,7 @@ class Translator(object):
         mask_cls = batch.mask_cls
         labels = batch.alg
         gt_aj_matrix = batch.gt_aj_matrix
+        prompt_tokenized = batch.prompt_tokenized
         device = src.device
         results = {}
 
@@ -242,6 +243,7 @@ class Translator(object):
                              gt_aj_matrix=gt_aj_matrix, 
                              mask_src_sent=mask_src_sent, 
                              mask_src_predicate=mask_src_predicate,
+                             prompt_tokenized=prompt_tokenized,
                              run_decoder=False)
 
         src_features = src_res['encoder_outpus']
