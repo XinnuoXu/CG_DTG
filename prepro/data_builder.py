@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 from models.logging import logger
 
 
-class BertData():
+class DataCreator():
     def __init__(self, args, additional_tokens=None):
 
         self.args = args
@@ -42,8 +42,9 @@ class BertData():
         self.bos_token = self.tokenizer.bos_token
 
 
-    def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, alg, prompt_str):
+    def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, prompt_str):
 
+        # Process Src
         src_txt = (' '+self.cls_token+' ').join(src)
         if self.args.add_plan_to_src == 'hard_prompt':
             src_txt = src_txt + ' ' + self.cls_token + ' ' + prompt_str
@@ -51,6 +52,7 @@ class BertData():
             plan_seg_number = len(prompt_str.split('|||'))
             src_txt = src_txt + ' ' + self.cls_token + ' ||| ' + ' '.join(['-Pred-ROOT']*plan_seg_number)
 
+        # Process Tgt
         if self.args.add_plan_to_tgt == 'intersec':
             prompts = [' '.join(item.split(' | ')) for item in prompt_str.split(' ||| ')]
             sents = []; new_format_prompts = []
@@ -68,6 +70,7 @@ class BertData():
             # self.args.add_plan_to_tgt is 'none'
             tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
 
+        # Tokenization using tokenizer
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
@@ -79,20 +82,7 @@ class BertData():
         if self.args.for_stepwise:
             target_tokens = target_tokens[:-1]
 
-        #print (src_txt, source_tokens)
-        #print (tgt_txt, target_tokens)
-
-        cls_ids = [i for i, t in enumerate(source_tokens) if t == self.cls_token_id]
-
-        new_alg = []
-        for sent in alg:
-            s = []
-            for fact in sent:
-                s.extend(fact)
-            if len(s) > 0:
-                new_alg.append(s)
-
-        return source_tokens, target_tokens, prompt_tokens, cls_ids, src, [' '.join(sent) for sent in tgt], new_alg
+        return source_tokens, target_tokens, prompt_tokens, src, [' '.join(sent) for sent in tgt]
 
 
 def _process(params):
@@ -107,7 +97,7 @@ def _process(params):
     if args.additional_token_path != '':
         additional_tokens = [line.strip() for line in open(args.additional_token_path)]
 
-    bert = BertData(args, additional_tokens)
+    bert = DataCreator(args, additional_tokens)
     jobs = json.load(open(json_file))
 
     datasets = []; max_src_len = 0; max_tgt_len = 0
@@ -118,15 +108,14 @@ def _process(params):
         alg = d['alignments']
         prompt_str = d['prompt_str']
 
-        b_data = bert.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, alg, prompt_str)
-        source_tokens, target_tokens, prompt_tokens, cls_ids, src_txt, tgt_txt, alg = b_data
+        b_data = bert.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, prompt_str)
+        source_tokens, target_tokens, prompt_tokens, src_txt, tgt_txt = b_data
 
-        b_data_dict = {"src": source_tokens, "tgt": target_tokens, "clss": cls_ids,
+        b_data_dict = {"src": source_tokens, "tgt": target_tokens,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
                        "nsent_src":len(src), "nsent_tgt":len(tgt), 
-                       "alignments": alg, "prompt_str":prompt_str, 
-                       "prompt_tokenized": prompt_tokens,
-                       "eid": eid}
+                       "prompt_str":prompt_str, "prompt_tokenized": prompt_tokens,
+                       "alignments":alg, "eid": eid}
 
         datasets.append(b_data_dict)
         max_src_len = max(max_src_len, len(source_tokens))

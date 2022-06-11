@@ -116,7 +116,7 @@ class Translator(object):
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
-        alg = batch.alg
+        alg = batch.alignments
         prompt_str = batch.prompt_str
 
         translations = []
@@ -130,7 +130,7 @@ class Translator(object):
 
             alignments = []
             for sent in alg[b]:
-                alignments.append(' ; '.join([src_list[idx] for idx in sent]))
+                alignments.append(' ; '.join([src_list[idx] for idx in sent[0]]))
             alignments = ' ||| '.join(alignments)
 
             translation = (pred_sent, 
@@ -166,18 +166,15 @@ class Translator(object):
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
         mask_tgt_sent = batch.mask_tgt_sent
-        clss = batch.clss
-        mask_cls = batch.mask_cls
-        labels = batch.alg
-        gt_aj_matrix = batch.gt_aj_matrix
         src_predicate_token_idx = batch.src_predicate_token_idx
+        alignments = batch.alignments
         device = src.device
         results = {}
 
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt,
                                  mask_src_sent, mask_tgt_sent,
-                                 clss, mask_cls, labels,
+                                 alignments,
                                  src_predicate_token_idx,
                                  run_decoder=False)
         src_features = src_res['encoder_outpus']
@@ -185,9 +182,9 @@ class Translator(object):
 
         # Tile states and memory beam_size times.
         if self.args.cross_attn_weight_format == 'pred_selfattn':
-            sentence_plans = self.model.predicate_self_attention(src_features, mask_src, labels, src_predicate_token_idx)
+            sentence_plans = self.model.predicate_self_attention(src_features, mask_src, alignments, src_predicate_token_idx)
         else:
-            sentence_plans = tree_to_mask_list(labels, mask_src_sent)
+            sentence_plans = tree_to_mask_list(alignments, mask_src_sent)
         current_tgt_example_id = []
         for j in range(src.size(0)):
             current_tgt_example_id.extend([j] * beam_size)

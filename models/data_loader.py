@@ -25,72 +25,49 @@ class Batch(object):
             self.batch_size = len(data)
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
-            pre_clss = [x[2] for x in data]
-            pre_alg = [x[3] for x in data]
-            nsent_src = [x[4] for x in data]
-            nsent_tgt = [x[5] for x in data]
-            prompt_tokenized = [x[6] for x in data]
+            nsent_src = [x[2] for x in data]
+            nsent_tgt = [x[3] for x in data]
+            prompt_tokenized = [x[4] for x in data]
+            pre_alg = [x[5] for x in data]
 
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
             mask_tgt = ~(tgt == pad_id)
-
-            src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
-            tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
-            src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
-            src_predicate_token_idx = self.get_src_predicate_idx(src, pred_special_tok_id)
-            src_predicate_token_idx = [item.to(device) for item in src_predicate_token_idx]
             prompt_tokenized = [torch.tensor(item).to(device) for item in prompt_tokenized]
-
-            clss = torch.tensor(self._pad(pre_clss, -1))
-            mask_cls = ~(clss == -1)
-            clss[clss == -1] = 0
-            
-            groundtruth_aj_matrix = self.create_groundtruth_aj_matrix(pre_alg, mask_cls)
 
             setattr(self, 'src', src.to(device))
             setattr(self, 'tgt', tgt.to(device))
             setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
-
-            setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
-            setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
-            setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
-            setattr(self, 'src_predicate_token_idx', src_predicate_token_idx)
-            setattr(self, 'prompt_tokenized', prompt_tokenized)
-
-            setattr(self, 'clss', clss.to(device))
-            setattr(self, 'mask_cls', mask_cls.to(device))
-
-            setattr(self, 'gt_aj_matrix', groundtruth_aj_matrix.to(device))
-            setattr(self, 'alg', pre_alg)
             setattr(self, 'nsent_tgt', nsent_tgt)
+            setattr(self, 'prompt_tokenized', prompt_tokenized)
+            setattr(self, 'alignments', pre_alg)
+
+            if ext_or_abs == 'step':
+                src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
+                tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
+                src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
+                src_predicate_token_idx = self.get_src_predicate_idx(src, pred_special_tok_id)
+                src_predicate_token_idx = [item.to(device) for item in src_predicate_token_idx]
+                setattr(self, 'mask_tgt_sent', tgt_sentence_mask.to(device))
+                setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
+                setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
+                setattr(self, 'src_predicate_token_idx', src_predicate_token_idx)
+            else:
+                src_sentence_mask = None; tgt_sentence_mask = None;
+                src_predicate_mask = None; src_predicate_token_idx = None
+
 
             if (is_test):
                 src_str = [x[-4] for x in data]
                 setattr(self, 'src_str', src_str)
                 tgt_str = [x[-3] for x in data]
                 setattr(self, 'tgt_str', tgt_str)
-                eid = [x[-2] for x in data]
-                setattr(self, 'eid', eid)
-                prompt_str = [x[-1] for x in data]
+                prompt_str = [x[-2] for x in data]
                 setattr(self, 'prompt_str', prompt_str)
-
-    def create_groundtruth_aj_matrix(self, alg, mask_cls):
-        gt_aj_matrix = torch.zeros((mask_cls.size(0), mask_cls.size(1), mask_cls.size(1)))
-        for i, ex_alg in enumerate(alg):
-            for cluster in ex_alg:
-                for idx_i in cluster:
-                    if idx_i >= mask_cls.size(1):
-                        continue
-                    for idx_j in cluster:
-                        if idx_j >= mask_cls.size(1):
-                            continue
-                        if idx_i == idx_j and len(cluster)>1:
-                            continue
-                        gt_aj_matrix[i][idx_i][idx_j] = 1
-        return gt_aj_matrix
+                eid = [x[-1] for x in data]
+                setattr(self, 'eid', eid)
 
     def create_predicate_mask_src(self, src, mask_src, pred_special_tok_id, obj_special_tok_id, max_sent_len):
         src_sentence_mask = []
@@ -255,28 +232,24 @@ class DataIterator(object):
         return xs
 
     def preprocess(self, ex, is_test):
+        eid = ex['eid']
         src = ex['src']
         tgt = ex['tgt']
-        clss = ex['clss']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
-        eid = ex['eid']
         nsent_tgt = ex['nsent_tgt']
         nsent_src = ex['nsent_src']
-        alg = ex['alignments']
         prompt_str = ex['prompt_str']
         prompt_tokenized = ex['prompt_tokenized']
+        alg = ex['alignments']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
-        max_sent_id = bisect.bisect_left(clss, self.args.max_pos)
-        clss = clss[:max_sent_id]
-        nsent_src = len(clss)
 
         if(is_test):
-            return src, tgt, clss, alg, nsent_src, nsent_tgt, prompt_tokenized, src_txt, tgt_txt, eid, prompt_str
+            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg, src_txt, tgt_txt, prompt_str, eid
         else:
-            return src, tgt, clss, alg, nsent_src, nsent_tgt, prompt_tokenized
+            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
@@ -316,7 +289,7 @@ class DataIterator(object):
         """ Create batches """
         data = self.data()
         for buffer in self.batch_buffer(data, self.batch_size * 300):
-            p_batch = sorted(buffer, key=lambda x: len(x[2]))
+            p_batch = sorted(buffer, key=lambda x: len(x[1]))
             p_batch = self.batch(p_batch, self.batch_size)
             p_batch = list(p_batch)
             if (self.shuffle):

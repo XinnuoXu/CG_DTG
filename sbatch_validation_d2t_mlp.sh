@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/src_prompt
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/src_prompt
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/tgt_prompt
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/tgt_prompt
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
 #SBATCH -t 24:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
-#SBATCH --gres=gpu:3  # use 1 GPU
+#SBATCH --gres=gpu:1  # use 1 GPU
 #SBATCH -n 1	  # tasks requested
 
 set -e # fail fast
@@ -35,13 +35,8 @@ mkdir -p ${SCRATCH_DIR}
 # ====================
 # Run training. Here we use src/gpu.py
 # ====================
-#sh ./scripts_d2t.mlp/train_webnlg_base.sh
-sh ./scripts_d2t.mlp/train_webnlg_src_prompt.sh
-#sh ./scripts_d2t.mlp/train_webnlg_tgt_prompt.sh
-#sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
-#sh ./scripts_d2t.mlp/train_webnlg_aggencoder.sh
-#sh scripts_d2t.mlp/train_webnlg_tgt_intersec.sh
-#sh scripts_d2t.mlp/train_webnlg_soft_src_prompt.sh
+#sh scripts_d2t.mlp/validate_webnlg_step_wise.sh
+sh scripts_d2t.mlp/validate_webnlg_tgt_prompt.sh 
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system

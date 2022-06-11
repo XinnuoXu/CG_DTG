@@ -131,23 +131,11 @@ class Trainer(object):
 
             src = batch.src
             mask_src = batch.mask_src
-            mask_src_sent = batch.mask_src_sent
-            mask_src_predicate = batch.src_predicate_mask
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
-            clss = batch.clss
-            mask_cls = batch.mask_cls
-            labels = batch.alg
-            gt_aj_matrix = batch.gt_aj_matrix
             prompt_tokenized = batch.prompt_tokenized
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, 
-                                 clss=clss, mask_cls=mask_cls, 
-                                 labels=labels, 
-                                 gt_aj_matrix=gt_aj_matrix,
-                                 mask_src_sent=mask_src_sent,
-                                 mask_src_predicate=mask_src_predicate,
-                                 prompt_tokenized=prompt_tokenized)
+            outputs = self.model(src, tgt, mask_src, mask_tgt, prompt_tokenized=prompt_tokenized)
 
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
@@ -194,23 +182,12 @@ class Trainer(object):
             for batch in valid_iter:
 
                 src = batch.src
-                mask_src = batch.mask_src
-                mask_src_sent = batch.mask_src_sent
-                mask_src_predicate = batch.src_predicate_mask
                 tgt = batch.tgt
+                mask_src = batch.mask_src
                 mask_tgt = batch.mask_tgt
-                clss = batch.clss
-                mask_cls = batch.mask_cls
-                labels = batch.alg
-                gt_aj_matrix = batch.gt_aj_matrix
                 prompt_tokenized = batch.prompt_tokenized
 
                 outputs = self.model(src, tgt, mask_src, mask_tgt, 
-                                     clss=clss, mask_cls=mask_cls, 
-                                     labels=labels, 
-                                     gt_aj_matrix=gt_aj_matrix,
-                                     mask_src_sent=mask_src_sent,
-                                     mask_src_predicate=mask_src_predicate,
                                      prompt_tokenized=prompt_tokenized)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)

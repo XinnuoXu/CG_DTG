@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-predicates_start_from_id", default=-1, type=int)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree', 'agg_encoder', 'soft_src_prompt'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree', 'soft_src_prompt'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')

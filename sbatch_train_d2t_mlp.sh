@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/plan.gt
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/plan.gt
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/step
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/step
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
@@ -29,24 +29,25 @@ export RAW_DATA_DIR=/home/${USER}/Planning/Tree_enc_dec/outputs.webnlg/
 export SCRATCH_DIR=/disk/scratch/${USER}/outputs.webnlg/
 
 mkdir -p ${SCRATCH_DIR}
-rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data/ ${SCRATCH_DIR}/data/
-echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data/ ${SCRATCH_DIR}/data/"
+#rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data.pred/ ${SCRATCH_DIR}/data.pred/
+#echo "rsync --archive --update --compress --progress ${RAW_DATA_DIR}/data.pred/ ${SCRATCH_DIR}/data.pred/"
 
 # ====================
 # Run training. Here we use src/gpu.py
 # ====================
-#sh ./scripts_d2t.mlp/train_webnlg_base.sh 
-#sh ./scripts_d2t.mlp/train_webnlg_plan.sh 
-#sh ./scripts_d2t.mlp/train_webnlg_edge_discrete.sh
-#sh ./scripts_d2t.mlp/train_webnlg_edge_marginal.sh
-#sh ./scripts_d2t.mlp/train_webnlg_selfattn_discrete.sh
-#sh ./scripts_d2t.mlp/train_webnlg_selfattn_marginal.sh
-sh ./scripts_d2t.mlp/train_webnlg_gt_plan.sh
+#sh ./scripts_d2t.mlp/train_webnlg_base.sh
+#sh ./scripts_d2t.mlp/train_webnlg_src_prompt.sh
+#sh ./scripts_d2t.mlp/train_webnlg_tgt_prompt.sh
+sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
+#sh ./scripts_d2t.mlp/train_webnlg_aggencoder.sh
+#sh scripts_d2t.mlp/train_webnlg_tgt_intersec.sh
+#sh scripts_d2t.mlp/train_webnlg_soft_src_prompt.sh
+#sh scripts_d2t.mlp/test_webnlg_soft_src_prompt.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system
 # ====================
-rsync --archive --update --compress --progress ${SCRATCH_DIR}/* ${RAW_DATA_DIR}
+#rsync --archive --update --compress --progress ${SCRATCH_DIR}/* ${RAW_DATA_DIR}
 
 # ====================
 # Finally we cleanup after ourselves by deleting what we created on /disk/scratch/

@@ -129,16 +129,12 @@ class Trainer(object):
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
             mask_tgt_sent = batch.mask_tgt_sent
-            clss = batch.clss
-            mask_cls = batch.mask_cls
-            labels = batch.alg
-            gt_aj_matrix = batch.gt_aj_matrix
             src_predicate_token_idx = batch.src_predicate_token_idx
+            alignments = batch.alignments
 
             outputs = self.model(src, tgt, mask_src, mask_tgt, 
                                  mask_src_sent, mask_tgt_sent,
-                                 clss, mask_cls, labels,
-                                 src_predicate_token_idx)
+                                 alignments, src_predicate_token_idx)
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
 
@@ -184,16 +180,12 @@ class Trainer(object):
                 tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
                 mask_tgt_sent = batch.mask_tgt_sent
-                clss = batch.clss
-                mask_cls = batch.mask_cls
-                labels = batch.alg
-                gt_aj_matrix = batch.gt_aj_matrix
                 src_predicate_token_idx = batch.src_predicate_token_idx
+                alignments = batch.alignments
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt, 
+                outputs = self.model(src, tgt, mask_src, mask_tgt,
                                      mask_src_sent, mask_tgt_sent,
-                                     clss, mask_cls, labels,
-                                     src_predicate_token_idx)
+                                     alignments, src_predicate_token_idx)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

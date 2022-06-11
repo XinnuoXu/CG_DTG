@@ -226,8 +226,7 @@ class AbsSummarizer(nn.Module):
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, 
                 tgt_nsent=None, mask_src_predicate=None,
-                clss=None, mask_cls=None, labels=None, 
-                gt_aj_matrix=None, prompt_tokenized=None,
+                prompt_tokenized=None, alignments=None,
                 run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -242,95 +241,6 @@ class AbsSummarizer(nn.Module):
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=content_selection_weights)
-
-        return decoder_outputs.last_hidden_state
-
-
-
-class AggEncoderSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None, abs_finetune=None):
-        super(AggEncoderSummarizer, self).__init__()
-        self.args = args
-        self.device = device
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
-        self.vocab_size = vocab_size
-        self.cls_token_id = cls_token_id
-        self.gumbel_tau = args.gumbel_tau
-
-        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        if self.vocab_size > len(self.original_tokenizer):
-            self.model.resize_token_embeddings(self.vocab_size)
-
-        encoder = self.model.get_encoder()
-        self.encoder = T5Stacker(encoder)
-        self.decoder = self.model.get_decoder()
-        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
-
-        if checkpoint is not None:
-            print ('Load parameters from checkpoint...')
-            self.load_state_dict(checkpoint['model'], strict=True)
-
-        else:
-            if abs_finetune is not None:
-                print ('Load parameters from abs_finetune...')
-                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('encoder')]
-                self.encoder.load_state_dict(dict(tree_params), strict=True)
-                tree_params = [(n[8:], p) for n, p in abs_finetune['model'].items() if n.startswith('decoder')]
-                self.decoder.load_state_dict(dict(tree_params), strict=True)
-                tree_params = [(n[10:], p) for n, p in abs_finetune['model'].items() if n.startswith('generator')]
-                self.generator.load_state_dict(dict(tree_params), strict=True)
-            else:
-                print ('Initialize parameters for generator...')
-                for p in self.generator.parameters():
-                    if p.dim() > 1:
-                        xavier_uniform_(p)
-                    else:
-                        p.data.zero_()
-
-        self.to(device)
-
-    def create_aggregate_mask(self, alignments, mask_src_sent, mask_src):
-        device = mask_src_sent.device
-        self_attn_mask = []
-        for i, alg in enumerate(alignments):
-            src_sent = mask_src_sent[i]
-            src_tok_mask = mask_src[i]
-            # for each group
-            c_mask = torch.zeros((src_sent.size(-1), src_sent.size(-1)), device=device)
-            for j, sent_alg in enumerate(alg):
-                sent_mask = src_sent[sent_alg].sum(dim=0)
-                sent_mask = sent_mask.unsqueeze(0)
-                sent_mask = sent_mask.repeat((src_sent.size(-1), 1))
-                attn_mask = sent_mask * sent_mask.transpose(0, 1)
-                c_mask += attn_mask
-            tok_mask = src_tok_mask.unsqueeze(0)
-            tok_mask = tok_mask.repeat((src_sent.size(-1), 1))
-            tok_mask = tok_mask * tok_mask.transpose(0, 1)
-            c_mask = c_mask * tok_mask
-            self_attn_mask.append(c_mask)
-
-        return torch.stack(self_attn_mask)
-
-    def forward(self, src, tgt, mask_src, mask_tgt, 
-                mask_src_sent=None, mask_tgt_sent=None, 
-                tgt_nsent=None, mask_src_predicate=None,
-                clss=None, mask_cls=None, labels=None, 
-                gt_aj_matrix=None, run_decoder=True):
-
-        # batch_size * src_len * src_len
-        aggregate_mask = self.create_aggregate_mask(labels, mask_src_sent, mask_src)
-
-        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src, aggregate_mask=aggregate_mask) 
-        top_vec = encoder_outputs.last_hidden_state
-
-        if not run_decoder:
-            return {"encoder_outpus":encoder_outputs.last_hidden_state, "encoder_attention_mask":mask_src}
-
-        # Decoding
-        decoder_outputs = self.decoder(input_ids=tgt, 
-                                       attention_mask=mask_tgt,
-                                       encoder_hidden_states=top_vec,
-                                       encoder_attention_mask=mask_src)
 
         return decoder_outputs.last_hidden_state
 
@@ -423,8 +333,7 @@ class StepAbsSummarizer(nn.Module):
 
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent, mask_tgt_sent, 
-                clss, mask_cls, alignments,
-                src_predicate_token_idx, 
+                alignments, src_predicate_token_idx, 
                 run_decoder=True):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -524,8 +433,7 @@ class SoftSrcPromptSummarizer(nn.Module):
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, 
                 tgt_nsent=None, mask_src_predicate=None,
-                clss=None, mask_cls=None, labels=None, 
-                gt_aj_matrix=None, prompt_tokenized=None,
+                prompt_tokenized=None, alignments=None,
                 run_decoder=True):
 
         prompt_segs = self.get_prompt_segments(prompt_tokenized)
@@ -806,8 +714,7 @@ class MarginalProjectiveTreeSumm(nn.Module):
     def forward(self, src, tgt, mask_src, mask_tgt, 
                 mask_src_sent=None, mask_tgt_sent=None, 
                 mask_src_predicate=None, tgt_nsent=None, 
-                clss=None, mask_cls=None, labels=None, 
-                gt_aj_matrix=None, run_decoder=True):
+                labels=None, gt_aj_matrix=None, run_decoder=True):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 

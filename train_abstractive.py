@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, AggEncoderSummarizer, SoftSrcPromptSummarizer
+from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, SoftSrcPromptSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
@@ -169,8 +169,6 @@ def train_abs_single(args, device_id):
     # Load model
     if args.ext_or_abs == 'marginal_projective_tree':
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint, abs_finetune=abs_checkpoint)
-    elif args.ext_or_abs == 'agg_encoder':
-        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     elif args.ext_or_abs == 'soft_src_prompt':
         model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
@@ -242,8 +240,6 @@ def validate(args, device_id, pt, step):
 
     if args.ext_or_abs == 'marginal_projective_tree':
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
-    elif args.ext_or_abs == 'agg_encoder':
-        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     elif args.ext_or_abs == 'soft_src_prompt':
         model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
@@ -280,8 +276,6 @@ def test_abs(args, device_id, pt, step):
 
     if args.ext_or_abs == 'marginal_projective_tree':
         model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
-    elif args.ext_or_abs == 'agg_encoder':
-        model = AggEncoderSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     elif args.ext_or_abs == 'soft_src_prompt':
         model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
     else:
