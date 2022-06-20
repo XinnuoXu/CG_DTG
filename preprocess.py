@@ -24,6 +24,8 @@ if __name__ == '__main__':
     parser.add_argument("-save_path", default='')
     parser.add_argument("-additional_token_path", default='')
     parser.add_argument("-saved_tokenizer_path", default='')
+    parser.add_argument("-predicted_plan_path", default='')
+    parser.add_argument("-predicted_plan_id_path", default='')
     parser.add_argument('-log_file', default='./logs/cnndm.log')
     parser.add_argument("-shard_size", default=2000, type=int)
     parser.add_argument('-max_tgt_ntokens', default=500, type=int)
@@ -33,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument("-add_plan_to_tgt", type=str, default='none', choices=['prompt', 'intersec', 'none'])
     parser.add_argument("-add_plan_to_src", type=str, default='none', choices=['none', 'hard_prompt', 'soft_prompt'])
     parser.add_argument("-for_stepwise", type=str2bool, default=False)
+    parser.add_argument("-plan_generation", type=str2bool, default=False)
 
     parser.add_argument('-n_cpus', default=2, type=int)
 

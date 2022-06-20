@@ -1,13 +1,17 @@
 #coding=utf8
 
 import sys, os
+import nltk.data
+tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
 path_prefix = sys.argv[1] #'./outputs.webnlg/logs.base/test.res.5000'
 
-def postprocess(string):
-    string = string.replace('.', ' . ').replace(',', ' , ').replace('\'', ' \' ').replace('/', ' / ')
-    string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ')
-    return string
+def postprocess(string, is_ref):
+    if is_ref:
+        string = string.replace(' .', '.').replace(' , ', ', ')
+    string = string.replace('.', ' . ').replace(', ', ' , ').replace('\'', ' \' ').replace('/', ' / ')
+    string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ').replace('  ', ' ')
+    return string.strip()
 
 def process(refereces, candidates):
 
@@ -20,8 +24,8 @@ def process(refereces, candidates):
         references = refereces[i].replace('<q>', ' ')
         candidate = candidates[i].replace('<q>', ' ')
 
-        references = postprocess(references)
-        candidate = postprocess(candidate)
+        references = postprocess(references, True)
+        candidate = postprocess(candidate, False)
         ref = references.split('<ref - sep> ')[1:]
 
         fpout_cand.write(candidate+'\n')

@@ -33,7 +33,7 @@ def tile(x, count, dim=0):
     return x
 
 
-def build_predictor(args, tokenizer, model, logger=None):
+def build_predictor_plan(args, tokenizer, model, logger=None):
     scorer = GNMTGlobalScorer(args.alpha,length_penalty='wu')
     translator = Translator(args, model, tokenizer, global_scorer=scorer, logger=logger)
     return translator
@@ -56,6 +56,7 @@ class Translator(object):
             self.cls_token = self.tokenizer.eos_token
         else:
             self.cls_token = self.tokenizer.cls_token
+        self.plan_sep_token_id = self.tokenizer.convert_tokens_to_ids(['|||'])[0]
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -118,10 +119,10 @@ class Translator(object):
         translations = []
         for b in range(batch_size):
             token_ids = preds[b][0]
-
-            pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
+            
+            pred_sent = ' '.join(self.tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True))
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
-            gold_sent = '<q>'.join(tgt_str[b])
+            gold_sent = tgt_str[b]
             src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
@@ -162,6 +163,7 @@ class Translator(object):
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
         prompt_tokenized = batch.prompt_tokenized
+        src_predicate_token_idx = batch.src_predicate_token_idx
         device = src.device
         results = {}
 
@@ -183,6 +185,20 @@ class Translator(object):
 
         # Give full probability to the first beam on the first step.
         topk_log_probs = (torch.tensor([0.0] + [float("-inf")] * (beam_size - 1), device=device).repeat(batch_size))
+
+        # Constrained generation -- constrains
+        vocab_size = len(self.tokenizer)
+        constrains = torch.ones((batch_size, vocab_size), device=device) * -1e20
+        for i in range(batch_size):
+            for idx in src_predicate_token_idx[i]:
+                vocab_idx = src[i][idx]
+                constrains[i][vocab_idx] = 0
+            constrains[i][self.plan_sep_token_id] = 0
+        constrains = tile(constrains, beam_size, dim=0)
+        src_pred_num = []
+        for item in src_predicate_token_idx:
+            src_pred_num += [item.size(0)] * beam_size
+        src_pred_num = torch.tensor(src_pred_num, device=device, dtype=int)
 
         # Structure that holds finished hypotheses.
         hypotheses = [[] for _ in range(batch_size)]
@@ -207,6 +223,14 @@ class Translator(object):
 
             if step < min_length:
                 log_probs[:, self.end_token_id] = -1e20
+            curr_constrains = torch.zeros(constrains.size(), device=device)
+            for i in range(decoder_input.size(0)):
+                for tok in decoder_input[i]:
+                    if tok == self.plan_sep_token_id:
+                        continue
+                    curr_constrains[i][tok] = -1e20
+            curr_constrains += constrains
+            log_probs = (log_probs + curr_constrains)
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -252,8 +276,10 @@ class Translator(object):
             alive_seq = torch.cat(
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
+            generate_length = (alive_seq != self.plan_sep_token_id).sum(dim=1)
 
-            is_finished = topk_ids.eq(self.end_token_id)
+            #is_finished = topk_ids.eq(self.end_token_id)
+            is_finished = ((generate_length - src_pred_num)>0).view(-1, beam_size)
             if step + 1 == max_length:
                 is_finished.fill_(1)
             # End condition is top beam is finished.
@@ -289,6 +315,8 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
             mask_src = mask_src.index_select(0, select_indices)
+            src_pred_num = src_pred_num.index_select(0, select_indices)
+            constrains = constrains.index_select(0, select_indices)
 
         return results
 

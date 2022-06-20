@@ -2,13 +2,9 @@
 
 BASE_DIR=./outputs.webnlg/
 
-#BERT_DATA_PATH=${BASE_DIR}/data.src_prompt/
-#MODEL_PATH=${BASE_DIR}/models.src_prompt/
-#LOG_PATH=${BASE_DIR}/logs.src_prompt/
-
-BERT_DATA_PATH=${BASE_DIR}/data.single_sentences/
-MODEL_PATH=${BASE_DIR}/models.single_sentences/
-LOG_PATH=${BASE_DIR}/logs.single_sentences/
+BERT_DATA_PATH=${BASE_DIR}/data.src_prompt/
+MODEL_PATH=${BASE_DIR}/models.src_prompt/
+LOG_PATH=${BASE_DIR}/logs.src_prompt/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

@@ -34,17 +34,22 @@ class Batch(object):
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
             mask_tgt = ~(tgt == pad_id)
-            prompt_tokenized = [torch.tensor(item).to(device) for item in prompt_tokenized]
+
+            if prompt_tokenized[0] == None:
+                prompt_tokenized = None
+            else:
+                prompt_tokenized = [torch.tensor(item).to(device) for item in prompt_tokenized]
 
             setattr(self, 'src', src.to(device))
             setattr(self, 'tgt', tgt.to(device))
             setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
             setattr(self, 'nsent_tgt', nsent_tgt)
+            setattr(self, 'nsent_src', nsent_src)
             setattr(self, 'prompt_tokenized', prompt_tokenized)
             setattr(self, 'alignments', pre_alg)
 
-            if ext_or_abs == 'step':
+            if ext_or_abs == 'step': 
                 src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
                 tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
                 src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
@@ -54,9 +59,6 @@ class Batch(object):
                 setattr(self, 'mask_src_sent', src_sentence_mask.to(device))
                 setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
                 setattr(self, 'src_predicate_token_idx', src_predicate_token_idx)
-            else:
-                src_sentence_mask = None; tgt_sentence_mask = None;
-                src_predicate_mask = None; src_predicate_token_idx = None
 
 
             if (is_test):

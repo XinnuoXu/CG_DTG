@@ -24,6 +24,7 @@ from models.predictor import build_predictor
 from models.predictor_tree import build_predictor_tree
 from models.predictor_tgt_prompt import build_predictor_prompt
 from models.predictor_tgt_intersec import build_predictor_intersec
+from models.predictor_plan import build_predictor_plan
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'sentence_embedding', 
@@ -288,6 +289,8 @@ def test_abs(args, device_id, pt, step):
         predictor = build_predictor_prompt(args, tokenizer, model, logger)
     elif args.inference_mode == 'intersec':
         predictor = build_predictor_intersec(args, tokenizer, model, logger)
+    elif args.inference_mode == 'plan':
+        predictor = build_predictor_plan(args, tokenizer, model, logger)
     else: 
         predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)

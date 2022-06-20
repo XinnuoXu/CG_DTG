@@ -3,13 +3,9 @@
 BASE_DIR=./outputs.webnlg/
 #BASE_DIR=${SCRATCH_DIR}
 
-#BERT_DATA_PATH=${BASE_DIR}/data.tgt_prompt/
-#MODEL_PATH=${BASE_DIR}/models.tgt_prompt/
-#LOG_PATH=${BASE_DIR}/logs.tgt_prompt/
-
-BERT_DATA_PATH=${BASE_DIR}/data.single_sentences_tgt_prompts/
-MODEL_PATH=${BASE_DIR}/models.tgt_prompt_parallel/
-LOG_PATH=${BASE_DIR}/logs.tgt_prompt_parallel/
+BERT_DATA_PATH=${BASE_DIR}/data.tgt_prompt/
+MODEL_PATH=${BASE_DIR}/models.tgt_prompt/
+LOG_PATH=${BASE_DIR}/logs.tgt_prompt/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -34,5 +30,5 @@ python train.py  \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2 \
-        -master_port 10008 \
+        -master_port 10002 \
 

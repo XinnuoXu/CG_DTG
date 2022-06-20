@@ -1,15 +1,11 @@
 #/bin/bash
 
-#path_prefix='./outputs.webnlg/logs.step/test.res.4000'
-#path_prefix='./outputs.webnlg/logs.base/test.res'
-#path_prefix='./outputs.webnlg/logs.tree_during_infer/test.res.4000'
-#path_prefix='./outputs.webnlg/logs.plan/test.res.4000'
-#path_prefix='./outputs.webnlg/logs.pred.base/test.res.4000'
-#path_prefix='./outputs.webnlg//logs.pred.edge.discrete/test.res.5000'
-#path_prefix='./outputs.webnlg//logs.pred.edge.discrete.bak/test.res.4000'
-#path_prefix='./outputs.webnlg//logs.pred.edge.marginal/test.res.4000'
-#path_prefix='outputs.webnlg//logs.pred.self.discrete/test.res.4000'
-#path_prefix='outputs.webnlg//logs.pred.self.marginal/test.res.4000'
+#path_prefix='./outputs.webnlg/logs.plan_generation/test.res.4000'
+#path_prefix='./outputs.webnlg/logs.base/test.res.3000'
+#path_prefix='./outputs.webnlg/logs.src_prompt/test.res.3000'
+#path_prefix='./outputs.webnlg/logs.src_prompt_parallel/test.res'
+path_prefix='./outputs.webnlg/logs.tgt_prompt/test.res.5000'
+#path_prefix='./outputs.webnlg/logs.tgt_prompt_parallel/test.res'
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 

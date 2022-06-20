@@ -94,7 +94,7 @@ if __name__ == '__main__':
     parser.add_argument("-abs_plus_ext_loss", type=float, nargs='?', default=0.0)
 
     # test parameters
-    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree', 'tgt_prompt', 'intersec'])
+    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs', 'non_prjective_tree', 'tgt_prompt', 'intersec', 'plan'])
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)

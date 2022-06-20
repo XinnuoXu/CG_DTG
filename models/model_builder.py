@@ -231,16 +231,15 @@ class AbsSummarizer(nn.Module):
 
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
-        content_selection_weights = mask_src
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":content_selection_weights}
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
 
         # Decoding
         decoder_outputs = self.decoder(input_ids=tgt, 
                                        attention_mask=mask_tgt,
                                        encoder_hidden_states=top_vec,
-                                       encoder_attention_mask=content_selection_weights)
+                                       encoder_attention_mask=mask_src)
 
         return decoder_outputs.last_hidden_state
 

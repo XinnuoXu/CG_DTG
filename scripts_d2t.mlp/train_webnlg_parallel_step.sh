@@ -5,9 +5,9 @@ BASE_DIR=./outputs.webnlg/
 
 ABS_PATH=${BASE_DIR}/models.base/
 
-BERT_DATA_PATH=${BASE_DIR}/data.step_wise/
-MODEL_PATH=${BASE_DIR}/models.step_wise/
-LOG_PATH=${BASE_DIR}/logs.step_wise/
+BERT_DATA_PATH=${BASE_DIR}/data.single_sentences_step_wise/
+MODEL_PATH=${BASE_DIR}/models.step_wise_parallel
+LOG_PATH=${BASE_DIR}/logs.step_wise_parallel
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -40,4 +40,4 @@ python train.py  \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2 \
-        -master_port 10001 \
+        -master_port 10006 \
