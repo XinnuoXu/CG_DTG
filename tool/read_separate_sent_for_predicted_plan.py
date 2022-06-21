@@ -6,11 +6,11 @@
 #file_dir = './outputs.webnlg/logs.step_wise_parallel/test.res.6000'
 #target_dir = './outputs.webnlg/logs.step_wise_parallel/test.res'
 
-file_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res.6000'
-target_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res'
+file_dir = './outputs.webnlg/logs.src_prompt_parallel/test.res.5000'
+target_dir = './outputs.webnlg/logs.src_prompt_parallel/test.res'
 
-#file_dir = './outputs.webnlg/logs.src_prompt_parallel/test.res.5000'
-#target_dir = './outputs.webnlg/logs.src_prompt_parallel/test.res'
+#file_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res.8000'
+#target_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res'
 
 max_num_of_sentences = 10
 

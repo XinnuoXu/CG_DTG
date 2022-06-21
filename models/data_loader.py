@@ -18,7 +18,9 @@ class Batch(object):
                  pad_id=None, cls_id=None, 
                  pred_special_tok_id=None, 
                  obj_special_tok_id=None,
-                 ext_or_abs='abs'):
+                 ext_or_abs='abs', 
+                 inference_mode='abs',
+                 prompt_style='none'):
 
         """Create a Batch from a list of examples."""
         if data is not None:
@@ -30,6 +32,9 @@ class Batch(object):
             prompt_tokenized = [x[4] for x in data]
             pre_alg = [x[5] for x in data]
 
+            if prompt_style == 'src':
+                pre_src = self.prompt_src(pre_src, prompt_tokenized, cls_id, is_test)
+            
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
             mask_src = ~(src == pad_id)
@@ -49,7 +54,7 @@ class Batch(object):
             setattr(self, 'prompt_tokenized', prompt_tokenized)
             setattr(self, 'alignments', pre_alg)
 
-            if ext_or_abs == 'step': 
+            if (ext_or_abs in ['step']) or (inference_mode in ['plan']):
                 src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
                 tgt_sentence_mask = self.create_sentlevel_mask_tgt(tgt, mask_tgt, cls_id, max(nsent_tgt))
                 src_predicate_mask = self.create_predicate_mask_src(src, mask_src, pred_special_tok_id, obj_special_tok_id, max(nsent_src))
@@ -70,6 +75,18 @@ class Batch(object):
                 setattr(self, 'prompt_str', prompt_str)
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
+
+    def prompt_src(self, pre_src, prompt_tokenized, cls_id, is_test):
+        new_srcs = []
+        for pair in zip(pre_src, prompt_tokenized):
+            src = pair[0]
+            prompt = pair[1][:-1]
+            eos_id = src[-1]
+            if not is_test:
+                random.shuffle(prompt)
+            src = src[:-1] + [cls_id] + prompt + [eos_id]
+            new_srcs.append(src)
+        return new_srcs
 
     def create_predicate_mask_src(self, src, mask_src, pred_special_tok_id, obj_special_tok_id, max_sent_len):
         src_sentence_mask = []
@@ -314,7 +331,9 @@ class DataIterator(object):
                               self.pad_token_id, cls_id=self.cls_token_id, 
                               pred_special_tok_id=self.pred_special_tok_id, 
                               obj_special_tok_id=self.obj_special_tok_id,
-                              ext_or_abs=self.args.ext_or_abs)
+                              ext_or_abs=self.args.ext_or_abs,
+                              inference_mode=self.args.inference_mode,
+                              prompt_style=self.args.prompt_style)
 
                 yield batch
             return

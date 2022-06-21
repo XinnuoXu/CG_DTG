@@ -15,6 +15,6 @@ python preprocess.py \
         -mode split_shard \
         -raw_path ${RAW_PATH} \
         -save_path ${JSON_PATH} \
-        -oracle_topn 1000 \
+        -shard_size 10000 \
         -n_cpus 30 \
         -log_file ${LOG_PATH}/preprocess_shard.log \

@@ -17,7 +17,7 @@ python train.py \
 	-ext_or_abs abs \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
-	-max_pos 250 \
+	-max_pos 20 \
 	-batch_size 6000 \
-	-max_tgt_len 250 \
+	-max_tgt_len 20 \
 	-visible_gpus 0 \

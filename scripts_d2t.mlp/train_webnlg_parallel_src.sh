@@ -17,6 +17,7 @@ python train.py  \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
+        -prompt_style src \
 	-model_name t5-small \
 	-train_steps 10000 \
 	-save_checkpoint_steps 1000 \

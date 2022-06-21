@@ -27,6 +27,7 @@ def process(refereces, candidates):
         references = postprocess(references, True)
         candidate = postprocess(candidate, False)
         ref = references.split('<ref - sep> ')[1:]
+        #ref = references.split('<ref-sep> ')[1:]
 
         fpout_cand.write(candidate+'\n')
         fpout_ref1.write(ref[0].strip()+'\n')

@@ -20,6 +20,7 @@ python train.py \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
 	-ext_or_abs abs \
+        -prompt_style src \
         -inference_mode abs \
         -sentence_embedding predicate \
 	-block_trigram true \

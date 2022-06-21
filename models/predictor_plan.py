@@ -190,14 +190,24 @@ class Translator(object):
         vocab_size = len(self.tokenizer)
         constrains = torch.ones((batch_size, vocab_size), device=device) * -1e20
         for i in range(batch_size):
+            '''
             for idx in src_predicate_token_idx[i]:
                 vocab_idx = src[i][idx]
                 constrains[i][vocab_idx] = 0
+            '''
+            for vocab_idx in src[i]:
+                if vocab_idx > 32100:
+                    constrains[i][vocab_idx] = 0
+
             constrains[i][self.plan_sep_token_id] = 0
         constrains = tile(constrains, beam_size, dim=0)
         src_pred_num = []
+        '''
         for item in src_predicate_token_idx:
             src_pred_num += [item.size(0)] * beam_size
+        '''
+        for i in range(batch_size):
+            src_pred_num += [(src[i] > 32100).sum().int()] * beam_size
         src_pred_num = torch.tensor(src_pred_num, device=device, dtype=int)
 
         # Structure that holds finished hypotheses.

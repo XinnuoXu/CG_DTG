@@ -70,11 +70,13 @@ class Translator(object):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
+        prompt_str_path = self.args.result_path + '.%d.prompt_str' % step
         eid_path = self.args.result_path + '.%d.eid' % step
 
         self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
         self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
         self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
+        self.prompt_str_file = codecs.open(prompt_str_path, 'w', 'utf-8')
         self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
 
         self.model.eval()
@@ -86,20 +88,23 @@ class Translator(object):
                 translations = self.from_batch(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid = trans
+                    pred_str, gold_str, src_str, src_list, prompt_str, eid = trans
                     self.can_out_file.write(pred_str.strip() + '\n')
                     self.gold_out_file.write(gold_str.strip() + '\n')
                     self.src_out_file.write(src_str.strip() + '\n')
+                    self.prompt_str_file.write(prompt_str.strip() + '\n')
                     self.eid_out_file.write(eid + '\n')
 
                 self.can_out_file.flush()
                 self.gold_out_file.flush()
                 self.src_out_file.flush()
+                self.prompt_str_file.flush()
                 self.eid_out_file.flush()
 
         self.can_out_file.close()
         self.gold_out_file.close()
         self.src_out_file.close()
+        self.prompt_str_file.close()
         self.eid_out_file.close()
 
 
@@ -114,6 +119,7 @@ class Translator(object):
         tgt_str = batch.tgt_str
         src = batch.src
         eid = batch.eid
+        prompt_str = batch.prompt_str
 
         translations = []
         for b in range(batch_size):
@@ -130,6 +136,7 @@ class Translator(object):
                            gold_sent, 
                            raw_src, 
                            src_list, 
+                           prompt_str[b],
                            eid[b])
 
             translations.append(translation)

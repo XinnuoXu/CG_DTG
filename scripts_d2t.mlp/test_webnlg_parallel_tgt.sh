@@ -14,7 +14,7 @@ python train.py \
         -model_name t5-small \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_6000.pt \
+	-test_from ${MODEL_PATH}/model_step_8000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
         -pred_special_tok '<PRED>' \

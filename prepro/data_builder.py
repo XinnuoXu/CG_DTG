@@ -123,10 +123,12 @@ def _process(params):
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
+        predicates = d['predicates'] 
         prompt_str = d['prompt_str']
 
         if args.plan_generation:
-            b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
+            #b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
+            b_data = data_obj.preprocess_plan([' '.join(predicates)], prompt_str, args.max_src_ntokens)
             source_tokens, target_tokens, src_txt, tgt_txt = b_data
             prompt_str=None; prompt_tokens=None; alg=None;
         else:
