@@ -4,8 +4,8 @@ BASE_DIR=./outputs.cnn_dm/
 #BASE_DIR=${SCRATCH_DIR}
 
 BERT_DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.plan.self_attn/
-LOG_PATH=${BASE_DIR}/logs.plan.self_attn/
+MODEL_PATH=${BASE_DIR}/models.plan.mean/
+LOG_PATH=${BASE_DIR}/logs.plan.mean/
 
 python train.py \
 	-mode test \
@@ -15,7 +15,7 @@ python train.py \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs marginal_projective_tree \
-        -sentence_embedding maxpool \
+        -sentence_embedding meanpool \
         -tree_gumbel_softmax_tau 0.3 \
 	-block_trigram true \
 	-max_pos 1024 \

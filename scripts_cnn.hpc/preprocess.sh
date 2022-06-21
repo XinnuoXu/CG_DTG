@@ -7,7 +7,7 @@
 
 # Setup for CNN
 BASE_DIR=./outputs.cnn_dm/
-RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.oracle/
+RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.entity_chain/
 
 ADD_TOKEN_PATH=${RAW_PATH}/special_tokens.txt
 JSON_PATH=${BASE_DIR}/jsons/

@@ -6,7 +6,7 @@
 #LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs/logs/
 
 # Setup for CNN
-RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.oracle/
+RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.entity_chain/
 
 BASE_DIR=./outputs.cnn_dm/
 JSON_PATH=${BASE_DIR}/jsons/
