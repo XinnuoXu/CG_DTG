@@ -123,12 +123,12 @@ def _process(params):
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
-        predicates = d['predicates'] 
+        #predicates = d['predicates'] 
         prompt_str = d['prompt_str']
 
         if args.plan_generation:
-            #b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
-            b_data = data_obj.preprocess_plan([' '.join(predicates)], prompt_str, args.max_src_ntokens)
+            b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
+            #b_data = data_obj.preprocess_plan([' '.join(predicates)], prompt_str, args.max_src_ntokens)
             source_tokens, target_tokens, src_txt, tgt_txt = b_data
             prompt_str=None; prompt_tokens=None; alg=None;
         else:
@@ -192,7 +192,6 @@ def split_shard(args):
             new_obj['tgt'] = json_obj['gold_segs']
             new_obj['example_id'] = json_obj['example_id']
             new_obj['alignments'] = json_obj['oracles_selection']
-            new_obj['predicates'] = json_obj['predicates']
             new_obj['prompt_str'] = json_obj['prompt_str']
             json_objs.append(new_obj)
 
