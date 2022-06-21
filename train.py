@@ -27,7 +27,8 @@ if __name__ == '__main__':
     parser.add_argument("-predicates_start_from_id", default=-1, type=int)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
     parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'mix', 'step', 'marginal_projective_tree', 'soft_src_prompt'])
-    parser.add_argument("-prompt_style", default='none', type=str, choices=['none', 'src', 'tgt'])
+    parser.add_argument("-prompt_style", default='none', type=str, choices=['none', 'src', 'tgt', 'plan_only'])
+    parser.add_argument("-shuffle_plan_tok", type=str2bool, default=False)
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')
@@ -40,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("-batch_size", default=140, type=int)
     parser.add_argument("-max_pos", default=1024, type=int)
     parser.add_argument("-max_tgt_len", default=250, type=int)
+    parser.add_argument("-max_prompt_len", default=150, type=int)
 
     # parameters for extractive models and tmt
     parser.add_argument("-ext_dropout", default=0.2, type=float)

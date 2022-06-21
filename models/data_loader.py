@@ -20,7 +20,8 @@ class Batch(object):
                  obj_special_tok_id=None,
                  ext_or_abs='abs', 
                  inference_mode='abs',
-                 prompt_style='none'):
+                 prompt_style='none',
+                 shuffle_plan_tok=False):
 
         """Create a Batch from a list of examples."""
         if data is not None:
@@ -33,7 +34,11 @@ class Batch(object):
             pre_alg = [x[5] for x in data]
 
             if prompt_style == 'src':
-                pre_src = self.prompt_src(pre_src, prompt_tokenized, cls_id, is_test)
+                pre_src = self.prompt_src(pre_src, prompt_tokenized, cls_id, is_test, shuffle_plan_tok)
+            elif prompt_style == 'tgt':
+                pre_tgt = self.prompt_tgt(pre_tgt, prompt_tokenized, cls_id, is_test)
+            elif prompt_style == 'plan_only':
+                pre_tgt = prompt_tokenized
             
             src = torch.tensor(self._pad(pre_src, pad_id))
             tgt = torch.tensor(self._pad(pre_tgt, pad_id))
@@ -76,17 +81,26 @@ class Batch(object):
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
 
-    def prompt_src(self, pre_src, prompt_tokenized, cls_id, is_test):
+    def prompt_src(self, pre_src, prompt_tokenized, cls_id, is_test, shuffle_plan_tok):
         new_srcs = []
         for pair in zip(pre_src, prompt_tokenized):
             src = pair[0]
             prompt = pair[1][:-1]
             eos_id = src[-1]
-            if not is_test:
+            if (not is_test) and shuffle_plan_tok:
                 random.shuffle(prompt)
             src = src[:-1] + [cls_id] + prompt + [eos_id]
             new_srcs.append(src)
         return new_srcs
+
+    def prompt_tgt(self, pre_tgt, prompt_tokenized, cls_id, is_test):
+        new_tgts = []
+        for pair in zip(pre_tgt, prompt_tokenized):
+            tgt = pair[0]
+            prompt = pair[1]
+            tgt = prompt[:-1] + tgt
+            new_tgts.append(tgt)
+        return new_tgts
 
     def create_predicate_mask_src(self, src, mask_src, pred_special_tok_id, obj_special_tok_id, max_sent_len):
         src_sentence_mask = []
@@ -264,6 +278,7 @@ class DataIterator(object):
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
+        prompt_tokenized = prompt_tokenized[:-1][:self.args.max_prompt_len]+[prompt_tokenized[-1]]
 
         if(is_test):
             return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg, src_txt, tgt_txt, prompt_str, eid
@@ -333,8 +348,8 @@ class DataIterator(object):
                               obj_special_tok_id=self.obj_special_tok_id,
                               ext_or_abs=self.args.ext_or_abs,
                               inference_mode=self.args.inference_mode,
-                              prompt_style=self.args.prompt_style)
-
+                              prompt_style=self.args.prompt_style,
+                              shuffle_plan_tok=self.args.shuffle_plan_tok)
                 yield batch
             return
 
