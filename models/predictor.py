@@ -234,6 +234,18 @@ class Translator(object):
                         if fail:
                             curr_scores[i] = -10e20
 
+            if(self.args.block_repeat_tok):
+                cur_len = alive_seq.size(1)
+                if(cur_len>2):
+                    for i in range(alive_seq.size(0)):
+                        fail = False
+                        words = [int(w) for w in alive_seq[i]]
+                        words = self.tokenizer.decode(words).split()
+                        if(len(words)<=2):
+                            continue
+                        if words[-1] == words[-2]:
+                            curr_scores[i] = -10e20
+
             curr_scores = curr_scores.reshape(-1, beam_size * vocab_size)
             topk_scores, topk_ids = curr_scores.topk(beam_size, dim=-1)
 

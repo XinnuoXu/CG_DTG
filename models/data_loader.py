@@ -74,8 +74,12 @@ class Batch(object):
             if (is_test):
                 src_str = [x[-4] for x in data]
                 setattr(self, 'src_str', src_str)
-                tgt_str = [x[-3] for x in data]
-                setattr(self, 'tgt_str', tgt_str)
+                if prompt_style == 'plan_only':
+                    tgt_str = [[x[-2]] for x in data]
+                    setattr(self, 'tgt_str', tgt_str)
+                else:
+                    tgt_str = [x[-3] for x in data]
+                    setattr(self, 'tgt_str', tgt_str)
                 prompt_str = [x[-2] for x in data]
                 setattr(self, 'prompt_str', prompt_str)
                 eid = [x[-1] for x in data]

@@ -265,6 +265,61 @@ def split_shard_with_predicted_plan(args):
                 dataset = []
 
 
+def split_shard_with_predicted_plan_parallel_summ(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['train', 'test', 'validation']
+
+    predicted_plans = {}
+    plans = [line.replace('[CONTENT]', '').strip() for line in open(args.predicted_plan_path)]
+    eids = [line.strip() for line in open(args.predicted_plan_id_path)]
+    for example in list(zip(eids, plans)):
+        predicted_plans[example[0]] = example[1]
+
+    for corpus_type in datasets:
+
+        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
+
+        json_objs = []
+        for line in open(input_path):
+            json_obj = json.loads(line.strip())
+            new_obj = {}
+            new_obj['src'] = json_obj['document_segs']
+            new_obj['tgt'] = json_obj['gold_segs']
+            new_obj['alignments'] =  json_obj['oracles_selection']
+
+            eid = json_obj['example_id']
+            prompt_str = predicted_plans[eid]
+            prompt_list = prompt_str.split('|||')
+
+            for i, chunk in enumerate(prompt_list):
+                chunk = chunk.strip()
+                if len(chunk) < 2:
+                    continue
+                example_obj = new_obj.copy()
+                example_obj['prompt_str'] = '[CONTENT] ' + chunk
+                example_obj['example_id'] = eid + '_' + str(i)
+                json_objs.append(example_obj)
+
+        dataset = []; p_ct = 0
+        for d in json_objs:
+            dataset.append(d)
+            if (len(dataset) > args.shard_size):
+                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+                with open(pt_file, 'w') as save:
+                    save.write(json.dumps(dataset))
+                    p_ct += 1
+                    dataset = []
+
+        if (len(dataset) > 0):
+            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+            with open(pt_file, 'w') as save:
+                save.write(json.dumps(dataset))
+                p_ct += 1
+                dataset = []
+
+
 def split_shard_with_predicted_plan_parallel(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
@@ -272,7 +327,7 @@ def split_shard_with_predicted_plan_parallel(args):
         datasets = ['train', 'test', 'validation']
 
     predicted_plans = {}
-    plans = [line.strip() for line in open(args.predicted_plan_path)]
+    plans = [line.replace('[CONTENT]', '').strip() for line in open(args.predicted_plan_path)]
     eids = [line.strip() for line in open(args.predicted_plan_id_path)]
     for example in list(zip(eids, plans)):
         predicted_plans[example[0]] = example[1]
@@ -291,11 +346,13 @@ def split_shard_with_predicted_plan_parallel(args):
 
             eid = json_obj['example_id']
             prompt_str = predicted_plans[eid]
-            #prompt_str = json_obj['prompt_str'].split('<ref-sep>')[1].strip()
             alignments, new_prompt_str = get_alignments(json_obj['predicates'], prompt_str)
-            prompt_list = new_prompt_str.split(' ||| ')
+            prompt_list = new_prompt_str.split('|||')
 
             for i, chunk in enumerate(prompt_list):
+                chunk = chunk.strip()
+                if chunk == '':
+                    continue
                 example_obj = new_obj.copy()
                 example_obj['prompt_str'] = chunk
                 example_obj['example_id'] = eid + '_' + str(i)

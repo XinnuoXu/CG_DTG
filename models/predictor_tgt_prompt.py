@@ -57,6 +57,10 @@ class Translator(object):
         else:
             self.cls_token = self.tokenizer.cls_token
 
+        if args.downstream_task == 'summarization':
+            self.plan_sep_token_id = self.tokenizer.convert_tokens_to_ids(['[SUMMARY]'])[0]
+        else:
+            self.plan_sep_token_id = self.tokenizer.cls_token_id
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
         self.min_length = args.test_min_length
@@ -124,7 +128,7 @@ class Translator(object):
         translations = []
         for b in range(batch_size):
             token_ids = preds[b][0]
-            cls_index = (token_ids == self.tokenizer.cls_token_id).nonzero(as_tuple=True)
+            cls_index = (token_ids == self.plan_sep_token_id).nonzero(as_tuple=True)
             text_starts_from = int(cls_index[0][0])+1
             pred_sent = self.tokenizer.decode(token_ids[text_starts_from:], skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
@@ -199,7 +203,8 @@ class Translator(object):
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
 
-        cls_index = (tgt == self.tokenizer.cls_token_id).nonzero(as_tuple=True)
+        #cls_index = (tgt == self.tokenizer.cls_token_id).nonzero(as_tuple=True)
+        cls_index = (tgt == self.plan_sep_token_id).nonzero(as_tuple=True)
         prompt_length = [-1] * src.size(0)
         prompt_length_beam_expanded = []
         for i in range(len(cls_index[0])):
@@ -227,8 +232,9 @@ class Translator(object):
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
+            for i in range(prompt_length.size(0)):
+                if step-int(prompt_length[i]) < min_length:
+                    log_probs[i, self.end_token_id] = -10e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -284,11 +290,12 @@ class Translator(object):
                     else:
                         topk_log_probs[int(i/beam_size)][i % beam_size] = float("-inf")
             '''
-            #print (alive_seq)
-            #print (topk_log_probs)
-            #print ('\n\n')
+            print (alive_seq)
+            print (topk_log_probs)
+            print ('\n\n')
             '''
 
+            topk_ids = alive_seq[:, -1].unsqueeze(0)
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
                 is_finished.fill_(1)

@@ -3,7 +3,7 @@
 RAW_PATH=../Plan_while_Generate/Content_Selection/cnn_origin_greedy_sent.sentences/
 
 BASE_DIR=./outputs.cnn_dm/
-JSON_PATH=${BASE_DIR}/jsons.parallel/
+JSON_PATH=${BASE_DIR}/jsons.parallel.gold/
 LOG_PATH=${BASE_DIR}/logs/
 
 mkdir -p ${LOG_PATH}
@@ -29,7 +29,7 @@ python preprocess.py \
         -log_file ${LOG_PATH}/preprocess_shard.log \
 
 
-PRED_PLAN_PATH=${BASE_DIR}/logs.plan/test.res.280000.candidate
+PRED_PLAN_PATH=${BASE_DIR}/logs.plan/test.res.280000.gold
 PRED_PLAN_ID_PATH=${BASE_DIR}/logs.plan/test.res.280000.eid
 
 python preprocess.py \
