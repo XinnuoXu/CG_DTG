@@ -18,7 +18,7 @@ python train.py  \
 	-result_path ${LOG_PATH}/test_ext.res \
 	-log_file ${LOG_PATH}/test_ext.log \
 	-batch_size 6000 \
-	-max_pos 1024 \
+	-max_pos 150 \
         -select_topn 3 \
 	-ext_layers 3 \
 	-visible_gpus 1
