@@ -45,6 +45,6 @@ echo "Creating directory to save model weights"
 # This script does not actually do very much. But it does demonstrate the principles of training
 #sh ./scripts_cnn.hpc/train_cnn_base.sh
 #sh scripts_cnn.hpc/train_cnn_entity_chain.sh
-sh scripts_cnn.hpc/train_cnn_parallel.sh
+#sh scripts_cnn.hpc/train_cnn_parallel.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

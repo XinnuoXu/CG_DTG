@@ -33,19 +33,11 @@ source /home/hpcxu1/miniconda3/bin/activate Plan
 echo "Creating directory to save model weights"
 
 # This script does not actually do very much. But it does demonstrate the principles of training
-#sh ./scripts.hpc/test_xsum_bartbase.sh
-#sh ./scripts.hpc/test_xsum_gumbel_softmax.sh
-#sh ./scripts.hpc/test_cnn_bartbase.sh
-#sh scripts.hpc/test_cnn_gumbel_softmax.sh
-#sh scripts.hpc/test_cnn_gumbel_softmax_with_ext_loss.sh
-#sh scripts.hpc/test_cnn_abs_ext.sh 
-#sh scripts.hpc/test_cnn_freeze_tmt.sh
-#sh scripts.hpc/test_cnn_freeze_tmt_30percent.sh
-#sh scripts.hpc/test_cnn_freeze_tmt_groundtruth.sh
-#sh scripts.hpc/test_cnn_lead_3.sh
-#sh scripts.hpc/test_cnn_not_lead_3.sh
-#sh scripts.hpc/test_cnn_random.sh
-#sh scripts.hpc/test_cnn_ext.sh
-sh scripts_d2t.hpc/test_webnlg_base.sh
+#sh scripts_cnn.hpc/test_cnn_plan.sh
+#sh scripts_cnn.hpc/test_cnn_base.sh
+#sh scripts_cnn.hpc/test_cnn_entity_chain.sh
+#sh scripts_cnn.hpc/test_cnn_entity_chain_gold.sh
+#sh scripts_cnn.hpc/test_cnn_parallel_gold.sh
+sh scripts_cnn.hpc/test_cnn_parallel.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
