@@ -103,7 +103,6 @@ if __name__ == '__main__':
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)
     parser.add_argument("-block_trigram", type=str2bool, nargs='?', const=True, default=True)
-    parser.add_argument("-block_repeat_tok", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-select_topn", default=3, type=float)
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
     parser.add_argument("-test_min_length", default=10, type=int)
