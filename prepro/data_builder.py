@@ -30,8 +30,8 @@ class DataCreator():
             self.tokenizer.add_special_tokens(special_tokens_dict)
 
         if additional_tokens is not None:
-           print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
-           self.tokenizer.add_tokens(additional_tokens)
+            print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
+            self.tokenizer.add_tokens(additional_tokens)
 
         self.tokenizer.save_pretrained(args.saved_tokenizer_path)
         print ('The vocab size after adding new tokens: %d' % (len(self.tokenizer)))
@@ -44,13 +44,15 @@ class DataCreator():
 
     def preprocess_plan(self, src, prompt_str, max_src_sent_length):
         src_txt = (' '+self.cls_token+' ').join(src)
-        tgt_txt = ' '.join(prompt_str.split(' | '))
+        tgt_txt = prompt_str
         raw_tgt_txt = tgt_txt
 
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
 
+        src_txt = ' '.join([item.strip().split('<PRED> ')[1].split(' <OBJ>')[0].strip() for item in src_txt.split('<SUB> ')[1:]])
+ 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad')['input_ids']
 
@@ -58,8 +60,6 @@ class DataCreator():
 
 
     def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, prompt_str):
-
-        prompt_str = ' '.join(prompt_str.split(' | '))
 
         # Process Src
         src_txt = (' '+self.cls_token+' ').join(src)
@@ -70,17 +70,7 @@ class DataCreator():
             src_txt = src_txt + ' ' + self.cls_token + ' ||| ' + ' '.join(['-Pred-ROOT']*plan_seg_number)
 
         # Process Tgt
-        if self.args.add_plan_to_tgt == 'intersec':
-            prompts = [' '.join(item.split(' | ')) for item in prompt_str.split(' ||| ')]
-            sents = []; new_format_prompts = []
-            for i, sent in enumerate(tgt):
-                prompt = '| ' + prompts[i] + ' ||| '
-                sent = prompt + ' '.join(sent) + ' ' + self.cls_token
-                sents.append(sent)
-                new_format_prompts.append(prompt)
-            tgt_txt = ' '.join(sents)
-            prompt_str = ' '.join(new_format_prompts)
-        elif self.args.add_plan_to_tgt == 'prompt':
+        if self.args.add_plan_to_tgt == 'prompt':
             tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
             tgt_txt = prompt_str + ' ' + self.cls_token + ' ' + tgt_txt
         else:
@@ -95,6 +85,8 @@ class DataCreator():
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
         prompt_tokens = self.tokenizer(prompt_str, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
+        #print (' '.join(self.tokenizer.convert_ids_to_tokens(source_tokens, skip_special_tokens=False)))
+        #print (' '.join(self.tokenizer.convert_ids_to_tokens(target_tokens, skip_special_tokens=False)))
 
         if self.args.for_stepwise:
             target_tokens = target_tokens[:-1]
@@ -123,12 +115,10 @@ def _process(params):
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         alg = d['alignments']
-        #predicates = d['predicates'] 
         prompt_str = d['prompt_str']
 
         if args.plan_generation:
             b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
-            #b_data = data_obj.preprocess_plan([' '.join(predicates)], prompt_str, args.max_src_ntokens)
             source_tokens, target_tokens, src_txt, tgt_txt = b_data
             prompt_str=None; prompt_tokens=None; alg=None;
         else:
@@ -240,11 +230,7 @@ def split_shard_with_predicted_plan(args):
             new_obj['prompt_str'] = predicted_plans[new_obj['example_id']]
             alignments, new_prompt_str = get_alignments(json_obj['predicates'], new_obj['prompt_str'])
             new_obj['alignments'] = alignments
-            new_obj['prompt_str'] = new_prompt_str
-            '''
-            new_obj['alignments'] = json_obj['oracles_selection']
-            new_obj['prompt_str'] = json_obj['prompt_str'].split('<ref-sep>')[1].strip()
-            '''
+            #new_obj['prompt_str'] = new_prompt_str
             json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
@@ -292,8 +278,8 @@ def split_shard_with_predicted_plan_parallel(args):
             eid = json_obj['example_id']
             prompt_str = predicted_plans[eid]
             #prompt_str = json_obj['prompt_str'].split('<ref-sep>')[1].strip()
-            alignments, new_prompt_str = get_alignments(json_obj['predicates'], prompt_str)
-            prompt_list = new_prompt_str.split(' ||| ')
+            alignments, _ = get_alignments(json_obj['predicates'], prompt_str)
+            prompt_list = prompt_str.split(' ||| ')
 
             for i, chunk in enumerate(prompt_list):
                 example_obj = new_obj.copy()
@@ -318,6 +304,7 @@ def split_shard_with_predicted_plan_parallel(args):
                 save.write(json.dumps(dataset))
                 p_ct += 1
                 dataset = []
+
 
 def get_alignments(predicates, prompt_str):
 

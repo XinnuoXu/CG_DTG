@@ -22,3 +22,4 @@ python train.py \
 	-batch_size 6000 \
 	-max_tgt_len 250 \
 	-visible_gpus 0 \
+        -master_port 10006 \

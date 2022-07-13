@@ -70,7 +70,6 @@ class Batch(object):
                 setattr(self, 'src_predicate_mask', src_predicate_mask.to(device))
                 setattr(self, 'src_predicate_token_idx', src_predicate_token_idx)
 
-
             if (is_test):
                 src_str = [x[-4] for x in data]
                 setattr(self, 'src_str', src_str)
@@ -278,7 +277,8 @@ class DataIterator(object):
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
-        prompt_tokenized = prompt_tokenized[:-1][:self.args.max_prompt_len]+[prompt_tokenized[-1]]
+        if prompt_tokenized is not None:
+            prompt_tokenized = prompt_tokenized[:-1][:self.args.max_prompt_len]+[prompt_tokenized[-1]]
 
         if(is_test):
             return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg, src_txt, tgt_txt, prompt_str, eid

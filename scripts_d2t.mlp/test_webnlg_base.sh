@@ -28,3 +28,4 @@ python train.py \
         -test_min_length 10 \
         -test_max_length 250 \
 	-visible_gpus 0 \
+        -master_port 10008 \

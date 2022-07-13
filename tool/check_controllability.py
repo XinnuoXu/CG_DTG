@@ -3,9 +3,9 @@
 import sys
 import random
 
-#data_path = './outputs.webnlg/logs.tgt_prompt_parallel/test.res.8000'
-data_path = './outputs.webnlg/logs.tgt_prompt/test.res.4000'
-output_path = './outputs.webnlg/temp.txt'
+data_path = './outputs.webnlg/logs.tgt_prompt_parallel/test.res'
+#data_path = './outputs.webnlg/logs.tgt_prompt/test.res.4000'
+output_path = './outputs.webnlg/temp_tgt_para_control.txt'
 
 def version_1():
     raw_src = data_path + '.raw_src'

@@ -227,8 +227,9 @@ class Translator(object):
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
+            for i in range(prompt_length.size(0)):
+                if step-int(prompt_length[i]) < min_length:
+                    log_probs[i, self.end_token_id] = -10e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -289,6 +290,7 @@ class Translator(object):
             #print ('\n\n')
             '''
 
+            topk_ids = alive_seq[:, -1].view(-1, beam_size)
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
                 is_finished.fill_(1)

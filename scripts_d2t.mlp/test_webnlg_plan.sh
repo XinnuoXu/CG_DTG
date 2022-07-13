@@ -15,17 +15,20 @@ python train.py \
 	-input_path ${BERT_DATA_PATH} \
         -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_2000.pt \
+        -tokenizer_path t5-small \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
         -pred_special_tok '<PRED>' \
         -obj_special_tok '<OBJ>' \
 	-ext_or_abs abs \
-        -inference_mode plan \
+        -inference_mode abs \
         -sentence_embedding predicate \
 	-block_trigram true \
-	-max_pos 20 \
+	-max_pos 200 \
 	-batch_size 6000 \
         -test_min_length 0 \
-        -test_max_length 20 \
-        -beam_size 5 \
+        -test_max_length 200 \
+        -beam_size 3 \
 	-visible_gpus 0 \
+
+        #-inference_mode plan \

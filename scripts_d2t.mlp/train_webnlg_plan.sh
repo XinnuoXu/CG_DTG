@@ -18,13 +18,13 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
 	-model_name t5-small \
-	-train_steps 8000 \
+	-train_steps 4000 \
 	-save_checkpoint_steps 1000 \
 	-warmup_steps 500 \
 	-batch_size 3000 \
 	-report_every 100 \
-	-max_pos 20 \
-	-max_tgt_len 20 \
+	-max_pos 200 \
+	-max_tgt_len 200 \
 	-ext_dropout 0.1 \
 	-lr 3e-4 \
         -decay_method linear_warmup \

@@ -35,18 +35,9 @@ mkdir -p ${SCRATCH_DIR}
 # ====================
 # Run training. Here we use src/gpu.py
 # ====================
-#sh scripts_d2t.mlp/validate_webnlg_base.sh
-
-#sh ./scripts_d2t.mlp/validate_webnlg_src_prompt.sh
-#sh ./scripts_d2t.mlp/validate_webnlg_parallel_src.sh
-
-#sh scripts_d2t.mlp/validate_webnlg_tgt_prompt.sh 
-#sh scripts_d2t.mlp/validate_webnlg_parallel_tgt.sh 
-
-#sh ./scripts_d2t.mlp/validate_webnlg_src_regular.sh
-sh ./scripts_d2t.mlp/validate_webnlg_tgt_regular.sh
-
-#sh scripts_d2t.mlp/validate_webnlg_step_wise.sh
+#sh scripts_d2t.mlp/test_webnlg_tgt_prompt.sh 
+#sh scripts_d2t.mlp/test_webnlg_parallel_tgt.sh 
+sh ./scripts_d2t.mlp/test_webnlg_tgt_regular.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system

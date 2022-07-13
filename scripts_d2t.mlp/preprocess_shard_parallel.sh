@@ -34,8 +34,6 @@ RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
 JSON_PATH=${BASE_DIR}/jsons.sentences/
 LOG_PATH=${BASE_DIR}/logs/
 
-#PRED_PLAN_PATH=${BASE_DIR}/logs.plan_generation/test.res.4000.candidate
-#PRED_PLAN_ID_PATH=${BASE_DIR}/logs.plan_generation/test.res.4000.eid
 PRED_PLAN_PATH=${BASE_DIR}/logs.plan_generation/test.res.2000.candidate
 PRED_PLAN_ID_PATH=${BASE_DIR}/logs.plan_generation/test.res.2000.eid
 

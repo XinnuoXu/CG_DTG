@@ -29,4 +29,5 @@ python train.py \
         -test_max_length 250 \
 	-visible_gpus 0 \
         -do_analysis \
+        -master_port 10008 \
 

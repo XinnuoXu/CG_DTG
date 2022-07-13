@@ -30,5 +30,5 @@ python train.py  \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2 \
-        -master_port 10005 \
+        -master_port 10007 \
 

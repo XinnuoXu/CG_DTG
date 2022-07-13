@@ -22,3 +22,4 @@ python preprocess.py \
         -plan_generation True \
 	-n_cpus 32 \
 	-log_file ${LOG_PATH}/preprocess.log
+
