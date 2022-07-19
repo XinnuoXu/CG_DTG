@@ -31,7 +31,6 @@ class Batch(object):
             nsent_src = [x[2] for x in data]
             nsent_tgt = [x[3] for x in data]
             prompt_tokenized = [x[4] for x in data]
-            pre_alg = [x[5] for x in data]
 
             if prompt_style == 'src':
                 pre_src = self.prompt_src(pre_src, prompt_tokenized, cls_id, is_test, shuffle_plan_tok)
@@ -57,7 +56,6 @@ class Batch(object):
             setattr(self, 'nsent_tgt', nsent_tgt)
             setattr(self, 'nsent_src', nsent_src)
             setattr(self, 'prompt_tokenized', prompt_tokenized)
-            setattr(self, 'alignments', pre_alg)
 
             if (ext_or_abs in ['step']) or (inference_mode in ['plan']):
                 src_sentence_mask = self.create_sentlevel_mask_src(src, mask_src, cls_id, max(nsent_src))
@@ -277,7 +275,6 @@ class DataIterator(object):
         nsent_src = ex['nsent_src']
         prompt_str = ex['prompt_str']
         prompt_tokenized = ex['prompt_tokenized']
-        alg = ex['alignments']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
@@ -285,9 +282,9 @@ class DataIterator(object):
             prompt_tokenized = prompt_tokenized[:-1][:self.args.max_prompt_len]+[prompt_tokenized[-1]]
 
         if(is_test):
-            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg, src_txt, tgt_txt, prompt_str, eid
+            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, src_txt, tgt_txt, prompt_str, eid
         else:
-            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized, alg
+            return src, tgt, nsent_src, nsent_tgt, prompt_tokenized
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
