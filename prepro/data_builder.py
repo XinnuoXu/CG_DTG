@@ -16,6 +16,7 @@ from multiprocess import Pool
 from transformers import AutoTokenizer
 
 from models.logging import logger
+from models.spectral_clustering import SpectralCluser
 
 
 class DataCreator():
@@ -181,6 +182,70 @@ def split_shard(args):
             new_obj['example_id'] = json_obj['example_id']
             new_obj['prompt_str'] = json_obj['prompt_str']
             json_objs.append(new_obj)
+
+        dataset = []; p_ct = 0
+        for d in json_objs:
+            dataset.append(d)
+            if (len(dataset) > args.shard_size):
+                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+                with open(pt_file, 'w') as save:
+                    save.write(json.dumps(dataset))
+                    p_ct += 1
+                    dataset = []
+
+        if (len(dataset) > 0):
+            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+            with open(pt_file, 'w') as save:
+                save.write(json.dumps(dataset))
+                p_ct += 1
+                dataset = []
+
+
+def split_shard_spectral_cluster(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['train', 'test', 'validation']
+
+    cluster_obj = SpectralCluser(assign_labels = args.spectral_assign_labels,
+                                 eigen_solver = args.spectral_eigen_solver,
+                                 affinity = args.spectral_affinity,
+                                 max_group_size = args.spectral_max_group_size,
+                                 min_pair_freq = args.spectral_min_pair_freq,
+                                 use_ratio = args.spectral_use_ratio,
+                                 filter_with_entities = args.spectral_filter_with_entities,
+                                 train_file = args.spectral_train_file)
+
+    for corpus_type in datasets:
+        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
+        json_objs = []
+        for line in open(input_path):
+            json_obj = json.loads(line.strip())
+            
+            srcs = json_obj['document_segs']
+            predicates = json_obj['predicates']
+
+            pred_to_triple = {}
+            for i, pred in enumerate(predicates):
+                pred_to_triple[pred] = srcs[i]
+
+            pred_aggragation = cluster_obj.test(predicates, srcs)
+            #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
+
+            for i, group in enumerate(pred_aggragation):
+                group = sorted(group)
+                partial_src = [pred_to_triple[pred] for pred in group]
+                new_obj = {}
+                new_obj['src'] = partial_src
+                if i == 0:
+                    new_obj['src'].append('<FIRST_SENT>')
+                else:
+                    new_obj['src'].append('<NOT_FIRST_SENT>')
+                new_obj['tgt'] = json_obj['gold_segs']
+                new_obj['example_id'] = json_obj['example_id'] + '_' + str(i)
+                new_obj['predicates'] = group
+                new_obj['prompt_str'] = ' '.join(group)
+                json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
         for d in json_objs:

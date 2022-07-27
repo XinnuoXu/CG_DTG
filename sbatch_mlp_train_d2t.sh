@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/src_regular
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/src_regular
+#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/partial
+#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/partial
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard
@@ -45,8 +45,10 @@ mkdir -p ${SCRATCH_DIR}
 #sh ./scripts_d2t.mlp/train_webnlg_tgt_prompt.sh
 #sh ./scripts_d2t.mlp/train_webnlg_parallel_tgt.sh
 
-sh ./scripts_d2t.mlp/train_webnlg_src_regular.sh
+#sh ./scripts_d2t.mlp/train_webnlg_src_regular.sh
 #sh ./scripts_d2t.mlp/train_webnlg_tgt_regular.sh
+
+sh ./scripts_d2t.mlp/train_webnlg_partial_src.sh
 
 #sh ./scripts_d2t.mlp/train_webnlg_step_wise.sh
 #sh ./scripts_d2t.mlp/train_webnlg_parallel_step.sh
