@@ -114,7 +114,7 @@ class SpectralCluser():
         return clustering.labels_, ajacency_matrix
 
 
-    def postprocess(self, candidates, pred_to_subs_objs):
+    def postprocess(self, candidates):
 
         candidate_map = {}
         for candidate in candidates:
@@ -129,35 +129,6 @@ class SpectralCluser():
                     break
             if bad_group:
                 continue
-
-            '''
-            # if the candidate contains groups whose subs/objs don't overlap
-            connected_group = True
-            for group in candidate:
-                if len(group) == 1:
-                    continue
-                sub_obj_to_pred = {}
-                for pred in group:
-                    sub_obj = pred_to_subs_objs[pred]
-                    if sub_obj[0] not in sub_obj_to_pred:
-                        sub_obj_to_pred[sub_obj[0]] = []
-                    if sub_obj[1] not in sub_obj_to_pred:
-                        sub_obj_to_pred[sub_obj[1]] = []
-                    sub_obj_to_pred[sub_obj[0]].append(pred)
-                    sub_obj_to_pred[sub_obj[1]].append(pred)
-
-                independent_pred = set()
-                for sub_obj in sub_obj_to_pred:
-                    if len(sub_obj_to_pred[sub_obj]) > 1:
-                        continue
-                    if sub_obj_to_pred[sub_obj][0] in independent_pred:
-                        connected_group = False
-                        break
-                    independent_pred.add(sub_obj_to_pred[sub_obj][0])
-
-            if not connected_group:
-                continue
-            '''
 
             # if the candidate contains low frequence groups
             good_candidate = True; min_freq = 10000
@@ -243,7 +214,7 @@ class SpectralCluser():
         if len(candidates) == 0:
             best_candidate = [predicates]
         else:
-            best_candidate = self.postprocess(candidates, pred_to_subs_objs)
+            best_candidate = self.postprocess(candidates)
         sorted_best_candidate = self.sort_the_groups(best_candidate)
 
         return sorted_best_candidate
@@ -333,8 +304,17 @@ if __name__ == '__main__':
     #triples = ['<SUB> alan b. miller hall<PRED>-Pred-buildingStartDate<OBJ> "30 march 2007" ', '<SUB> mason school of business<PRED>-Pred-country<OBJ> united states ', '<SUB> alan b. miller hall<PRED>-Pred-currentTenants<OBJ> mason school of business']
     #predicates = ['-Pred-buildingStartDate', '-Pred-country', '-Pred-currentTenants']
 
-    triples = ['<SUB> 103 colmore row<PRED>-Pred-location<OBJ> birmingham ', '<SUB> 103 colmore row<PRED>-Pred-completionDate<OBJ> 1976 ', '<SUB> 103 colmore row<PRED>-Pred-buildingStartDate<OBJ> "1973" ', '<SUB> 103 colmore row<PRED>-Pred-floorCount<OBJ> 23']
-    predicates = ['-Pred-location', '-Pred-completionDate', '-Pred-buildingStartDate', '-Pred-floorCount']
+    #triples = ['<SUB> 103 colmore row<PRED>-Pred-location<OBJ> birmingham ', '<SUB> 103 colmore row<PRED>-Pred-completionDate<OBJ> 1976 ', '<SUB> 103 colmore row<PRED>-Pred-buildingStartDate<OBJ> "1973" ', '<SUB> 103 colmore row<PRED>-Pred-floorCount<OBJ> 23']
+    #predicates = ['-Pred-location', '-Pred-completionDate', '-Pred-buildingStartDate', '-Pred-floorCount']
+
+    #triples = ['<SUB> turkey<PRED>-Pred-leaderTitle<OBJ> president of turkey', '<SUB> turkey<PRED>-Pred-leaderName<OBJ> ahmet davuto<unk>lu ', '<SUB> turkey<PRED>-Pred-capital<OBJ> ankara ', '<SUB> turkey<PRED>-Pred-largestCity<OBJ> istanbul ', '<SUB> turkey<PRED>-Pred-currency<OBJ> turkish lira ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-inaugurationDate<OBJ> "1932-07-27"', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-location<OBJ> turkey']
+    #predicates = ['-Pred-leaderTitle', '-Pred-leaderName', '-Pred-capital', '-Pred-largestCity', '-Pred-currency', '-Pred-inaugurationDate', '-Pred-location']
+
+    #triples = ['<SUB> turkey<PRED>-Pred-leaderTitle<OBJ> president of turkey', ' <SUB> turkey<PRED>-Pred-leader<OBJ> ahmet davuto<unk>lu ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-designer<OBJ> pietro canonica ', '<SUB> turkey<PRED>-Pred-capital<OBJ> ankara ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-material<OBJ> "bronze" ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-inaugurationDate<OBJ> "1932-07-27" ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-location<OBJ> turkey']
+    #predicates = ['-Pred-leaderTitle', '-Pred-leader', '-Pred-designer', '-Pred-capital', '-Pred-material', '-Pred-inaugurationDate', '-Pred-location']
+
+    triples = ['<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-academicStaffSize<OBJ> 737 ', '<SUB> denmark<PRED>-Pred-leaderName<OBJ> lars l<unk>kke rasmussen ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-dean<OBJ> "thomas pallesen" ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-city<OBJ> aarhus ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-country<OBJ> denmark', ' <SUB> school of business and social sciences at the aarhus university<PRED>-Pred-affiliation<OBJ> european university association ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-established<OBJ> 1928']
+    predicates = ['-Pred-academicStaffSize', '-Pred-leaderName', '-Pred-dean', '-Pred-city', '-Pred-country', '-Pred-affiliation', '-Pred-established']
 
     res = cluster_obj.test(predicates, triples)
 

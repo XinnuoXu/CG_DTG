@@ -31,11 +31,11 @@ python preprocess.py \
 
 
 RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
-JSON_PATH=${BASE_DIR}/jsons.partial_src/
+JSON_PATH=${BASE_DIR}/jsons.partial_prompt/
 LOG_PATH=${BASE_DIR}/logs/
 
 python preprocess.py \
-        -mode split_shard_spectral_cluster \
+        -mode split_shard_spectral_prompt \
         -dataset test \
         -raw_path ${RAW_PATH} \
         -save_path ${JSON_PATH} \

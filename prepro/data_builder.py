@@ -62,19 +62,8 @@ class DataCreator():
 
     def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, prompt_str):
 
-        # Process Src
         src_txt = (' '+self.cls_token+' ').join(src)
-        if self.args.add_plan_to_src == 'hard_prompt':
-            src_txt = src_txt + ' ' + self.cls_token + ' ' + prompt_str
-        elif self.args.add_plan_to_src == 'soft_prompt':
-            plan_seg_number = len(prompt_str.split('|||'))
-            src_txt = src_txt + ' ' + self.cls_token + ' ||| ' + ' '.join(['-Pred-ROOT']*plan_seg_number)
-
-        # Process Tgt
         tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
-        if self.args.add_plan_to_tgt == 'prompt':
-            tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
-            tgt_txt = prompt_str + ' ' + self.cls_token + ' ' + tgt_txt
 
         # Tokenization using tokenizer
         if self.args.tokenizer.startswith('t5-'):
@@ -115,13 +104,8 @@ def _process(params):
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
         prompt_str = d['prompt_str']
 
-        if args.plan_generation:
-            b_data = data_obj.preprocess_plan(src, prompt_str, args.max_src_ntokens)
-            source_tokens, target_tokens, src_txt, tgt_txt = b_data
-            prompt_str=None; prompt_tokens=None;
-        else:
-            b_data = data_obj.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, prompt_str)
-            source_tokens, target_tokens, prompt_tokens, src_txt, tgt_txt = b_data
+        b_data = data_obj.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, prompt_str)
+        source_tokens, target_tokens, prompt_tokens, src_txt, tgt_txt = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
@@ -265,32 +249,46 @@ def split_shard_spectral_cluster(args):
                 dataset = []
 
 
-def split_shard_with_predicted_plan(args):
+def split_shard_spectral_prompt(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
     else:
         datasets = ['train', 'test', 'validation']
 
-    predicted_plans = {}
-    plans = [line.strip() for line in open(args.predicted_plan_path)]
-    eids = [line.strip() for line in open(args.predicted_plan_id_path)]
-    for example in list(zip(eids, plans)):
-        predicted_plans[example[0]] = example[1]
+    cluster_obj = SpectralCluser(assign_labels = args.spectral_assign_labels,
+                                 eigen_solver = args.spectral_eigen_solver,
+                                 affinity = args.spectral_affinity,
+                                 max_group_size = args.spectral_max_group_size,
+                                 min_pair_freq = args.spectral_min_pair_freq,
+                                 use_ratio = args.spectral_use_ratio,
+                                 filter_with_entities = args.spectral_filter_with_entities,
+                                 train_file = args.spectral_train_file)
 
     for corpus_type in datasets:
-
         input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
-
         json_objs = []
         for line in open(input_path):
             json_obj = json.loads(line.strip())
-            new_obj = {}
-            new_obj['src'] = json_obj['document_segs']
-            new_obj['tgt'] = json_obj['gold_segs']
-            new_obj['example_id'] = json_obj['example_id']
-            new_obj['predicates'] = json_obj['predicates']
-            new_obj['prompt_str'] = predicted_plans[new_obj['example_id']]
-            json_objs.append(new_obj)
+            
+            srcs = json_obj['document_segs']
+            predicates = json_obj['predicates']
+
+            #pred_aggragation = cluster_obj.test(predicates, srcs)
+            pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
+
+            for i, group in enumerate(pred_aggragation):
+                group = sorted(group)
+                new_obj = {}
+                new_obj['src'] = srcs + [' '.join(group)]
+                if i == 0:
+                    new_obj['src'].append('<FIRST_SENT>')
+                else:
+                    new_obj['src'].append('<NOT_FIRST_SENT>')
+                new_obj['tgt'] = json_obj['gold_segs']
+                new_obj['example_id'] = json_obj['example_id'] + '_' + str(i)
+                new_obj['predicates'] = group
+                new_obj['prompt_str'] = ' '.join(group)
+                json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
         for d in json_objs:
@@ -308,114 +306,3 @@ def split_shard_with_predicted_plan(args):
                 save.write(json.dumps(dataset))
                 p_ct += 1
                 dataset = []
-
-
-def split_shard_with_predicted_plan_parallel_summ(args):
-    if (args.dataset != ''):
-        datasets = [args.dataset]
-    else:
-        datasets = ['train', 'test', 'validation']
-
-    predicted_plans = {}
-    plans = [line.replace('[CONTENT]', '').strip() for line in open(args.predicted_plan_path)]
-    eids = [line.strip() for line in open(args.predicted_plan_id_path)]
-    for example in list(zip(eids, plans)):
-        predicted_plans[example[0]] = example[1]
-
-    for corpus_type in datasets:
-
-        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
-
-        json_objs = []
-        for line in open(input_path):
-            json_obj = json.loads(line.strip())
-            new_obj = {}
-            new_obj['src'] = json_obj['document_segs']
-            new_obj['tgt'] = json_obj['gold_segs']
-
-            eid = json_obj['example_id']
-            prompt_str = predicted_plans[eid]
-            prompt_list = prompt_str.split('|||')
-
-            for i, chunk in enumerate(prompt_list):
-                chunk = chunk.strip()
-                if len(chunk) < 2:
-                    continue
-                example_obj = new_obj.copy()
-                example_obj['prompt_str'] = '[CONTENT] ' + chunk
-                example_obj['example_id'] = eid + '_' + str(i)
-                json_objs.append(example_obj)
-
-        dataset = []; p_ct = 0
-        for d in json_objs:
-            dataset.append(d)
-            if (len(dataset) > args.shard_size):
-                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-                with open(pt_file, 'w') as save:
-                    save.write(json.dumps(dataset))
-                    p_ct += 1
-                    dataset = []
-
-        if (len(dataset) > 0):
-            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-            with open(pt_file, 'w') as save:
-                save.write(json.dumps(dataset))
-                p_ct += 1
-                dataset = []
-
-
-def split_shard_with_predicted_plan_parallel(args):
-    if (args.dataset != ''):
-        datasets = [args.dataset]
-    else:
-        datasets = ['train', 'test', 'validation']
-
-    predicted_plans = {}
-    plans = [line.replace('[CONTENT]', '').strip() for line in open(args.predicted_plan_path)]
-    eids = [line.strip() for line in open(args.predicted_plan_id_path)]
-    for example in list(zip(eids, plans)):
-        predicted_plans[example[0]] = example[1]
-
-    for corpus_type in datasets:
-
-        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
-
-        json_objs = []
-        for line in open(input_path):
-            json_obj = json.loads(line.strip())
-            new_obj = {}
-            new_obj['src'] = json_obj['document_segs']
-            new_obj['tgt'] = json_obj['gold_segs']
-            new_obj['predicates'] = json_obj['predicates']
-
-            eid = json_obj['example_id']
-            prompt_str = predicted_plans[eid]
-            #prompt_str = json_obj['prompt_str'].split('<ref-sep>')[1].strip()
-            prompt_list = prompt_str.split(' ||| ')
-
-            for i, chunk in enumerate(prompt_list):
-                chunk = chunk.strip()
-                if chunk == '':
-                    continue
-                example_obj = new_obj.copy()
-                example_obj['prompt_str'] = chunk
-                example_obj['example_id'] = eid + '_' + str(i)
-                json_objs.append(example_obj)
-
-        dataset = []; p_ct = 0
-        for d in json_objs:
-            dataset.append(d)
-            if (len(dataset) > args.shard_size):
-                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-                with open(pt_file, 'w') as save:
-                    save.write(json.dumps(dataset))
-                    p_ct += 1
-                    dataset = []
-
-        if (len(dataset) > 0):
-            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-            with open(pt_file, 'w') as save:
-                save.write(json.dumps(dataset))
-                p_ct += 1
-                dataset = []
-

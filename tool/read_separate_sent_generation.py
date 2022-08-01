@@ -15,6 +15,9 @@
 file_dir = './outputs.webnlg/logs.partial_src/test.res.4000'
 target_dir = './outputs.webnlg/logs.partial_src/test.res'
 
+#file_dir = './outputs.webnlg/logs.partial_prompt/test.res.5000'
+#target_dir = './outputs.webnlg/logs.partial_prompt/test.res'
+
 max_num_of_sentences = 10
 
 if __name__ == '__main__':

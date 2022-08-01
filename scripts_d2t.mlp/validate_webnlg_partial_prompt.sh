@@ -2,9 +2,9 @@
 
 BASE_DIR=./outputs.webnlg/
 
-BERT_DATA_PATH=${BASE_DIR}/data.single_sentences_tgt_prompts/
-MODEL_PATH=${BASE_DIR}/models.tgt_prompt_parallel/
-LOG_PATH=${BASE_DIR}/logs.tgt_prompt_parallel/
+BERT_DATA_PATH=${BASE_DIR}/data.partial_prompt
+MODEL_PATH=${BASE_DIR}/models.partial_prompt/
+LOG_PATH=${BASE_DIR}/logs.partial_prompt/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -21,4 +21,4 @@ python train.py \
 	-batch_size 6000 \
 	-max_tgt_len 250 \
 	-visible_gpus 0 \
-        -master_port 10004 \
+        -master_port 10008 \

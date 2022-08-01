@@ -110,7 +110,7 @@ while(<STDIN>) {
 	foreach my $ngram (keys %T_NGRAM) {
 	    $ngram =~ /^(\d+) /;
 	    my $n = $1;
-            # my $corr = 0;
+             #my $corr = 0;
 #	print "$i e $ngram $T_NGRAM{$ngram}<BR>\n";
 	    $TOTAL[$n] += $T_NGRAM{$ngram};
 	    if (defined($REF_NGRAM{$ngram})) {
@@ -126,7 +126,7 @@ while(<STDIN>) {
 		}
 	    }
             # $REF_NGRAM{$ngram} = 0 if !defined $REF_NGRAM{$ngram};
-            # print STDERR "$ngram: {$s, $REF_NGRAM{$ngram}, $T_NGRAM{$ngram}, $corr}\n"
+             #print STDERR "$ngram: {$s, $REF_NGRAM{$ngram}, $T_NGRAM{$ngram}, $corr}\n"
 	}
     }
     $s++;

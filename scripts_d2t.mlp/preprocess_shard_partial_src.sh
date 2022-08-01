@@ -44,6 +44,6 @@ python preprocess.py \
         -spectral_train_file ${RAW_PATH}/train.jsonl \
         -spectral_use_ratio False \
         -spectral_filter_with_entities True \
-        -spectral_min_pair_freq 20 \
-        -spectral_max_group_size 3 \
+        -spectral_min_pair_freq 15 \
+        -spectral_max_group_size 10 \
         -log_file ${LOG_PATH}/preprocess_shard.log \
