@@ -40,7 +40,7 @@ python preprocess.py \
         -raw_path ${RAW_PATH} \
         -save_path ${JSON_PATH} \
         -oracle_topn 1000 \
-        -n_cpus 30 \
+        -n_cpus 1 \
         -spectral_train_file ${RAW_PATH}/train.jsonl \
         -spectral_use_ratio False \
         -spectral_filter_with_entities True \

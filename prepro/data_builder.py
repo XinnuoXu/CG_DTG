@@ -209,16 +209,18 @@ def split_shard_spectral_cluster(args):
             srcs = json_obj['document_segs']
             predicates = json_obj['predicates']
 
-            pred_to_triple = {}
+            pred_to_triple = {}; pred_to_position = {}
             for i, pred in enumerate(predicates):
                 pred_to_triple[pred] = srcs[i]
+                pred_to_position[pred] = i
 
             pred_aggragation = cluster_obj.test(predicates, srcs)
             #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
 
             for i, group in enumerate(pred_aggragation):
-                group = sorted(group)
-                partial_src = [pred_to_triple[pred] for pred in group]
+                pred_positions = sorted([pred_to_position[pred] for pred in group])
+                partial_src = [srcs[pos] for pos in pred_positions]
+                #partial_src = [pred_to_triple[pred] for pred in group]
                 new_obj = {}
                 new_obj['src'] = partial_src
                 if i == 0:
@@ -273,15 +275,18 @@ def split_shard_spectral_prompt(args):
             srcs = json_obj['document_segs']
             predicates = json_obj['predicates']
 
-            #pred_aggragation = cluster_obj.test(predicates, srcs)
-            pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
+            pred_aggragation = cluster_obj.test(predicates, srcs)
+            #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
 
             for i, group in enumerate(pred_aggragation):
                 group = sorted(group)
                 new_obj = {}
                 new_obj['src'] = srcs + [' '.join(group)]
                 if i == 0:
-                    new_obj['src'].append('<FIRST_SENT>')
+                    if len(pred_aggragation) == 1:
+                        new_obj['src'].append('<FULL_SENT>')
+                    else:
+                        new_obj['src'].append('<FIRST_SENT>')
                 else:
                     new_obj['src'].append('<NOT_FIRST_SENT>')
                 new_obj['tgt'] = json_obj['gold_segs']
