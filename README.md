@@ -18,6 +18,7 @@ pip install sentencepiece
 pip install transformers
 pip install nltk
 pip install pyrouge
+pip install sklearn
 
 # get ROUGE-1.5.5
 git clone git@github.com:andersjo/pyrouge.git
