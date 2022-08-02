@@ -119,9 +119,8 @@ class Translator(object):
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
             gold_sent = '<q>'.join(tgt_str[b])
-            print (pred_sent, gold_sent)
             src_list = src_str[b]
-            raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
+            raw_src = ' '.join([self.tokenizer.decode(sent, skip_special_tokens=False) for sent in src[b]])
 
             translation = (pred_sent, 
                            gold_sent, 
