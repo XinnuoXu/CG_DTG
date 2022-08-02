@@ -26,8 +26,15 @@ class Batch(object):
             nsent_src = [x[3] for x in data]
             nsent_tgt = [x[4] for x in data]
 
-            src = torch.tensor(self._pad(pre_src, pad_id))
-            mask_src = ~(src == pad_id)
+            if type(pre_src[0][0]) is list:
+                src, src_mask = self.src_is_list(pre_src, pad_id, device)
+                setattr(self, 'src', src)
+                setattr(self, 'mask_src', src_mask)
+            else:
+                src = torch.tensor(self._pad(pre_src, pad_id))
+                mask_src = ~(src == pad_id)
+                setattr(self, 'src', src.to(device))
+                setattr(self, 'mask_src', mask_src.to(device))
 
             new_tgt = [pre_tgt_pref[i] + pre_tgt[i] for i in range(len(pre_tgt))]
             tgt = torch.tensor(self._pad(new_tgt, pad_id))
@@ -38,9 +45,7 @@ class Batch(object):
                 pref_len = len(pre_tgt_pref[i])
                 mask_tgt_for_loss[i][:pref_len] = 0
 
-            setattr(self, 'src', src.to(device))
             setattr(self, 'tgt', tgt.to(device))
-            setattr(self, 'mask_src', mask_src.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
             setattr(self, 'nsent_tgt', nsent_tgt)
             setattr(self, 'nsent_src', nsent_src)
@@ -53,6 +58,20 @@ class Batch(object):
                 setattr(self, 'tgt_str', tgt_str)
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
+
+    def src_is_list(self, pre_src, pad_id, device):
+        srcs = []; src_masks = []
+        sent_len = []
+        for src in pre_src:
+            for sent in src:
+                sent_len.append(len(sent))
+        width = max(sent_len)
+        for src in pre_src:
+            src = torch.tensor(self._pad(src, pad_id, width=width)).to(device)
+            src_mask = ~(src == pad_id)
+            srcs.append(src)
+            src_masks.append(src_mask)
+        return srcs, src_masks
 
     def __len__(self):
         return self.batch_size

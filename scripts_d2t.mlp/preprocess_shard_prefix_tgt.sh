@@ -35,7 +35,7 @@ JSON_PATH=${BASE_DIR}/jsons.prefix_tgt/
 LOG_PATH=${BASE_DIR}/logs/
 
 python preprocess.py \
-        -mode split_shard_spectral_cluster \
+        -mode split_shard_prefix_tgt \
         -dataset test \
         -raw_path ${RAW_PATH} \
         -save_path ${JSON_PATH} \

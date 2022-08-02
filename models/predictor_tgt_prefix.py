@@ -30,7 +30,7 @@ def tile(x, count, dim=0):
     return x
 
 
-def build_predictor(args, tokenizer, model, logger=None):
+def build_prefix_predictor(args, tokenizer, model, logger=None):
     scorer = GNMTGlobalScorer(args.alpha,length_penalty='wu')
     translator = Translator(args, model, tokenizer, global_scorer=scorer, logger=logger)
     return translator
@@ -51,8 +51,10 @@ class Translator(object):
         self.end_token_id = self.tokenizer.eos_token_id
         if self.tokenizer.cls_token_id is None:
             self.cls_token = self.tokenizer.eos_token
+            self.cls_token_id = self.end_token_id
         else:
             self.cls_token = self.tokenizer.cls_token
+            self.cls_token_id = self.tokenizer.cls_token_id
 
         self.global_scorer = global_scorer
         self.beam_size = args.beam_size
@@ -117,6 +119,7 @@ class Translator(object):
             pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
             pred_sent = pred_sent.replace(self.cls_token, '<q>')
             gold_sent = '<q>'.join(tgt_str[b])
+            print (pred_sent, gold_sent)
             src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
@@ -138,37 +141,44 @@ class Translator(object):
                 self.max_length,
                 min_length=self.min_length)
 
-
-    def _fast_translate_batch(self, batch, max_length, min_length=0):
-
-        def sent_probs_to_selected_ids(sent_probs):
-            selected_ids = []
-            for i in range(sent_probs.size(0)):
-                weights = sent_probs[i, :].tolist()
-                selected_ids.append([i for i in range(len(weights)) if weights[i] == 1])
-            return selected_ids
-
-        assert not self.dump_beam
-        beam_size = self.beam_size
-        batch_size = batch.batch_size
-
+    
+    def _run_encoder(self, batch):
         src = batch.src
         mask_src = batch.mask_src
-        tgt = batch.tgt
-        mask_tgt = batch.mask_tgt
-        device = src.device
-        results = {}
+        group_numbers = [example.size(0) for example in src]
 
-        # Run encoder and tree prediction
-        src_res = self.model(src, tgt, mask_src, mask_tgt,
-                             run_decoder=False)
+        cat_src = torch.cat(src, 0)
+        cat_mask_src = torch.cat(mask_src, 0)
+        
+        src_res = self.model(cat_src, None, cat_mask_src, None, run_decoder=False)
 
         src_features = src_res['encoder_outpus']
         mask_src = src_res['encoder_attention_mask']
 
-        # Tile states and memory beam_size times.
-        mask_src = tile(mask_src, beam_size, dim=0)
-        src_features = tile(src_features, beam_size, dim=0)
+        src_features_for_each_example = []; sid = 0
+        for example_group_number in group_numbers:
+            eid = sid + example_group_number
+            src_features_for_each_example.append(src_features[sid:eid])
+            sid = sid + example_group_number
+        mask_src_for_each_example = batch.mask_src
+
+        return src_features_for_each_example, mask_src_for_each_example
+
+
+    def _fast_translate_batch(self, batch, max_length, min_length=0):
+
+        assert not self.dump_beam
+
+        beam_size = self.beam_size
+        batch_size = batch.batch_size
+
+        src_features_for_each_example, mask_src_for_each_example = self._run_encoder(batch)
+        device = batch.tgt.device
+        
+        current_group_ids = torch.zeros(beam_size * len(src_features_for_each_example), device=device)
+        test_tensor = torch.tensor([i for i in range(beam_size * len(src_features_for_each_example))], device=device)
+        ngroup_for_each_example = torch.tensor([src_features_for_each_example[i].size(0) for i in range(len(src_features_for_each_example))], device=device)
+        ngroup_for_each_example = tile(ngroup_for_each_example, beam_size, dim=0)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
         beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=device)
@@ -180,11 +190,21 @@ class Translator(object):
         # Structure that holds finished hypotheses.
         hypotheses = [[] for _ in range(batch_size)]
 
+        results = {}
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
 
         for step in range(max_length):
+
+            src_features = []; mask_src = []
+            for i in range(current_group_ids.size(0)):
+                example_id = int(i/beam_size)
+                group_id = int(current_group_ids[i])
+                src_features.append(src_features_for_each_example[example_id][group_id])
+                mask_src.append(mask_src_for_each_example[example_id][group_id])
+            src_features = torch.stack(src_features, 0)
+            mask_src = torch.stack(mask_src, 0)
 
             #decoder_input = alive_seq[:, -1].view(1, -1)
             decoder_input = alive_seq
@@ -199,7 +219,8 @@ class Translator(object):
             vocab_size = log_probs.size(-1)
 
             if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
+                #log_probs[:, self.end_token_id] = -1e20
+                log_probs[:, self.cls_token_id] = -1e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -246,11 +267,25 @@ class Translator(object):
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
 
-            is_finished = topk_ids.eq(self.end_token_id)
+            # Judge whether the generation of one sentence finished
+            current_group_ids = current_group_ids.index_select(0, select_indices)
+            ngroup_for_each_example = ngroup_for_each_example.index_select(0, select_indices)
+
+            finish_one_sent = topk_ids.eq(self.cls_token_id)
+            current_group_ids = current_group_ids.reshape(-1, beam_size)
+            current_group_ids += finish_one_sent
+            ngroup_for_each_example = ngroup_for_each_example.reshape(-1, beam_size)
+            is_finished = (current_group_ids >= ngroup_for_each_example)
+            topk_log_probs = is_finished * (-1e20) + topk_log_probs # Dangourse!!!
+            current_group_ids = is_finished * (-1) + current_group_ids # Dangourse!!!
+
+            current_group_ids = current_group_ids.view(-1)
+            ngroup_for_each_example = ngroup_for_each_example.view(-1)
+            
+            # If any examples finished
             if step + 1 == max_length:
                 is_finished.fill_(1)
-            # End condition is top beam is finished.
-            end_condition = is_finished[:, 0].eq(1)
+            end_condition = is_finished[:, 0].eq(1) # End condition is top beam is finished.
             # Save finished hypotheses.
             if is_finished.any():
                 predictions = alive_seq.view(-1, beam_size, alive_seq.size(-1))
@@ -277,11 +312,13 @@ class Translator(object):
                 batch_index = batch_index.index_select(0, non_finished)
                 batch_offset = batch_offset.index_select(0, non_finished)
                 alive_seq = predictions.index_select(0, non_finished).view(-1, alive_seq.size(-1))
+                src_features_for_each_example = [src_features_for_each_example[non_finished_id] for non_finished_id in non_finished]
+                mask_src_for_each_example = [mask_src_for_each_example[non_finished_id] for non_finished_id in non_finished]
 
             # Reorder states.
             select_indices = batch_index.view(-1)
-            src_features = src_features.index_select(0, select_indices)
-            mask_src = mask_src.index_select(0, select_indices)
+            current_group_ids = current_group_ids.index_select(0, select_indices)
+            ngroup_for_each_example = ngroup_for_each_example.index_select(0, select_indices)
 
         return results
 

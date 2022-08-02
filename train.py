@@ -81,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument("-train_from", default='')
     parser.add_argument("-load_from_ext", default='')
     parser.add_argument("-load_from_abs", default='')
-    parser.add_argument("-partial_tgt_training", type=str2bool, nargs='?', default=False)
+    parser.add_argument("-prefix_tgt_training", type=str2bool, nargs='?', default=False)
 
     # test parameters
     parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs'])

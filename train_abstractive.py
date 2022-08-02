@@ -21,6 +21,7 @@ from models.loss import abs_loss
 from models.model_builder import AbsSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
+from models.predictor_tgt_prefix import build_prefix_predictor
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 
@@ -260,7 +261,10 @@ def test_abs(args, device_id, pt, step):
     model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
-    predictor = build_predictor(args, tokenizer, model, logger)
+    if args.prefix_tgt_training:
+        predictor = build_prefix_predictor(args, tokenizer, model, logger)
+    else:
+        predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 

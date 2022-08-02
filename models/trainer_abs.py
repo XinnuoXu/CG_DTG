@@ -134,7 +134,7 @@ class Trainer(object):
 
             outputs = self.model(src, tgt, mask_src, mask_tgt)
 
-            if self.args.partial_tgt_training:
+            if self.args.prefix_tgt_training:
                 mask_tgt_for_loss = batch.mask_tgt_for_loss
                 tgt = tgt * mask_tgt_for_loss
                 padding_tensor = (~mask_tgt_for_loss) * self.loss.padding_idx
@@ -191,6 +191,13 @@ class Trainer(object):
                 mask_tgt = batch.mask_tgt
 
                 outputs = self.model(src, tgt, mask_src, mask_tgt)
+
+                if self.args.prefix_tgt_training:
+                    mask_tgt_for_loss = batch.mask_tgt_for_loss
+                    tgt = tgt * mask_tgt_for_loss
+                    padding_tensor = (~mask_tgt_for_loss) * self.loss.padding_idx
+                    tgt = tgt + padding_tensor
+                    batch.tgt = tgt
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)
