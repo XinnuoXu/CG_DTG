@@ -43,43 +43,29 @@ class DataCreator():
         self.bos_token = self.tokenizer.bos_token
 
 
-    def preprocess_plan(self, src, prompt_str, max_src_sent_length):
-        src_txt = (' '+self.cls_token+' ').join(src)
-        tgt_txt = prompt_str
-        raw_tgt_txt = tgt_txt
-
-        if self.args.tokenizer.startswith('t5-'):
-            src_txt = self.cls_token + ' ' + src_txt
-            tgt_txt = self.bos_token + ' ' + tgt_txt
-
-        src_txt = ' '.join([item.strip().split('<PRED> ')[1].split(' <OBJ>')[0].strip() for item in src_txt.split('<SUB> ')[1:]])
- 
-        source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
-        target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad')['input_ids']
-
-        return source_tokens, target_tokens, src, raw_tgt_txt
-
-
-    def preprocess(self, src, tgt, max_src_sent_length, max_tgt_length, prompt_str):
+    def preprocess(self, src, tgt, tgt_prefix, max_src_sent_length, max_tgt_length):
 
         src_txt = (' '+self.cls_token+' ').join(src)
         tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
+        tgt_prefix_txt = (' '+self.cls_token+' ').join(tgt_prefix) + ' ' + self.cls_token
 
         # Tokenization using tokenizer
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
             tgt_txt = self.bos_token + ' ' + tgt_txt
+            tgt_prefix_txt = self.bos_token + ' ' + tgt_prefix_txt
 
         source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_sent_length)['input_ids']
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
-        prompt_tokens = self.tokenizer(prompt_str, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
-        #print (' '.join(self.tokenizer.convert_ids_to_tokens(source_tokens, skip_special_tokens=False)))
-        #print (' '.join(self.tokenizer.convert_ids_to_tokens(target_tokens, skip_special_tokens=False)))
+        tgt_prefix_tokens = self.tokenizer(tgt_prefix_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
 
-        if self.args.for_stepwise:
-            target_tokens = target_tokens[:-1]
+        if len(tgt_prefix) > 0:
+            tgt_prefix_tokens = tgt_prefix_tokens[:-1]
+            target_tokens = target_tokens[1:]
+        else:
+            tgt_prefix_tokens = []
 
-        return source_tokens, target_tokens, prompt_tokens, src, [' '.join(sent) for sent in tgt]
+        return source_tokens, target_tokens, tgt_prefix_tokens, src, [' '.join(sent) for sent in tgt]
 
 
 def _process(params):
@@ -102,16 +88,18 @@ def _process(params):
         eid = d['example_id']
         src = d['src'] #[sent1, sent2, sent3...]
         tgt = d['tgt'] #[[seg1, seg2...], [seg1, seg2...]...]
-        prompt_str = d['prompt_str']
+        if 'tgt_prefix' in d:
+            tgt_prefix = d['tgt_prefix']
+        else:
+            tgt_prefix = []
 
-        b_data = data_obj.preprocess(src, tgt, args.max_src_ntokens, args.max_tgt_ntokens, prompt_str)
-        source_tokens, target_tokens, prompt_tokens, src_txt, tgt_txt = b_data
+        b_data = data_obj.preprocess(src, tgt, tgt_prefix, args.max_src_ntokens, args.max_tgt_ntokens)
+        source_tokens, target_tokens, tgt_prefix_tokens, src_txt, tgt_txt = b_data
 
         b_data_dict = {"src": source_tokens, "tgt": target_tokens,
+                       'tgt_prefix': tgt_prefix_tokens,
                        "src_txt": src_txt, "tgt_txt": tgt_txt, 
                        "nsent_src":len(src), "nsent_tgt":len(tgt), 
-                       "prompt_str":prompt_str, 
-                       "prompt_tokenized": prompt_tokens,
                        "eid": eid}
 
         datasets.append(b_data_dict)
@@ -164,7 +152,9 @@ def split_shard(args):
             new_obj['src'] = json_obj['document_segs']
             new_obj['tgt'] = json_obj['gold_segs']
             new_obj['example_id'] = json_obj['example_id']
-            new_obj['prompt_str'] = json_obj['prompt_str']
+            if 'tgt_prefix' in json_obj:
+                new_obj['tgt_prefix'] = json_obj['tgt_prefix']
+            #print (new_obj['src'], json_obj['tgt_prefix'], new_obj['tgt'], '\n')
             json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
@@ -224,13 +214,15 @@ def split_shard_spectral_cluster(args):
                 new_obj = {}
                 new_obj['src'] = partial_src
                 if i == 0:
-                    new_obj['src'].append('<FIRST_SENT>')
+                    if len(pred_aggragation) == 1:
+                        new_obj['src'].append('<FULL_SENT>')
+                    else:
+                        new_obj['src'].append('<FIRST_SENT>')
                 else:
                     new_obj['src'].append('<NOT_FIRST_SENT>')
                 new_obj['tgt'] = json_obj['gold_segs']
                 new_obj['example_id'] = json_obj['example_id'] + '_' + str(i)
                 new_obj['predicates'] = group
-                new_obj['prompt_str'] = ' '.join(group)
                 json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
@@ -251,7 +243,7 @@ def split_shard_spectral_cluster(args):
                 dataset = []
 
 
-def split_shard_spectral_prompt(args):
+def split_shard_prefix_tgt(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
     else:
@@ -275,13 +267,20 @@ def split_shard_spectral_prompt(args):
             srcs = json_obj['document_segs']
             predicates = json_obj['predicates']
 
+            pred_to_triple = {}; pred_to_position = {}
+            for i, pred in enumerate(predicates):
+                pred_to_triple[pred] = srcs[i]
+                pred_to_position[pred] = i
+
             pred_aggragation = cluster_obj.test(predicates, srcs)
             #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
 
             for i, group in enumerate(pred_aggragation):
-                group = sorted(group)
+                pred_positions = sorted([pred_to_position[pred] for pred in group])
+                partial_src = [srcs[pos] for pos in pred_positions]
+                #partial_src = [pred_to_triple[pred] for pred in group]
                 new_obj = {}
-                new_obj['src'] = srcs + [' '.join(group)]
+                new_obj['src'] = partial_src
                 if i == 0:
                     if len(pred_aggragation) == 1:
                         new_obj['src'].append('<FULL_SENT>')
@@ -292,7 +291,6 @@ def split_shard_spectral_prompt(args):
                 new_obj['tgt'] = json_obj['gold_segs']
                 new_obj['example_id'] = json_obj['example_id'] + '_' + str(i)
                 new_obj['predicates'] = group
-                new_obj['prompt_str'] = ' '.join(group)
                 json_objs.append(new_obj)
 
         dataset = []; p_ct = 0
@@ -311,3 +309,4 @@ def split_shard_spectral_prompt(args):
                 save.write(json.dumps(dataset))
                 p_ct += 1
                 dataset = []
+

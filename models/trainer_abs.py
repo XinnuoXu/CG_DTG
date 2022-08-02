@@ -96,9 +96,7 @@ class Trainer(object):
                                                 .all_gather_list
                                                 (normalization))
 
-                        self._gradient_accumulation(
-                            true_batchs, normalization, total_stats,
-                            report_stats)
+                        self._gradient_accumulation(true_batchs, normalization, total_stats, report_stats)
 
                         report_stats = self._maybe_report_training(
                             self.report_manager,
@@ -133,9 +131,15 @@ class Trainer(object):
             mask_src = batch.mask_src
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
-            prompt_tokenized = batch.prompt_tokenized
 
-            outputs = self.model(src, tgt, mask_src, mask_tgt, prompt_tokenized=prompt_tokenized)
+            outputs = self.model(src, tgt, mask_src, mask_tgt)
+
+            if self.args.partial_tgt_training:
+                mask_tgt_for_loss = batch.mask_tgt_for_loss
+                tgt = tgt * mask_tgt_for_loss
+                padding_tensor = (~mask_tgt_for_loss) * self.loss.padding_idx
+                tgt = tgt + padding_tensor
+                batch.tgt = tgt
 
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
@@ -185,10 +189,8 @@ class Trainer(object):
                 tgt = batch.tgt
                 mask_src = batch.mask_src
                 mask_tgt = batch.mask_tgt
-                prompt_tokenized = batch.prompt_tokenized
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt, 
-                                     prompt_tokenized=prompt_tokenized)
+                outputs = self.model(src, tgt, mask_src, mask_tgt)
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

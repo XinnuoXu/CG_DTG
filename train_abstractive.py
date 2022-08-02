@@ -17,19 +17,14 @@ import distributed
 from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
-from models.loss import abs_loss, ConentSelectionLossCompute
-from models.model_builder import AbsSummarizer, MarginalProjectiveTreeSumm, SoftSrcPromptSummarizer
+from models.loss import abs_loss 
+from models.model_builder import AbsSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
-from models.predictor_tree import build_predictor_tree
-from models.predictor_tgt_prompt import build_predictor_prompt
-from models.predictor_tgt_intersec import build_predictor_intersec
-from models.predictor_plan import build_predictor_plan
 from models.logging import logger, init_logger
 
-model_flags = ['model_name', 'ext_or_abs', 'planning_method', 'sentence_embedding', 
-               'tokenizer_path', 'predicates_start_from_id', 
-               'ext_layers', 'ext_heads', 'ext_ff_size', 'tree_info_dim',]
+model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 
+               'ext_layers', 'ext_heads', 'ext_ff_size', 'use_mask_in_loss']
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -168,12 +163,7 @@ def train_abs_single(args, device_id):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     # Load model
-    if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint, abs_finetune=abs_checkpoint)
-    elif args.ext_or_abs == 'soft_src_prompt':
-        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
-    else:
-        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
 
     # Load optimizer
     optim = [model_builder.build_optim(args, model, checkpoint)]
@@ -181,8 +171,9 @@ def train_abs_single(args, device_id):
 
     # Load loss
     symbols = {'PAD': tokenizer.pad_token_id}
-    train_loss = abs_loss(model.generator, symbols, model.vocab_size, device, 
-                          train=True, label_smoothing=args.label_smoothing)
+    train_loss = abs_loss(model.generator, model.vocab_size, device, 
+                          symbols=symbols, train=True, 
+                          label_smoothing=args.label_smoothing)
     # Load trainer
     trainer = build_trainer(args, device_id, model, optim, train_loss)
 
@@ -211,11 +202,6 @@ def validate_abs(args, device_id):
                 break
         xent_lst = sorted(xent_lst, key=lambda x: x[0])[:5]
         logger.info('PPL %s' % str(xent_lst))
-        '''
-        for xent, cp in xent_lst:
-            step = int(cp.split('.')[-2].split('_')[-1])
-            test_abs(args, device_id, cp, step)
-        '''
 
 
 def validate(args, device_id, pt, step):
@@ -239,15 +225,11 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
-    elif args.ext_or_abs == 'soft_src_prompt':
-        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
-    else:
-        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
-    valid_loss = abs_loss(model.generator, symbols, model.vocab_size, train=False, device=device)
+    valid_loss = abs_loss(model.generator, model.vocab_size, 
+                          symbols=symbols, train=False, device=device)
 
     trainer = build_trainer(args, device_id, model, None, valid_loss)
     stats = trainer.validate(valid_iter, step)
@@ -275,24 +257,10 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    if args.ext_or_abs == 'marginal_projective_tree':
-        model = MarginalProjectiveTreeSumm(args, device, tokenizer, len(tokenizer), checkpoint)
-    elif args.ext_or_abs == 'soft_src_prompt':
-        model = SoftSrcPromptSummarizer(args, device, tokenizer, checkpoint)
-    else:
-        model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
     model.eval()
 
-    if args.inference_mode == 'non_prjective_tree':
-        predictor = build_predictor_tree(args, tokenizer, model, logger)
-    elif args.inference_mode == 'tgt_prompt':
-        predictor = build_predictor_prompt(args, tokenizer, model, logger)
-    elif args.inference_mode == 'intersec':
-        predictor = build_predictor_intersec(args, tokenizer, model, logger)
-    elif args.inference_mode == 'plan':
-        predictor = build_predictor_plan(args, tokenizer, model, logger)
-    else: 
-        predictor = build_predictor(args, tokenizer, model, logger)
+    predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 

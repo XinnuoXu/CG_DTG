@@ -8,7 +8,6 @@ import math
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
 from models.tree_reader import tree_building, headlist_to_string
-from models.model_builder import _get_sentence_maxpool, _get_sentence_meanpool, _get_predicate_embedding
 from tool.analysis_edge import Analysis
 
 def tile(x, count, dim=0):
@@ -161,13 +160,11 @@ class Translator(object):
         mask_src = batch.mask_src
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
-        prompt_tokenized = batch.prompt_tokenized
         device = src.device
         results = {}
 
         # Run encoder and tree prediction
         src_res = self.model(src, tgt, mask_src, mask_tgt,
-                             prompt_tokenized=prompt_tokenized,
                              run_decoder=False)
 
         src_features = src_res['encoder_outpus']

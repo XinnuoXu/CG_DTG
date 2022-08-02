@@ -322,31 +322,6 @@ class Trainer(object):
                     _gold_selection = ' <q> '.join(_gold_selection).strip()
                     save_gold_select.write(_gold_selection + '\n')
 
-
-                if self.args.do_analysis:
-
-                    # Edge analysis
-                    sents_vec = src_features[torch.arange(src_features.size(0)).unsqueeze(1), clss]
-                    edge_pred_scores, edge_align_labels = self.model_analysis.edge_ranking_data_processing(sents_vec, batch.alg, mask_cls)
-                    for i, edge_pred_score in enumerate(edge_pred_scores):
-                        edge_align_label = edge_align_labels[i]
-                        n_src_sent = len(batch.src_str[i])
-                        edge_structure = {'Pred': edge_pred_score, 'Label': edge_align_label, 'nSent': n_src_sent}
-                        save_edges.write(json.dumps(edge_structure) + '\n')
-
-                    # Tree analysis
-                    root_selection = torch.zeros(mask.size(), device=mask.device).int()
-                    for i, _pred_select in enumerate(pred_select):
-                        for sid in _pred_select:
-                            root_selection[i][sid] = 1
-
-                    trees = tree_building(root_selection, aj_matrixes, mask, device)
-                    for i in range(batch.batch_size):
-                        tree, height = headlist_to_string(trees[i])
-                        src_list = batch.src_str[i]
-                        tree_structure = {'Tree':' '.join(tree), 'Src':['[SENT-'+str(i+1)+'] '+src_list[i] for i in range(len(src_list))], 'Height':height, 'tgt_nsent':nsent[i], 'src_nsent':len(src_list)}
-                        save_trees.write(json.dumps(tree_structure)+'\n')
-
         self._report_step(0, step, valid_stats=stats)
         save_src.close()
         save_gold.close()

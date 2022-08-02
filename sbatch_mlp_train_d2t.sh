@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -o /home/s1687314/Planning/Tree_enc_dec/slogs/partial
-#SBATCH -e /home/s1687314/Planning/Tree_enc_dec/slogs/partial
+#SBATCH -o /home/xxu3/Planning/Tree_enc_dec/slogs/prefix
+#SBATCH -e /home/xxu3/Planning/Tree_enc_dec/slogs/prefix
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
-#SBATCH --partition=PGR-Standard
-#SBATCH -t 24:00:00  # time requested in hour:minute:seconds
+#SBATCH --partition=PGR-Standard     #PGR-Standard/Teach-Standard
+#SBATCH -t 6:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
 #SBATCH --gres=gpu:3  # use 1 GPU
 #SBATCH -n 1	  # tasks requested
@@ -37,8 +37,8 @@ mkdir -p ${SCRATCH_DIR}
 # ====================
 #sh ./scripts_d2t.mlp/train_webnlg_base.sh
 
-sh ./scripts_d2t.mlp/train_webnlg_partial_src.sh
-#sh ./scripts_d2t.mlp/train_webnlg_partial_prompt.sh
+#sh ./scripts_d2t.mlp/train_webnlg_partial_src.sh
+sh ./scripts_d2t.mlp/train_webnlg_prefix_tgt.sh
 
 # ====================
 # RSYNC data from /disk/scratch/ to /home/. This moves everything we want back onto the distributed file system
