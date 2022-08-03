@@ -67,6 +67,10 @@ class DataCreator():
         target_tokens = self.tokenizer(tgt_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
         tgt_prefix_tokens = self.tokenizer(tgt_prefix_txt, padding='do_not_pad', truncation=True, max_length=max_tgt_length)['input_ids']
 
+        if self.args.no_bos_for_tgt:
+            target_tokens = target_tokens[1:]
+            tgt[0][0] = ' '.join(tgt[0][0].split(' ')[1:])
+
         if len(tgt_prefix) > 0:
             tgt_prefix_tokens = tgt_prefix_tokens[:-1]
             target_tokens = target_tokens[1:]
@@ -218,18 +222,24 @@ def split_shard_spectral_cluster(args):
                 pred_positions = sorted([pred_to_position[pred] for pred in group])
                 partial_src = [srcs[pos] for pos in pred_positions]
                 #partial_src = [pred_to_triple[pred] for pred in group]
+
                 new_obj = {}
-                new_obj['src'] = partial_src
-                if i == 0:
-                    if len(pred_aggragation) == 1:
-                        new_obj['src'].append('<FULL_SENT>')
-                    else:
-                        new_obj['src'].append('<FIRST_SENT>')
-                else:
-                    new_obj['src'].append('<NOT_FIRST_SENT>')
-                new_obj['tgt'] = json_obj['gold_segs']
+                new_obj['src'] = copy.deepcopy(partial_src)
+                new_obj['tgt'] = copy.deepcopy(json_obj['gold_segs'])
                 new_obj['example_id'] = json_obj['example_id'] + '_' + str(i)
                 new_obj['predicates'] = group
+
+                if i == 0:
+                    if len(pred_aggragation) == 1:
+                        #new_obj['src'].append('<FULL_SENT>')
+                        new_obj['tgt'][0][0] = '<FULL_SENT> ' + new_obj['tgt'][0][0]
+                    else:
+                        #new_obj['src'].append('<FIRST_SENT>')
+                        new_obj['tgt'][0][0] = '<FIRST_SENT> ' + new_obj['tgt'][0][0]
+                else:
+                    #new_obj['src'].append('<NOT_FIRST_SENT>')
+                    new_obj['tgt'][0][0] = '<NOT_FIRST_SENT> ' + new_obj['tgt'][0][0]
+
                 json_objs.append(new_obj)
 
         dataset = []; p_ct = 0

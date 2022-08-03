@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument("-add_plan_to_src", type=str, default='none', choices=['none', 'hard_prompt', 'soft_prompt'])
     parser.add_argument("-for_stepwise", type=str2bool, default=False)
     parser.add_argument("-plan_generation", type=str2bool, default=False)
+    parser.add_argument("-no_bos_for_tgt", type=str2bool, default=False)
 
     parser.add_argument("-spectral_assign_labels", default='discretize', type=str)
     parser.add_argument("-spectral_eigen_solver", default='arpack', type=str)

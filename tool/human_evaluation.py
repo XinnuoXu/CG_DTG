@@ -7,8 +7,8 @@ models_path = {'base': './outputs.webnlg/logs.base/test.res.3000',
                 'spectral': './outputs.webnlg/logs.partial_src/test.res'}
 output_path_base = './outputs.webnlg/temp.txt'
 sample_num = 20
-min_ntriple = 4
-max_ntriple = 5
+min_ntriple = 6
+max_ntriple = 6
 
 def one_file(dataset_name):
     data_path = models_path[dataset_name]

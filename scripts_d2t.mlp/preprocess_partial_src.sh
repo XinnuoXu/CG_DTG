@@ -19,6 +19,8 @@ python preprocess.py \
         -saved_tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
 	-raw_path ${JSON_PATH} \
 	-save_path ${BERT_DATA_PATH} \
-	-n_cpus 32 \
+        -no_bos_for_tgt True \
+	-n_cpus 30 \
 	-log_file ${LOG_PATH}/preprocess.log
+
 

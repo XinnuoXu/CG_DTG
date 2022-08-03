@@ -178,6 +178,7 @@ class Translator(object):
         test_tensor = torch.tensor([i for i in range(beam_size * len(src_features_for_each_example))], device=device)
         ngroup_for_each_example = torch.tensor([src_features_for_each_example[i].size(0) for i in range(len(src_features_for_each_example))], device=device)
         ngroup_for_each_example = tile(ngroup_for_each_example, beam_size, dim=0)
+        current_sent_length = torch.zeros(beam_size * batch_size, device=device)
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
         beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=device)
@@ -217,9 +218,10 @@ class Translator(object):
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                #log_probs[:, self.end_token_id] = -1e20
-                log_probs[:, self.cls_token_id] = -1e20
+            current_sent_length += 1
+            for i in range(log_probs.size(0)):
+                if current_sent_length[i] < min_length:
+                    log_probs[i, self.cls_token_id] = -1e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
@@ -269,10 +271,15 @@ class Translator(object):
             # Judge whether the generation of one sentence finished
             current_group_ids = current_group_ids.index_select(0, select_indices)
             ngroup_for_each_example = ngroup_for_each_example.index_select(0, select_indices)
+            current_sent_length = current_sent_length.index_select(0, select_indices)
 
             finish_one_sent = topk_ids.eq(self.cls_token_id)
             current_group_ids = current_group_ids.reshape(-1, beam_size)
             current_group_ids += finish_one_sent
+
+            current_sent_length = current_sent_length.reshape(-1, beam_size)
+            current_sent_length = current_sent_length * (~finish_one_sent)
+
             ngroup_for_each_example = ngroup_for_each_example.reshape(-1, beam_size)
             is_finished = (current_group_ids >= ngroup_for_each_example)
             topk_log_probs = is_finished * (-1e20) + topk_log_probs # Dangourse!!!
@@ -280,6 +287,7 @@ class Translator(object):
 
             current_group_ids = current_group_ids.view(-1)
             ngroup_for_each_example = ngroup_for_each_example.view(-1)
+            current_sent_length = current_sent_length.view(-1)
             
             # If any examples finished
             if step + 1 == max_length:
@@ -318,7 +326,8 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             current_group_ids = current_group_ids.index_select(0, select_indices)
             ngroup_for_each_example = ngroup_for_each_example.index_select(0, select_indices)
-
+            current_sent_length = current_sent_length.index_select(0, select_indices)
+ 
         return results
 
 

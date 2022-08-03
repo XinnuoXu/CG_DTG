@@ -6,6 +6,7 @@ from sklearn.cluster import SpectralClustering
 import numpy as np
 
 FIRST_SENT_LABEL='<FIRST_SENT>'
+NOT_FIRST_SENT_LABEL='<NOT_FIRST_SENT>'
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -65,7 +66,7 @@ class SpectralCluser():
             groups = json_obj['prompt_str'].split(' ||| ')
             for i, group in enumerate(groups):
                 group = group.split(' ')
-                if i == 0:
+                if i == 0 and len(groups) > 1:
                     group.append(FIRST_SENT_LABEL)
                 edge_weights = self.one_sentence(edge_weights, group)
         return edge_weights
@@ -171,7 +172,8 @@ class SpectralCluser():
             freq_sum = 0
             for pred in group:
                 if pred in self.model[FIRST_SENT_LABEL]:
-                    freq_sum += self.model[FIRST_SENT_LABEL][pred]
+                    first_freq = self.model[FIRST_SENT_LABEL][pred]
+                    freq_sum += first_freq
                 else:
                     freq_sum += 0
             first_sent_freq[i] = freq_sum / float(len(group)) 
@@ -313,8 +315,17 @@ if __name__ == '__main__':
     #triples = ['<SUB> turkey<PRED>-Pred-leaderTitle<OBJ> president of turkey', ' <SUB> turkey<PRED>-Pred-leader<OBJ> ahmet davuto<unk>lu ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-designer<OBJ> pietro canonica ', '<SUB> turkey<PRED>-Pred-capital<OBJ> ankara ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-material<OBJ> "bronze" ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-inaugurationDate<OBJ> "1932-07-27" ', '<SUB> atatürk monument (i<unk>zmir)<PRED>-Pred-location<OBJ> turkey']
     #predicates = ['-Pred-leaderTitle', '-Pred-leader', '-Pred-designer', '-Pred-capital', '-Pred-material', '-Pred-inaugurationDate', '-Pred-location']
 
-    triples = ['<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-academicStaffSize<OBJ> 737 ', '<SUB> denmark<PRED>-Pred-leaderName<OBJ> lars l<unk>kke rasmussen ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-dean<OBJ> "thomas pallesen" ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-city<OBJ> aarhus ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-country<OBJ> denmark', ' <SUB> school of business and social sciences at the aarhus university<PRED>-Pred-affiliation<OBJ> european university association ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-established<OBJ> 1928']
-    predicates = ['-Pred-academicStaffSize', '-Pred-leaderName', '-Pred-dean', '-Pred-city', '-Pred-country', '-Pred-affiliation', '-Pred-established']
+    #triples = ['<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-academicStaffSize<OBJ> 737 ', '<SUB> denmark<PRED>-Pred-leaderName<OBJ> lars l<unk>kke rasmussen ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-dean<OBJ> "thomas pallesen" ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-city<OBJ> aarhus ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-country<OBJ> denmark', ' <SUB> school of business and social sciences at the aarhus university<PRED>-Pred-affiliation<OBJ> european university association ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-established<OBJ> 1928']
+    #predicates = ['-Pred-academicStaffSize', '-Pred-leaderName', '-Pred-dean', '-Pred-city', '-Pred-country', '-Pred-affiliation', '-Pred-established']
+
+    #triples = ['<SUB> california<PRED>-Pred-gemstone<OBJ> benitoite ','<SUB> california<PRED>-Pred-fossil<OBJ> smilodon ','<SUB> distinguished service medal (united states navy)<PRED>-Pred-higher<OBJ> department of commerce gold medal ','<SUB> alan shepard<PRED>-Pred-deathPlace<OBJ> california ','<SUB> california<PRED>-Pred-senators<OBJ> dianne feinstein ', '<SUB> alan shepard<PRED>-Pred-awards<OBJ> distinguished service medal (united states navy)']
+    #predicates = ['-Pred-gemstone', '-Pred-fossil', '-Pred-higher', '-Pred-deathPlace', '-Pred-senators', '-Pred-awards']
+
+    #triples = ['<SUB> apollo 12<PRED>-Pred-backup_pilot<OBJ> alfred worden ','<SUB> alan bean<PRED>-Pred-was_a_crew_member_of<OBJ> apollo 12 ','<SUB> apollo 12<PRED>-Pred-operator<OBJ> nasa ','<SUB> alan bean<PRED>-Pred-dateOfRetirement<OBJ> "june 1981" ','<SUB> apollo 12<PRED>-Pred-commander<OBJ> david scott ','<SUB> alan bean<PRED>-Pred-birthName<OBJ> "alan lavern bean"']
+    #predicates = ['-Pred-backup_pilot', '-Pred-was_a_crew_member_of', '-Pred-operator', '-Pred-dateOfRetirement', '-Pred-commander', '-Pred-birthName']
+
+    triples = ['<SUB> buzz aldrin<PRED>-Pred-birthPlace<OBJ> glen ridge, new jersey ', '<SUB> buzz aldrin<PRED>-Pred-was_a_crew_member_of<OBJ> apollo 11 ','<SUB> buzz aldrin<PRED>-Pred-nationality<OBJ> united states ', '<SUB> buzz aldrin<PRED>-Pred-occupation<OBJ> fighter pilot ', '<SUB> apollo 11<PRED>-Pred-backup_pilot<OBJ> william anders ', '<SUB> apollo 11<PRED>-Pred-operator<OBJ> nasa']
+    predicates = ['-Pred-birthPlace', '-Pred-was_a_crew_member_of', '-Pred-nationality', '-Pred-occupation', '-Pred-backup_pilot', '-Pred-operator']
 
     res = cluster_obj.test(predicates, triples)
 
