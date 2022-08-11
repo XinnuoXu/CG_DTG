@@ -1,7 +1,7 @@
 #coding=utf8
 
 import argparse
-import json
+import json, random
 from sklearn.cluster import SpectralClustering
 import numpy as np
 
@@ -17,18 +17,20 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 class SpectralCluser():
-    def __init__(self, assign_labels='discretize',
+    def __init__(self, method='spectral_clustering',
+                       assign_labels='discretize',
                        eigen_solver='arpack',
                        affinity='precomputed',
                        pair_frequency_threshold=0.0,
                        max_group_size=3,
                        min_pair_freq=20,
                        use_ratio=False,
-                       filter_with_entities=False,
+                       filter_with_entities=True,
                        train_file='', 
                        valid_file='',
                        test_file=''):
 
+        self.method = method
         self.assign_labels = assign_labels
         self.eigen_solver = eigen_solver
         self.affinity = affinity
@@ -44,6 +46,9 @@ class SpectralCluser():
 
         self.model = self.train(self.train_file)
         self.model_ratio = self.train_freq_to_ration(self.model)
+
+        self.max_ngroup = 10
+        self.nsent_dist = self.nsent_distribution(self.train_file, self.max_ngroup)
 
 
     def one_sentence(self, edge_weights, preds_one_sentence):
@@ -88,8 +93,24 @@ class SpectralCluser():
         return ratio_edge_weights
 
 
+    def nsent_distribution(self, train_file, max_ngroup):
+        ngroup_dict = {}
+        for line in open(train_file):
+            json_obj = json.loads(line.strip())
+            groups = json_obj['prompt_str'].split(' ||| ')
+            npred = len(json_obj['predicates'])
+            if npred not in ngroup_dict:
+                ngroup_dict[npred] = [0] * (npred+1)
+            ngroup_dict[npred][len(groups)] += 1
+
+        ngroup_dist = {}
+        for npred in ngroup_dict:
+            ngroup = ngroup_dict[npred]
+            ngroup_dist[npred] = [size/sum(ngroup) for size in ngroup]
+        return ngroup_dist
+
+
     def process(self, predicates, pred_to_subs_objs, n_clusters):
-        #ajacency_matrix = np.ones((len(predicates),len(predicates))) - np.identity(len(predicates))
         ajacency_matrix = np.zeros((len(predicates),len(predicates)))
         for i, head_1 in enumerate(predicates):
             for j, head_2 in enumerate(predicates):
@@ -103,7 +124,7 @@ class SpectralCluser():
                     ajacency_matrix[i][j] = self.model_ratio[head_1][head_2]
                 else:
                     ajacency_matrix[i][j] = self.model[head_1][head_2]
-                if self.filter_with_entities and len(pred_to_subs_objs[head_1]&pred_to_subs_objs[head_2]) == 0:
+                if self.filter_with_entities and len(set(pred_to_subs_objs[head_1])&set(pred_to_subs_objs[head_2])) == 0:
                     ajacency_matrix[i][j] = 0.0
                 if ajacency_matrix[i][j] < self.pair_frequency_threshold:
                     ajacency_matrix[i][j] = 0.0
@@ -184,6 +205,39 @@ class SpectralCluser():
         return new_best_candidate
 
 
+    def sort_the_groups_v2(self, best_candidate, pred_to_subs_objs):
+        # just for a taste, not elegant
+        first_sent_freq = {}
+        for i, group in enumerate(best_candidate):
+            if len(group) == 0:
+                continue
+            freq_sum = 0
+            for pred in group:
+                if pred in self.model[FIRST_SENT_LABEL]:
+                    first_freq = self.model[FIRST_SENT_LABEL][pred]
+                    freq_sum += first_freq
+                else:
+                    freq_sum += 0
+            first_sent_freq[i] = freq_sum / float(len(group)) 
+        new_best_candidate_same_sub = []; new_best_candidate_not_same_sub = []
+        main_sub = ''
+        for item in sorted(first_sent_freq.items(), key = lambda d:d[1], reverse=True):
+            sentence_idx = item[0]
+            current_group = best_candidate[sentence_idx]
+            if main_sub == '':
+                subjects = [pred_to_subs_objs[pred][0] for pred in current_group]
+                main_sub = max(set(subjects), key=subjects.count)
+                new_best_candidate_same_sub.append(current_group)
+            else:
+                subjects = [pred_to_subs_objs[pred][0] for pred in current_group]
+                max_sub = max(set(subjects), key=subjects.count)
+                if max_sub == main_sub:
+                    new_best_candidate_same_sub.append(current_group)
+                else:
+                    new_best_candidate_not_same_sub.append(current_group)
+        return new_best_candidate_same_sub + new_best_candidate_not_same_sub
+
+
     def triples_to_entityes(self, triples, predicates):
         pred_to_subs_objs = {}
         for i, triple in enumerate(triples):
@@ -193,11 +247,11 @@ class SpectralCluser():
             pred_idx = triple.find('<PRED>')
             sub = triple[sub_idx+5:pred_idx].strip()
             obj = triple[obj_idx+5:].strip()
-            pred_to_subs_objs[pred] = set([sub, obj])
+            pred_to_subs_objs[pred] = [sub, obj]
         return pred_to_subs_objs
 
 
-    def test(self, predicates, triples):
+    def run_test(self, predicates, triples):
 
         candidates = []; ajacency_matrix=None
         if len(predicates) == 1:
@@ -217,13 +271,76 @@ class SpectralCluser():
             best_candidate = [predicates]
         else:
             best_candidate = self.postprocess(candidates)
-        sorted_best_candidate = self.sort_the_groups(best_candidate)
+        #sorted_best_candidate = self.sort_the_groups(best_candidate)
+        sorted_best_candidate = self.sort_the_groups_v2(best_candidate, pred_to_subs_objs)
 
         return sorted_best_candidate
 
 
+    def run_random(self, predicates, triples):
+        
+        n_clusters = np.random.choice(np.arange(0, len(predicates)+1), p=self.nsent_dist[len(predicates)])
+        labels = [random.sample(range(n_clusters), 1)[0] for item in predicates]
+        pred_groups = [[] for i in range(n_clusters)]
+        for i, label in enumerate(labels):
+            pred_groups[label].append(predicates[i])
+        candidate = pred_groups
+
+        pred_to_subs_objs = self.triples_to_entityes(triples, predicates)
+        sorted_candidate = self.sort_the_groups_v2(candidate, pred_to_subs_objs)
+        
+        return sorted_candidate
+
+
+    def run_entity(self, predicates, triples):
+
+        if len(predicates) == 1:
+            return [predicates]
+        
+        n_clusters = np.random.choice(np.arange(0, len(predicates)+1), p=self.nsent_dist[len(predicates)])
+        pred_to_subs_objs = self.triples_to_entityes(triples, predicates)
+        
+        ajacency_matrix = np.ones((len(predicates),len(predicates))) - np.identity(len(predicates))
+        for i, head_1 in enumerate(predicates):
+            for j, head_2 in enumerate(predicates):
+                if i == j:
+                    continue
+                if len(set(pred_to_subs_objs[head_1])&set(pred_to_subs_objs[head_2])) == 0:
+                    ajacency_matrix[i][j] = 0.0
+        clustering = SpectralClustering(n_clusters=n_clusters, 
+                                        assign_labels=self.assign_labels,
+                                        eigen_solver=self.eigen_solver,
+                                        affinity=self.affinity).fit(ajacency_matrix)
+        labels = clustering.labels_
+
+        pred_groups = [[] for i in range(n_clusters)]
+        for i, label in enumerate(labels):
+            pred_groups[label].append(predicates[i])
+        candidate = pred_groups
+
+        if ajacency_matrix.sum() == 0:
+            candidate = [[pred] for pred in predicates]
+
+        sorted_candidate = self.sort_the_groups_v2(candidate, pred_to_subs_objs)
+        
+        return sorted_candidate
+
+
+    def run(self, predicates, triples, prompt_str=None):
+        if self.method == 'random':
+            candidate = self.run_random(predicates, triples)
+        elif self.method == 'only_entity':
+            candidate = self.run_entity(predicates, triples)
+        elif self.method == 'ground_truth':
+            candidate = [item.split() for item in prompt_str.split('<ref-sep>')[1].split(' ||| ')]
+        else:
+            candidate = self.run_test(predicates, triples)
+        return candidate
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("-method", default='spectral_clustering', type=str, choices=['spectral_clustering', 'random', 'only_entity', 'ground_truth'])
     parser.add_argument("-assign_labels", default='discretize', type=str)
     parser.add_argument("-eigen_solver", default='arpack', type=str)
     parser.add_argument("-affinity", default='precomputed', type=str)
@@ -231,13 +348,14 @@ if __name__ == '__main__':
     parser.add_argument("-max_group_size", default=3, type=int)
     parser.add_argument("-min_pair_freq", default=20, type=int)
     parser.add_argument("-use_ratio", type=str2bool, default=False)
-    parser.add_argument("-filter_with_entities", type=str2bool, default=False)
+    parser.add_argument("-filter_with_entities", type=str2bool, default=True)
     parser.add_argument("-train_file", default='../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl', type=str)
     parser.add_argument("-valid_file", default='../Plan_while_Generate/D2T_data/webnlg_data/validation.jsonl', type=str)
     parser.add_argument("-test_file", default='../Plan_while_Generate/D2T_data/webnlg_partial_src/test.jsonl', type=str)
     args = parser.parse_args()
 
-    cluster_obj = SpectralCluser(args.assign_labels,
+    cluster_obj = SpectralCluser(args.method,
+                                 args.assign_labels,
                                  args.eigen_solver,
                                  args.affinity,
                                  args.pair_frequency_threshold,
@@ -324,10 +442,28 @@ if __name__ == '__main__':
     #triples = ['<SUB> apollo 12<PRED>-Pred-backup_pilot<OBJ> alfred worden ','<SUB> alan bean<PRED>-Pred-was_a_crew_member_of<OBJ> apollo 12 ','<SUB> apollo 12<PRED>-Pred-operator<OBJ> nasa ','<SUB> alan bean<PRED>-Pred-dateOfRetirement<OBJ> "june 1981" ','<SUB> apollo 12<PRED>-Pred-commander<OBJ> david scott ','<SUB> alan bean<PRED>-Pred-birthName<OBJ> "alan lavern bean"']
     #predicates = ['-Pred-backup_pilot', '-Pred-was_a_crew_member_of', '-Pred-operator', '-Pred-dateOfRetirement', '-Pred-commander', '-Pred-birthName']
 
-    triples = ['<SUB> buzz aldrin<PRED>-Pred-birthPlace<OBJ> glen ridge, new jersey ', '<SUB> buzz aldrin<PRED>-Pred-was_a_crew_member_of<OBJ> apollo 11 ','<SUB> buzz aldrin<PRED>-Pred-nationality<OBJ> united states ', '<SUB> buzz aldrin<PRED>-Pred-occupation<OBJ> fighter pilot ', '<SUB> apollo 11<PRED>-Pred-backup_pilot<OBJ> william anders ', '<SUB> apollo 11<PRED>-Pred-operator<OBJ> nasa']
-    predicates = ['-Pred-birthPlace', '-Pred-was_a_crew_member_of', '-Pred-nationality', '-Pred-occupation', '-Pred-backup_pilot', '-Pred-operator']
+    #triples = ['<SUB> buzz aldrin<PRED>-Pred-birthPlace<OBJ> glen ridge, new jersey ', '<SUB> buzz aldrin<PRED>-Pred-was_a_crew_member_of<OBJ> apollo 11 ','<SUB> buzz aldrin<PRED>-Pred-nationality<OBJ> united states ', '<SUB> buzz aldrin<PRED>-Pred-occupation<OBJ> fighter pilot ', '<SUB> apollo 11<PRED>-Pred-backup_pilot<OBJ> william anders ', '<SUB> apollo 11<PRED>-Pred-operator<OBJ> nasa']
+    #predicates = ['-Pred-birthPlace', '-Pred-was_a_crew_member_of', '-Pred-nationality', '-Pred-occupation', '-Pred-backup_pilot', '-Pred-operator']
 
-    res = cluster_obj.test(predicates, triples)
+    #triples = ['<SUB> acharya institute of technology<PRED>-Pred-city<OBJ> bangalore ', '<SUB> acharya institute of technology<PRED>-Pred-state<OBJ> karnataka ', '<SUB> acharya institute of technology<PRED>-Pred-country<OBJ> "india" ', '<SUB> acharya institute of technology<PRED>-Pred-numberOfPostgraduateStudents<OBJ> 700 ', '<SUB> acharya institute of technology<PRED>-Pred-campus<OBJ> "in soldevanahalli, acharya dr. sarvapalli radhakrishnan road, hessarghatta main road, bangalore – 560090." ', '<SUB> acharya institute of technology<PRED>-Pred-affiliation<OBJ> visvesvaraya technological university']
+    #predicates = ['-Pred-city', '-Pred-state', '-Pred-country', '-Pred-numberOfPostgraduateStudents', '-Pred-campus', '-Pred-affiliation']
+
+    #triples = ['<SUB> india<PRED>-Pred-largestCity<OBJ> mumbai ', '<SUB> awh engineering college<PRED>-Pred-country<OBJ> india ', '<SUB> awh engineering college<PRED>-Pred-established<OBJ> 2001 ', '<SUB> kerala<PRED>-Pred-leaderName<OBJ> kochi ', '<SUB> awh engineering college<PRED>-Pred-state<OBJ> kerala ', '<SUB> india<PRED>-Pred-river<OBJ> ganges']
+    #predicates = ['-Pred-largestCity', '-Pred-country', '-Pred-established', '-Pred-leaderName', '-Pred-state', '-Pred-river']
+
+    #triples = ['<SUB> denmark<PRED>-Pred-leaderName<OBJ> lars l<unk>kke rasmussen ', '<SUB> european university association<PRED>-Pred-headquarters<OBJ> brussels ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-country<OBJ> denmark ', '<SUB> denmark<PRED>-Pred-leaderTitle<OBJ> monarchy of denmark ', '<SUB> school of business and social sciences at the aarhus university<PRED>-Pred-affiliation<OBJ> european university association ', '<SUB> denmark<PRED>-Pred-religion<OBJ> church of denmark']
+    #predicates = ['-Pred-leaderName', '-Pred-headquarters', '-Pred-country', '-Pred-leaderTitle', '-Pred-affiliation', '-Pred-religion']
+
+    #triples = ['<SUB> united states<PRED>-Pred-demonym<OBJ> americans ', '<SUB> united states<PRED>-Pred-capital<OBJ> washington, d.c. ', '<SUB> albany, oregon<PRED>-Pred-country<OBJ> united states ', '<SUB> united states<PRED>-Pred-ethnicGroup<OBJ> native americans in the united states ', '<SUB> albany, oregon<PRED>-Pred-isPartOf<OBJ> linn county, oregon']
+    #predicates = ['-Pred-demonym', '-Pred-capital', '-Pred-country', '-Pred-ethnicGroup', '-Pred-isPartOf']
+
+    #triples = ['<SUB> ampara hospital<PRED>-Pred-country<OBJ> sri lanka ', '<SUB> sri lanka<PRED>-Pred-leaderName<OBJ> ranil wickremesinghe ', '<SUB> ampara hospital<PRED>-Pred-state<OBJ> eastern province, sri lanka ', '<SUB> eastern province, sri lanka<PRED>-Pred-governingBody<OBJ> eastern provincial council ', '<SUB> sri lanka<PRED>-Pred-capital<OBJ> sri jayawardenepura kotte']
+    #predicates = ['-Pred-country', '-Pred-leaderName', '-Pred-state', '-Pred-governingBody', '-Pred-capital']
+
+    triples = ['<SUB> auburn, alabama<PRED>-Pred-isPartOf<OBJ> lee county, alabama ', '<SUB> alabama<PRED>-Pred-country<OBJ> united states ']
+    predicates = ['-Pred-isPartOf', '-Pred-country']
+
+    res = cluster_obj.run(predicates, triples)
 
     print ('\n\n\n', res)
     

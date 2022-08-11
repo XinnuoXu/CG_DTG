@@ -38,13 +38,14 @@ if __name__ == '__main__':
     parser.add_argument("-plan_generation", type=str2bool, default=False)
     parser.add_argument("-no_bos_for_tgt", type=str2bool, default=False)
 
+    parser.add_argument("-spectral_method", default='spectral_clustering', type=str, choices=['spectral_clustering', 'random', 'only_entity', 'ground_truth'])
     parser.add_argument("-spectral_assign_labels", default='discretize', type=str)
     parser.add_argument("-spectral_eigen_solver", default='arpack', type=str)
     parser.add_argument("-spectral_affinity", default='precomputed', type=str)
     parser.add_argument("-spectral_max_group_size", default=3, type=int)
     parser.add_argument("-spectral_min_pair_freq", default=20, type=int)
     parser.add_argument("-spectral_use_ratio", type=str2bool, default=False)
-    parser.add_argument("-spectral_filter_with_entities", type=str2bool, default=False)
+    parser.add_argument("-spectral_filter_with_entities", type=str2bool, default=True)
     parser.add_argument("-spectral_train_file", default='../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl', type=str)
 
     parser.add_argument('-n_cpus', default=2, type=int)

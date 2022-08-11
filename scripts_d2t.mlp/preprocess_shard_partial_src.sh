@@ -47,3 +47,5 @@ python preprocess.py \
         -spectral_min_pair_freq 15 \
         -spectral_max_group_size 10 \
         -log_file ${LOG_PATH}/preprocess_shard.log \
+        
+#-spectral_method ground_truth

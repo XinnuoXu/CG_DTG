@@ -1,5 +1,8 @@
 #coding=utf8
 
+#candidate_path = './outputs.webnlg/logs.base/test.res.3000.candidate'
+#eid_path = './outputs.webnlg/logs.base/test.res.3000.eid'
+
 candidate_path = 'outputs.webnlg/logs.partial_src/test.res.candidate'
 eid_path = 'outputs.webnlg/logs.partial_src/test.res.eid'
 

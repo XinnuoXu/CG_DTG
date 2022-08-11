@@ -172,7 +172,10 @@ class Translator(object):
 
         batch_offset = torch.arange(batch_size, dtype=torch.long, device=device)
         beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=device)
-        alive_seq = torch.full([batch_size * beam_size, 1], self.start_token_id, dtype=torch.long, device=device)
+        if self.args.start_with_the_first_tok_in_gt:
+            alive_seq = tile(tgt[:,0], beam_size, dim=0).unsqueeze(1)
+        else:
+            alive_seq = torch.full([batch_size * beam_size, 1], self.start_token_id, dtype=torch.long, device=device)
 
         # Give full probability to the first beam on the first step.
         topk_log_probs = (torch.tensor([0.0] + [float("-inf")] * (beam_size - 1), device=device).repeat(batch_size))

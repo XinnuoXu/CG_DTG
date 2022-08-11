@@ -192,7 +192,8 @@ def split_shard_spectral_cluster(args):
     else:
         datasets = ['train', 'test', 'validation']
 
-    cluster_obj = SpectralCluser(assign_labels = args.spectral_assign_labels,
+    cluster_obj = SpectralCluser(method=args.spectral_method,
+                                 assign_labels = args.spectral_assign_labels,
                                  eigen_solver = args.spectral_eigen_solver,
                                  affinity = args.spectral_affinity,
                                  max_group_size = args.spectral_max_group_size,
@@ -215,8 +216,7 @@ def split_shard_spectral_cluster(args):
                 pred_to_triple[pred] = srcs[i]
                 pred_to_position[pred] = i
 
-            pred_aggragation = cluster_obj.test(predicates, srcs)
-            #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
+            pred_aggragation = cluster_obj.run(predicates, srcs, prompt_str=json_obj['prompt_str'])
 
             for i, group in enumerate(pred_aggragation):
                 pred_positions = sorted([pred_to_position[pred] for pred in group])
@@ -336,7 +336,8 @@ def split_shard_prefix_tgt(args):
     else:
         datasets = ['train', 'test', 'validation']
 
-    cluster_obj = SpectralCluser(assign_labels = args.spectral_assign_labels,
+    cluster_obj = SpectralCluser(method=args.spectral_method,
+                                 assign_labels = args.spectral_assign_labels,
                                  eigen_solver = args.spectral_eigen_solver,
                                  affinity = args.spectral_affinity,
                                  max_group_size = args.spectral_max_group_size,
@@ -358,8 +359,7 @@ def split_shard_prefix_tgt(args):
             for i, pred in enumerate(predicates):
                 pred_to_position[pred] = i
 
-            pred_aggragation = cluster_obj.test(predicates, srcs)
-            #pred_aggragation = [item.split() for item in json_obj['prompt_str'].split('<ref-sep>')[1].split(' ||| ')]
+            pred_aggragation = cluster_obj.run(predicates, srcs, prompt_str=json_obj['prompt_str'])
 
             src_groups = []
             for i, group in enumerate(pred_aggragation):

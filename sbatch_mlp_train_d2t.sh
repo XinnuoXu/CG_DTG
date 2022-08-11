@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH -o /home/xxu3/Planning/Tree_enc_dec/slogs/partial
-#SBATCH -e /home/xxu3/Planning/Tree_enc_dec/slogs/partial
+#SBATCH -o /home/xxu3/Planning/Tree_enc_dec/slogs/base
+#SBATCH -e /home/xxu3/Planning/Tree_enc_dec/slogs/base
 #SBATCH --nodes 1	  # nodes requested
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH --partition=PGR-Standard     #PGR-Standard/Teach-Standard
@@ -35,9 +35,8 @@ mkdir -p ${SCRATCH_DIR}
 # ====================
 # Run training. Here we use src/gpu.py
 # ====================
-#sh ./scripts_d2t.mlp/train_webnlg_base.sh
-
-sh ./scripts_d2t.mlp/train_webnlg_partial_src.sh
+sh ./scripts_d2t.mlp/train_webnlg_base.sh
+#sh ./scripts_d2t.mlp/train_webnlg_partial_src.sh
 #sh ./scripts_d2t.mlp/train_webnlg_prefix_tgt.sh
 
 # ====================

@@ -21,11 +21,11 @@ python train.py \
         -obj_special_tok '<OBJ>' \
 	-ext_or_abs abs \
         -prefix_tgt_training True \
-        -inference_mode abs \
 	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 6000 \
-        -test_min_length 5 \
+        -test_min_length 10 \
         -test_max_length 250 \
+	-beam_size 4 \
 	-visible_gpus 0 \
         -master_port 10008 \

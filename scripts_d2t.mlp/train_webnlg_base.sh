@@ -18,7 +18,7 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
 	-model_name t5-small \
-	-train_steps 8000 \
+	-train_steps 10000 \
 	-save_checkpoint_steps 1000 \
 	-warmup_steps 500 \
 	-batch_size 3000 \

@@ -10,7 +10,7 @@ def postprocess(string, is_ref):
     string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ').replace('  ', ' ')
     return string.strip()
 
-def run_bleu(refereces, candidates, srcs, ntriple):
+def run_bleu(refereces, candidates, srcs, ntriple_min, ntriple_max):
 
     fpout_cand = open(path_prefix+'.bleu_cand', 'w')
     fpout_ref1 = open(path_prefix+'.bleu_ref1', 'w')
@@ -18,7 +18,7 @@ def run_bleu(refereces, candidates, srcs, ntriple):
     fpout_ref3 = open(path_prefix+'.bleu_ref3', 'w')
 
     for i in range(len(refereces)):
-        if len(srcs[i]) != ntriple:
+        if len(srcs[i]) > ntriple_max or len(srcs[i]) < ntriple_min:
             continue
         reference = refereces[i].replace('<q>', ' ')
         candidate = candidates[i].replace('<q>', ' ')
@@ -48,14 +48,16 @@ def run_bleu(refereces, candidates, srcs, ntriple):
     ref2_path = path_prefix + '.bleu_ref2'
     ref3_path = path_prefix + '.bleu_ref3'
     cand_path = path_prefix + '.bleu_cand'
-    print ('ntriple: %d' % (ntriple))
+    print ('ntriple: from %d to %d' % (ntriple_min, ntriple_max))
     os.system('./tool/multi-bleu.perl %s %s %s < %s' % (ref1_path, ref2_path, ref3_path, cand_path))
 
 
 if __name__ == '__main__':
     refereces = [line.strip() for line in open(path_prefix+'.gold')]
     candidates = [line.strip() for line in open(path_prefix+'.candidate')]
-    #srcs = [line.strip().replace('<pad>', '').split('<s>')[1:] for line in open(path_prefix+'.raw_src')]
     srcs = [line.strip().replace('<pad>', '').split('<SUB>')[1:] for line in open(path_prefix+'.raw_src')]
-    for ntriple in range(1, 8):
-        run_bleu(refereces, candidates, srcs, ntriple)
+    #for ntriple in range(1, 8):
+    #    run_bleu(refereces, candidates, srcs, ntriple, ntriple)
+    ntriple_min = int(sys.argv[2])
+    ntriple_max = int(sys.argv[3])
+    run_bleu(refereces, candidates, srcs, ntriple_min, ntriple_max)

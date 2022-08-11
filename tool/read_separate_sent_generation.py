@@ -1,22 +1,7 @@
 #coding=utf8
 
-#file_dir = './outputs.webnlg/logs.single_sentences/test.res.5000'
-#target_dir = './outputs.webnlg/logs.single_sentences/test.res'
-
-#file_dir = './outputs.webnlg/logs.step_wise_parallel/test.res.6000'
-#target_dir = './outputs.webnlg/logs.step_wise_parallel/test.res'
-
-#file_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res.6000'
-#target_dir = './outputs.webnlg/logs.tgt_prompt_parallel/test.res'
-
-#file_dir = './outputs.webnlg/logs.single_sentences_src_prompts/test.res.5000'
-#target_dir = './outputs.webnlg/logs.single_sentences_src_prompts/test.res'
-
-file_dir = './outputs.webnlg/logs.partial_src/test.res.4000'
+file_dir = './outputs.webnlg/logs.partial_src/test.res.5000'
 target_dir = './outputs.webnlg/logs.partial_src/test.res'
-
-#file_dir = './outputs.webnlg/logs.partial_prompt/test.res.5000'
-#target_dir = './outputs.webnlg/logs.partial_prompt/test.res'
 
 max_num_of_sentences = 10
 
@@ -24,7 +9,8 @@ if __name__ == '__main__':
     eids = [line.strip() for line in open(file_dir+'.eid')]
     golds = [line.strip() for line in open(file_dir+'.gold')]
     cands = [line.strip() for line in open(file_dir+'.candidate')]
-    srcs = [line.strip().replace('<pad>', '').split('<s>')[1:-1] for line in open(file_dir+'.raw_src')]
+    #srcs = [line.strip().replace('<pad>', '').split('<s>')[1:-1] for line in open(file_dir+'.raw_src')]
+    srcs = [line.strip().replace('<pad>', '').split('<s>')[1:] for line in open(file_dir+'.raw_src')]
 
     fpout_eid = open(target_dir+'.eid', 'w')
     fpout_gold = open(target_dir+'.gold', 'w')

@@ -84,7 +84,6 @@ if __name__ == '__main__':
     parser.add_argument("-prefix_tgt_training", type=str2bool, nargs='?', default=False)
 
     # test parameters
-    parser.add_argument("-inference_mode", default='abs', type=str, choices=['abs'])
     parser.add_argument("-test_from", default='')
     parser.add_argument("-test_start_from", default=-1, type=int)
     parser.add_argument("-test_batch_size", default=200, type=int)
@@ -93,6 +92,7 @@ if __name__ == '__main__':
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
     parser.add_argument("-test_min_length", default=10, type=int)
     parser.add_argument("-test_max_length", default=60, type=int)
+    parser.add_argument("-start_with_the_first_tok_in_gt", type=str2bool, nargs='?', default=False)
 
     args = parser.parse_args()
     args.gpu_ranks = [int(i) for i in range(len(args.visible_gpus.split(',')))]
