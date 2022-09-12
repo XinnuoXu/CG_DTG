@@ -3,14 +3,20 @@
 #candidate_path = './outputs.webnlg/logs.base/test.res.3000.candidate'
 #eid_path = './outputs.webnlg/logs.base/test.res.3000.eid'
 
-candidate_path = 'outputs.webnlg/logs.partial_src/test.res.candidate'
-eid_path = 'outputs.webnlg/logs.partial_src/test.res.eid'
+#candidate_path = './outputs.webnlg/logs.partial_src/test.res.candidate'
+#eid_path = './outputs.webnlg/logs.partial_src/test.res.eid'
+
+#candidate_path = './outputs.webnlg/logs.partial_src.random/test.res.candidate'
+#eid_path = './outputs.webnlg/logs.partial_src.random/test.res.eid'
 
 #candidate_path = './outputs.webnlg/logs.prefix_tgt/test.res.4000.candidate'
 #eid_path = './outputs.webnlg/logs.prefix_tgt/test.res.4000.eid'
 
+candidate_path = './outputs.webnlg/logs.prefix_tgt.random/test.res.4000.candidate'
+eid_path = './outputs.webnlg/logs.prefix_tgt.random/test.res.4000.eid'
+
 if __name__ == '__main__':
-    ids = [line.strip() for line in open('selected_ids.txt')]
+    ids = [line.strip() for line in open('./tool/selected_ids.txt')]
     cands = [line.strip() for line in open(candidate_path)]
     eids = [line.strip().split('_')[0] for line in open(eid_path)]
     id_to_cand = {}
