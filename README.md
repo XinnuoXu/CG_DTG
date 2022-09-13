@@ -6,6 +6,7 @@ Setup the basic enviornment
 conda create -n Plan python=3.6
 conda activate Plan
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+conda install -c conda-forge hdbscan
 ```
 
 Install transformers and [GEM dataset](https://gem-benchmark.com/tutorials/modeling)
