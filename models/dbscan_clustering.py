@@ -20,8 +20,7 @@ class DBSCANCluser():
                        test_file='',
                        high_freq_reviews=''):
 
-        self.s_embedding = SentenceTransformer(sentence_embedding_model)
-        #self.s_embedding = SentenceTransformer(sentence_embedding_model, device=device)
+        self.s_embedding = SentenceTransformer(sentence_embedding_model, device=device)
         self.clustering = DBSCAN(eps=db_eps, min_samples=db_min_samples, metric='precomputed')
         self.device = device
         self.db_metric = db_metric
