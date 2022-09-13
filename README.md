@@ -6,6 +6,7 @@ Setup the basic enviornment
 conda create -n Plan python=3.6
 conda activate Plan
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+pip install -U sentence-transformers
 conda install -c conda-forge hdbscan
 ```
 
