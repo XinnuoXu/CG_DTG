@@ -1,6 +1,7 @@
 #coding=utf8
 
 import json
+import copy
 import numpy as np
 import collections
 import hdbscan
@@ -16,67 +17,41 @@ class DBSCANCluser():
     def __init__(self, sentence_embedding_model='all-mpnet-base-v2',
                        device='cuda',
                        db_metric='euclidean',
-                       db_eps=0.65,
-                       db_min_samples=3,
-                       db_input_dimention=64,
+                       db_eps=0.4,
+                       db_min_samples=1,
+                       db_cluster_size=5,
+                       db_input_dimention=56,
+                       db_noise_reprocess_similar_topk=3,
+                       db_noise_reprocess_threshold=0.64,
+                       db_targets_similar_topk=0.2,
+                       db_targets_threshold=0.8,
                        train_file='',
                        valid_file='',
                        test_file='',
                        high_freq_reviews=''):
 
         self.device = device
-        self.db_metric = db_metric
-        self.db_input_dimention = db_input_dimention
-
         self.train_file = train_file
         self.valid_file = valid_file
         self.test_file = test_file
-        self.high_freq_reviews = set([line.strip('\n').split('\t')[0] for line in open(high_freq_reviews)])
+
+        self.high_freq_reviews = None
+        if high_freq_reviews != '':
+            self.high_freq_reviews = set([line.strip('\n').split('\t')[0] for line in open(high_freq_reviews)])
+
+        self.db_metric = db_metric
+        self.db_noise_reprocess_similar_topk = db_noise_reprocess_similar_topk
+        self.db_noise_reprocess_threshold = db_noise_reprocess_threshold
+        self.db_targets_similar_topk = db_targets_similar_topk
+        self.db_targets_threshold = db_targets_threshold
 
         self.s_embedding = SentenceTransformer(sentence_embedding_model, device=device)
         self.dimention_reducer = PCA(n_components=db_input_dimention)
-        #self.clustering = DBSCAN(eps=db_eps, min_samples=db_min_samples, metric=db_metric)
-        self.clustering = hdbscan.HDBSCAN(min_cluster_size=db_min_samples, min_samples=1, cluster_selection_epsilon=db_eps)
-
-    def clean_reviews(self, sentences):
-
-        def ugly_sentence_segmentation(sentence):
-            phrases = []
-            segs = sentence.split(',')
-            for phrase in segs:
-                smaller_granularity = phrase.split(' and ')
-                for item in smaller_granularity:
-                    item = item.strip()
-                    phrases.append(item)
-            new_phrases = []
-            for i, phrase in enumerate(phrases):
-                if i > 0 and len(phrase.split()) < 3:
-                    new_phrases[-1] = new_phrases[-1] + ' ' + phrase
-                else:
-                    new_phrases.append(phrase)
-            if len(new_phrases[0].split()) < 3 and len(new_phrases) > 1:
-                first_phrase = new_phrases[0]
-                new_phrases = new_phrases[1:]
-                new_phrases[0] = first_phrase + ' ' + new_phrases[0]
-            return new_phrases
-
-        new_sentences = []
-        for sentence in sentences:
-            search_key = sentence.strip().lower()
-            flist = search_key.split()
-            search_key = ' '.join([tok for tok in flist if len(tok) > 2])
-            if search_key in self.high_freq_reviews:
-                continue
-            sentence = sentence.lower()
-            phrases = ugly_sentence_segmentation(sentence)
-            phrases = [item for item in phrases if len(item.strip().split()) > 2]
-            new_sentences.extend(phrases)
-        return new_sentences
+        self.clustering = hdbscan.HDBSCAN(min_cluster_size=db_cluster_size, min_samples=db_min_samples, cluster_selection_epsilon=db_eps, metric='precomputed')
+        #self.clustering = DBSCAN(eps=db_eps, min_samples=db_cluster_size, metric=db_metric)
 
 
-    def read_cluster(self, cluster_labels, sentences, target_start):
-        target_sentences = ['[TARGET] '+sent for sent in sentences[target_start:]]
-        sentences = sentences[:target_start] + target_sentences
+    def _cluster_statistics(self, cluster_labels):
 
         clusters = [item for item in cluster_labels if item != -1]
         if len(clusters) == 0:
@@ -89,78 +64,203 @@ class DBSCANCluser():
         clustered_ratio = len(clusters)/len(cluster_labels)
         num_clusters = len(counter)
 
-        sentence_in_clusters = {}
-        clustered_targets = 0
-        number_of_targets = len(target_sentences)
-        for i, label in enumerate(cluster_labels):
-            if label not in sentence_in_clusters:
-                sentence_in_clusters[label] = []
-            sentence_in_clusters[label].append(sentences[i])
-            if label > -1 and sentences[i].startswith('[TARGET]'):
-                clustered_targets += 1
-
-        return num_clusters, clustered_ratio, min_size, max_size, avg_size, clustered_targets, number_of_targets, sentence_in_clusters
+        return num_clusters, clustered_ratio, min_size, max_size, avg_size
 
 
-    def print_out(self, args, example_id):
+    def _print_out(self, src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id):
 
         fpout = open('temp/example.'+str(example_id), 'w')
-        num_clusters, clustered_ratio, min_size, max_size, avg_size, clustered_targets, number_of_targets, sentence_in_clusters = args
+
+        num_clusters, clustered_ratio, min_size, max_size, avg_size = self._cluster_statistics(reprocessed_cluster_labels)
         fpout.write("numer of clusters is:" + str(num_clusters) + '\n')
         fpout.write("clustered ratio is:" + str(clustered_ratio) + '\n')
         fpout.write("the size of the smallist cluster is:" + str(min_size) + '\n')
         fpout.write("the size of the largest cluster is:" + str(max_size) + '\n')
         fpout.write("argerage size of the cluaster is:" + str(avg_size) + '\n')
-        fpout.write("the number of target sentences is:" + str(number_of_targets) + '\n')
-        fpout.write("clustered target sentences:" + str(clustered_targets) + '\n')
         fpout.write('\n\n')
 
-        for cluster_id in sentence_in_clusters:
-            if cluster_id == -1:
-                continue
-            for item in sentence_in_clusters[cluster_id]:
+        num_clusters = max(src_clusters.keys())
+        clustered_targets = 0
+
+        for cluster_id in range(0, num_clusters+1):
+            for item in src_clusters[cluster_id]:
                 fpout.write(item + '\n')
+            if cluster_id in tgt_clusters:
+                clustered_targets += len(tgt_clusters[cluster_id])
+                for item in tgt_clusters[cluster_id]:
+                    fpout.write('[TARGET] ' + item + '\n')
             fpout.write('\n\n')
+
         fpout.write('######### Not in clusteres ########\n')
-        for item in sentence_in_clusters[-1]:
-            fpout.write(item + '\n')
+        if -1 in src_clusters:
+            for item in src_clusters[-1]:
+                fpout.write(item + '\n')
+        if -1 in tgt_clusters:
+            for item in tgt_clusters[-1]:
+                fpout.write('[TARGET] ' + item + '\n')
         fpout.write('\n\n')
+
+        fpout.write("the number of target sentences is:" + str(len(target_labels)) + '\n')
+        fpout.write("clustered target sentences:" + str(clustered_targets) + '\n')
+
         fpout.close()
 
 
-    def process_one_example(self, sentences):
+    def read_clusters(self, cluster_labels, extra_scores, sentences):
+        sentence_in_clusters = {}
+        for i, label in enumerate(cluster_labels):
+            if label not in sentence_in_clusters:
+                sentence_in_clusters[label] = []
+            sentence = sentences[i]
+            if extra_scores[i] != -1:
+                sentence = sentence + '\t' + str(extra_scores[i])
+            sentence_in_clusters[label].append(sentence)
+        return sentence_in_clusters
+
+
+    def classify_sentences_into_clusters(self, cluster_labels, new_cluster_labels, distances, similar_topk, threshold):
+        clusters = {}
+        for i, label in enumerate(cluster_labels):
+            if label == -1:
+                continue
+            if label not in clusters:
+                clusters[label] = []
+            clusters[label].append(distances[i])
+        for label in clusters:
+            clusters[label] = np.stack(clusters[label], axis=0)
+
+        classification_scores = [-1] * len(new_cluster_labels)
+        for i, label in enumerate(new_cluster_labels):
+            if label != -1:
+                continue
+            closest_cluster_id = -1; closest_cluster_distance = 1000.0
+            for key in clusters:
+                one_to_many_distances = clusters[key][:, i]
+                if similar_topk < 1:
+                    similar_topk = max(3, int(similar_topk * one_to_many_distances.shape[-1]))
+                top_k = min(one_to_many_distances.shape[-1], similar_topk)
+                top_k_distances = np.sort(one_to_many_distances)[:top_k]
+                mean_distance = np.mean(top_k_distances)
+                if mean_distance < closest_cluster_distance:
+                    closest_cluster_id = key
+                    closest_cluster_distance = mean_distance
+            if closest_cluster_id > -1 and closest_cluster_distance < threshold:
+                new_cluster_labels[i] = closest_cluster_id
+                classification_scores[i] = closest_cluster_distance
+        return new_cluster_labels, classification_scores
+
+
+    def process_clustering(self, sentence_embeddings):
+        distances = pairwise_distances(sentence_embeddings, metric=self.db_metric)
+        self.clustering.fit(distances.astype(np.double))
+        ##self.clustering.fit(sentence_embeddings)
+        return self.clustering.labels_.tolist(), distances
+
+
+    def process_sentence_embedding(self, sentences):
         embedding = self.s_embedding.encode(sentences)
         X = np.array(embedding)
         X = self.dimention_reducer.fit_transform(X)
-        ##distances = pairwise_distances(X, metric=self.db_metric)
-        ##self.clustering.fit(distances)
-        self.clustering.fit(X)
-        return self.clustering.labels_.tolist()
+        return X
+
+
+    def classify_target_sentences(self, targets_embeddings, source_embeddings, cluster_labels):
+        distances = pairwise_distances(source_embeddings, targets_embeddings, metric=self.db_metric)
+        target_sentence_labels = [-1] * targets_embeddings.shape[0]
+        target_sentence_labels, classification_scores = self.classify_sentences_into_clusters(cluster_labels, 
+                                                                       target_sentence_labels, distances,
+                                                                       self.db_targets_similar_topk,
+                                                                       self.db_targets_threshold)
+        return target_sentence_labels, classification_scores
 
 
     def process_train(self,):
         example_id = 0
         for line in open(self.train_file):
             json_obj = json.loads(line.strip())
-            sources = self.clean_reviews(json_obj['document_segs'])
-            targets = self.clean_reviews(json_obj['gold_segs'])
+            
+            # get sentences
+            sources = preprocess_reviews(json_obj['document_segs'], high_freq_reviews=self.high_freq_reviews)
+            targets = preprocess_reviews(json_obj['gold_segs'])
             sentences = sources + targets
-            cluster_labels = self.process_one_example(sentences)
-            args = self.read_cluster(cluster_labels, sentences, len(sources))
-            self.print_out(args, example_id)
+
+            # get sentence embeddings
+            sentence_embeddings = self.process_sentence_embedding(sentences)
+            source_embeddings = sentence_embeddings[:len(sources)]
+            target_embeddings = sentence_embeddings[len(sources):]
+
+            # cluster input sentences
+            cluster_labels, distances = self.process_clustering(source_embeddings)
+            reprocessed_cluster_labels = copy.deepcopy(cluster_labels)
+            reprocessed_cluster_labels, add_sentences_scores = self.classify_sentences_into_clusters(cluster_labels, 
+                                                                               reprocessed_cluster_labels, 
+                                                                               distances, 
+                                                                               self.db_noise_reprocess_similar_topk, 
+                                                                               self.db_noise_reprocess_threshold)
+
+            # classify target sentences
+            target_labels, target_scores = self.classify_target_sentences(target_embeddings, source_embeddings, reprocessed_cluster_labels)
+
+            # read clusters
+            src_clusters = self.read_clusters(reprocessed_cluster_labels, add_sentences_scores, sources)
+            tgt_clusters = self.read_clusters(target_labels, target_scores, targets)
+
+            self._print_out(src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id)
+
             example_id += 1
             if example_id == 15:
                 break
 
+
+def preprocess_reviews(sentences, high_freq_reviews=None):
+
+    def ugly_sentence_segmentation(sentence):
+        phrases = []
+        segs = sentence.split(',')
+        for phrase in segs:
+            smaller_granularity = phrase.split(' and ')
+            for item in smaller_granularity:
+                item = item.strip()
+                phrases.append(item)
+        new_phrases = []
+        for i, phrase in enumerate(phrases):
+            if i > 0 and len(phrase.split()) < 3:
+                new_phrases[-1] = new_phrases[-1] + ' ' + phrase
+            else:
+                new_phrases.append(phrase)
+        if len(new_phrases[0].split()) < 3 and len(new_phrases) > 1:
+            first_phrase = new_phrases[0]
+            new_phrases = new_phrases[1:]
+            new_phrases[0] = first_phrase + ' ' + new_phrases[0]
+        return new_phrases
+
+    new_sentences = []
+    for sentence in sentences:
+        search_key = sentence.strip().lower()
+        flist = search_key.split()
+        search_key = ' '.join([tok for tok in flist if len(tok) > 2])
+        if high_freq_reviews != None and search_key in high_freq_reviews:
+            continue
+        sentence = sentence.lower()
+        phrases = ugly_sentence_segmentation(sentence)
+        phrases = [item for item in phrases if len(item.strip().split()) > 2]
+        new_sentences.extend(phrases)
+    return new_sentences
+
+
 if __name__ == '__main__':
-    dbscan_obj = DBSCANCluser(db_metric='cosine',
-                            sentence_embedding_model='all-MiniLM-L12-v2',
-                            db_eps=0.4,
-                            db_min_samples=3,
-                            db_input_dimention=50,
-                            train_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/train.jsonl',
-                            valid_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/validation.jsonl',
-                            test_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl',
-                            high_freq_reviews='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/common_review.txt')
+    dbscan_obj = DBSCANCluser(db_metric='euclidean',
+                              sentence_embedding_model='all-MiniLM-L12-v2',
+                              db_eps=0.4,
+                              db_cluster_size=5,
+                              db_input_dimention=56,
+                              db_noise_reprocess_similar_topk=3,
+                              db_noise_reprocess_threshold=0.6,
+                              db_targets_similar_topk=0.2,
+                              db_targets_threshold=0.8,                              
+                              train_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/train.jsonl',
+                              valid_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/validation.jsonl',
+                              test_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl',
+                              high_freq_reviews='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/common_review.txt')
     dbscan_obj.process_train()
 
