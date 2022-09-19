@@ -18,6 +18,7 @@ from transformers import AutoTokenizer
 from models.logging import logger
 from models.spectral_clustering import SpectralCluser
 
+from prepro.dbscan_clustering import DBSCANCluser
 
 class DataCreator():
     def __init__(self, args, additional_tokens=None):
@@ -392,3 +393,58 @@ def split_shard_prefix_tgt(args):
                 p_ct += 1
                 dataset = []
 
+
+def simple_split_shard(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['train', 'test', 'validation']
+
+    for corpus_type in datasets:
+
+        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
+
+        json_objs = []
+        for line in open(input_path):
+            json_objs.append(line.strip())
+
+        dataset = []; p_ct = 0
+        for d in json_objs:
+            dataset.append(d)
+            if (len(dataset) > args.shard_size):
+                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+                with open(pt_file, 'w') as save:
+                    for line in dataset:
+                        save.write(line+'\n')
+                    p_ct += 1
+                    dataset = []
+
+        if (len(dataset) > 0):
+            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
+            with open(pt_file, 'w') as save:
+                for line in dataset:
+                    save.write(line+'\n')
+                p_ct += 1
+                dataset = []
+
+
+def format_hdbscan(args):
+
+    input_path = args.raw_path
+    output_path = args.save_path
+    high_freq_reviews = args.additional_token_path
+
+    dbscan_obj = DBSCANCluser(db_metric='euclidean',
+                              sentence_embedding_model='all-MiniLM-L12-v2',
+                              db_eps=0.4,
+                              db_cluster_size=5,
+                              db_input_dimention=56,
+                              db_noise_reprocess_similar_topk=3,
+                              db_noise_reprocess_threshold=0.6,
+                              db_targets_similar_topk=0.2,
+                              db_targets_threshold=0.8,
+                              high_freq_reviews=high_freq_reviews)
+
+    filename_in = input_path
+    filename_out = output_path
+    dbscan_obj.run(filename_in, filename_out)

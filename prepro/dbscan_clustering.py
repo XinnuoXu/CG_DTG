@@ -25,15 +25,9 @@ class DBSCANCluser():
                        db_noise_reprocess_threshold=0.64,
                        db_targets_similar_topk=0.2,
                        db_targets_threshold=0.8,
-                       train_file='',
-                       valid_file='',
-                       test_file='',
                        high_freq_reviews=''):
 
         self.device = device
-        self.train_file = train_file
-        self.valid_file = valid_file
-        self.test_file = test_file
 
         self.high_freq_reviews = None
         if high_freq_reviews != '':
@@ -44,10 +38,14 @@ class DBSCANCluser():
         self.db_noise_reprocess_threshold = db_noise_reprocess_threshold
         self.db_targets_similar_topk = db_targets_similar_topk
         self.db_targets_threshold = db_targets_threshold
+        self.db_input_dimention = db_input_dimention
 
         self.s_embedding = SentenceTransformer(sentence_embedding_model, device=device)
         self.dimention_reducer = PCA(n_components=db_input_dimention)
-        self.clustering = hdbscan.HDBSCAN(min_cluster_size=db_cluster_size, min_samples=db_min_samples, cluster_selection_epsilon=db_eps, metric='precomputed')
+        self.clustering = hdbscan.HDBSCAN(min_cluster_size=db_cluster_size,
+                                          min_samples=db_min_samples, 
+                                          cluster_selection_epsilon=db_eps, 
+                                          metric='precomputed')
         #self.clustering = DBSCAN(eps=db_eps, min_samples=db_cluster_size, metric=db_metric)
 
 
@@ -160,7 +158,8 @@ class DBSCANCluser():
     def process_sentence_embedding(self, sentences):
         embedding = self.s_embedding.encode(sentences)
         X = np.array(embedding)
-        X = self.dimention_reducer.fit_transform(X)
+        if len(sentences) > self.db_input_dimention:
+            X = self.dimention_reducer.fit_transform(X)
         return X
 
 
@@ -174,42 +173,53 @@ class DBSCANCluser():
         return target_sentence_labels, classification_scores
 
 
-    def process_train(self,):
-        example_id = 0
-        for line in open(self.train_file):
-            json_obj = json.loads(line.strip())
+    def process_run(self, line):
+        json_obj = json.loads(line.strip())
             
-            # get sentences
-            sources = preprocess_reviews(json_obj['document_segs'], high_freq_reviews=self.high_freq_reviews)
-            targets = preprocess_reviews(json_obj['gold_segs'])
-            sentences = sources + targets
+        # get sentences
+        sources = preprocess_reviews(json_obj['document_segs'], high_freq_reviews=self.high_freq_reviews)
+        targets = preprocess_reviews(json_obj['gold_segs'])
+        example_id = preprocess_reviews(json_obj['example_id'])
+        sentences = sources + targets
 
-            # get sentence embeddings
-            sentence_embeddings = self.process_sentence_embedding(sentences)
-            source_embeddings = sentence_embeddings[:len(sources)]
-            target_embeddings = sentence_embeddings[len(sources):]
+        # get sentence embeddings
+        sentence_embeddings = self.process_sentence_embedding(sentences)
+        source_embeddings = sentence_embeddings[:len(sources)]
+        target_embeddings = sentence_embeddings[len(sources):]
 
-            # cluster input sentences
-            cluster_labels, distances = self.process_clustering(source_embeddings)
-            reprocessed_cluster_labels = copy.deepcopy(cluster_labels)
-            reprocessed_cluster_labels, add_sentences_scores = self.classify_sentences_into_clusters(cluster_labels, 
+        # cluster input sentences
+        cluster_labels, distances = self.process_clustering(source_embeddings)
+        reprocessed_cluster_labels = copy.deepcopy(cluster_labels)
+        reprocessed_cluster_labels, add_sentences_scores = self.classify_sentences_into_clusters(cluster_labels, 
                                                                                reprocessed_cluster_labels, 
                                                                                distances, 
                                                                                self.db_noise_reprocess_similar_topk, 
                                                                                self.db_noise_reprocess_threshold)
 
-            # classify target sentences
-            target_labels, target_scores = self.classify_target_sentences(target_embeddings, source_embeddings, reprocessed_cluster_labels)
+        # classify target sentences
+        target_labels, target_scores = self.classify_target_sentences(target_embeddings, 
+                                                                      source_embeddings, 
+                                                                      reprocessed_cluster_labels)
 
-            # read clusters
-            src_clusters = self.read_clusters(reprocessed_cluster_labels, add_sentences_scores, sources)
-            tgt_clusters = self.read_clusters(target_labels, target_scores, targets)
+        # read clusters
+        src_clusters = self.read_clusters(reprocessed_cluster_labels, add_sentences_scores, sources)
+        tgt_clusters = self.read_clusters(target_labels, target_scores, targets)
 
-            self._print_out(src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id)
+        #self._print_out(src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id)
 
-            example_id += 1
-            if example_id == 15:
-                break
+        return src_clusters, tgt_clusters, example_id
+
+
+    def run(self, filename_in, filename_out):
+        fpout = open(filename_out, 'w')
+        for line in open(filename_in):
+            src_clusters, tgt_clusters, example_id = self.process_run(line.strip())
+            output_json = {}
+            output_json['src_clusters'] = src_clusters
+            output_json['tgt_clusters'] = tgt_clusters
+            output_json['example_id'] = example_id
+            fpout.write(json.dumps(output_json)+'\n')
+        fpout.close()
 
 
 def preprocess_reviews(sentences, high_freq_reviews=None):
@@ -258,9 +268,8 @@ if __name__ == '__main__':
                               db_noise_reprocess_threshold=0.6,
                               db_targets_similar_topk=0.2,
                               db_targets_threshold=0.8,                              
-                              train_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/train.jsonl',
-                              valid_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/validation.jsonl',
-                              test_file='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl',
                               high_freq_reviews='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/common_review.txt')
-    dbscan_obj.process_train()
+    filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/train.jsonl'
+    filename_out = './temp/train.jsonl'
+    dbscan_obj.run(filename_in, filename_out)
 
