@@ -57,8 +57,10 @@ class DataCreator():
 
     def preprocess_tgt(self, tgt, tgt_prefix, max_tgt_length):
 
-        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
-        tgt_prefix_txt = (' '+self.cls_token+' ').join(tgt_prefix) + ' ' + self.cls_token
+        #tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt]) + ' ' + self.cls_token
+        #tgt_prefix_txt = (' '+self.cls_token+' ').join(tgt_prefix) + ' ' + self.cls_token
+        tgt_txt = (' '+self.cls_token+' ').join([' '.join(sent) for sent in tgt])
+        tgt_prefix_txt = (' '+self.cls_token+' ').join(tgt_prefix)
 
         # Tokenization using tokenizer
         if self.args.tokenizer.startswith('t5-'):
@@ -77,6 +79,8 @@ class DataCreator():
             target_tokens = target_tokens[1:]
         else:
             tgt_prefix_tokens = []
+
+        print (tgt_prefix_tokens, target_tokens)
 
         return target_tokens, tgt_prefix_tokens, [' '.join(sent) for sent in tgt]
 
@@ -448,3 +452,46 @@ def format_hdbscan(args):
     filename_in = input_path
     filename_out = output_path
     dbscan_obj.run(filename_in, filename_out)
+
+
+def format_hdbscan_cluster_to_s2s(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['train', 'test', 'validation']
+
+    for corpus_type in datasets:
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            fpout = open(pjoin(args.save_path, real_name), 'w')
+            output_jsons = []
+            for line in open(json_f):
+                json_obj = json.loads(line.strip())
+                tgt_clusters = json_obj['tgt_clusters']
+                src_clusters = json_obj['src_clusters']
+                example_id = json_obj['example_id']
+                for cluster_id in tgt_clusters:
+                    if cluster_id == '-1':
+                        continue
+                    merge_same_prefix = {}
+                    for tgt_sent in tgt_clusters[cluster_id]:
+                        tgt_prefix = ' '.join(tgt_sent.split()[:5])
+                        tgt_text = ' '.join(tgt_sent.split()[5:])
+                        if tgt_prefix not in merge_same_prefix:
+                            merge_same_prefix[tgt_prefix] = []
+                        merge_same_prefix[tgt_prefix].append([tgt_text])
+                    for prefix in merge_same_prefix:
+                        src = src_clusters[cluster_id]
+                        tgt = merge_same_prefix[prefix]
+                        tgt_prefix = [prefix]
+                        eid = example_id + '_Cluster' + cluster_id + '_' + prefix.split()[0]
+                        new_json = {}
+                        new_json['src'] = src
+                        new_json['tgt'] = tgt
+                        new_json['tgt_prefix'] = tgt_prefix
+                        new_json['example_id'] = eid
+                        output_jsons.append(new_json)
+            fpout.write(json.dumps(output_jsons))
+            fpout.close()
+
+

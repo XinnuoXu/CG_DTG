@@ -104,14 +104,12 @@ class DBSCANCluser():
         fpout.close()
 
 
-    def read_clusters(self, cluster_labels, extra_scores, sentences):
+    def read_clusters(self, cluster_labels, sentences):
         sentence_in_clusters = {}
         for i, label in enumerate(cluster_labels):
             if label not in sentence_in_clusters:
                 sentence_in_clusters[label] = []
             sentence = sentences[i]
-            if extra_scores[i] != -1:
-                sentence = sentence + '\t' + str(extra_scores[i])
             sentence_in_clusters[label].append(sentence)
         return sentence_in_clusters
 
@@ -178,8 +176,9 @@ class DBSCANCluser():
             
         # get sentences
         sources = preprocess_reviews(json_obj['document_segs'], high_freq_reviews=self.high_freq_reviews)
-        targets = preprocess_reviews(json_obj['gold_segs'])
-        example_id = preprocess_reviews(json_obj['example_id'])
+        targets, targets_prefixes = preprocess_summaries(json_obj['gold_segs'])
+        raw_tgt = json_obj['raw_tgt']
+        example_id = json_obj['example_id']
         sentences = sources + targets
 
         # get sentence embeddings
@@ -202,48 +201,51 @@ class DBSCANCluser():
                                                                       reprocessed_cluster_labels)
 
         # read clusters
-        src_clusters = self.read_clusters(reprocessed_cluster_labels, add_sentences_scores, sources)
-        tgt_clusters = self.read_clusters(target_labels, target_scores, targets)
+        src_clusters = self.read_clusters(reprocessed_cluster_labels, sources)
+        for i, text in enumerate(targets):
+            targets[i] = targets_prefixes[i] + ' ' + targets[i]
+        tgt_clusters = self.read_clusters(target_labels, targets)
 
         #self._print_out(src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id)
 
-        return src_clusters, tgt_clusters, example_id
+        return src_clusters, tgt_clusters, example_id, raw_tgt
 
 
     def run(self, filename_in, filename_out):
         fpout = open(filename_out, 'w')
         for line in open(filename_in):
-            src_clusters, tgt_clusters, example_id = self.process_run(line.strip())
+            src_clusters, tgt_clusters, example_id, raw_tgt = self.process_run(line.strip())
             output_json = {}
             output_json['src_clusters'] = src_clusters
             output_json['tgt_clusters'] = tgt_clusters
             output_json['example_id'] = example_id
+            output_json['raw_tgt'] = raw_tgt
             fpout.write(json.dumps(output_json)+'\n')
         fpout.close()
 
 
+def ugly_sentence_segmentation(sentence):
+    phrases = []
+    segs = sentence.split(',')
+    for phrase in segs:
+        smaller_granularity = phrase.split(' and ')
+        for item in smaller_granularity:
+            item = item.strip()
+            phrases.append(item)
+    new_phrases = []
+    for i, phrase in enumerate(phrases):
+        if i > 0 and len(phrase.split()) < 3:
+            new_phrases[-1] = new_phrases[-1] + ' ' + phrase
+        else:
+            new_phrases.append(phrase)
+    if len(new_phrases[0].split()) < 3 and len(new_phrases) > 1:
+        first_phrase = new_phrases[0]
+        new_phrases = new_phrases[1:]
+        new_phrases[0] = first_phrase + ' ' + new_phrases[0]
+    return new_phrases
+
+
 def preprocess_reviews(sentences, high_freq_reviews=None):
-
-    def ugly_sentence_segmentation(sentence):
-        phrases = []
-        segs = sentence.split(',')
-        for phrase in segs:
-            smaller_granularity = phrase.split(' and ')
-            for item in smaller_granularity:
-                item = item.strip()
-                phrases.append(item)
-        new_phrases = []
-        for i, phrase in enumerate(phrases):
-            if i > 0 and len(phrase.split()) < 3:
-                new_phrases[-1] = new_phrases[-1] + ' ' + phrase
-            else:
-                new_phrases.append(phrase)
-        if len(new_phrases[0].split()) < 3 and len(new_phrases) > 1:
-            first_phrase = new_phrases[0]
-            new_phrases = new_phrases[1:]
-            new_phrases[0] = first_phrase + ' ' + new_phrases[0]
-        return new_phrases
-
     new_sentences = []
     for sentence in sentences:
         search_key = sentence.strip().lower()
@@ -256,6 +258,20 @@ def preprocess_reviews(sentences, high_freq_reviews=None):
         phrases = [item for item in phrases if len(item.strip().split()) > 2]
         new_sentences.extend(phrases)
     return new_sentences
+
+
+def preprocess_summaries(sentences):
+    new_sentences = []; new_prefix = []
+    for sentence in sentences:
+        sentence = sentence.lower()
+        prefix = ' '.join(sentence.split()[:5])
+        sentence = ' '.join(sentence.split()[5:])
+        phrases = ugly_sentence_segmentation(sentence)
+        phrases = [item for item in phrases]
+        prefixes = [prefix for item in phrases]
+        new_sentences.extend(phrases)
+        new_prefix.extend(prefixes)
+    return new_sentences, new_prefix
 
 
 if __name__ == '__main__':
