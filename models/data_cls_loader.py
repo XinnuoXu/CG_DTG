@@ -14,8 +14,7 @@ class Batch(object):
         rtn_data = [d + [pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
-    def __init__(self, data=None, device=None, is_test=False, 
-                 pad_id=None, cls_id=None):
+    def __init__(self, data=None, device=None, is_test=False, pad_id=None, cls_id=None):
 
         if data is not None:
             self.batch_size = len(data)
@@ -153,6 +152,8 @@ class DataIterator(object):
         xs = self.dataset
         return xs
 
+    def sample_clusters(self):
+
     def preprocess(self, ex, is_test):
         eid = ex['eid']
         sentences = ex['sentences']
@@ -165,8 +166,6 @@ class DataIterator(object):
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
         for ex in data:
-            if(len(ex['src'])==0):
-                continue
             ex = self.preprocess(ex, self.is_test)
             if(ex is None):
                 continue
@@ -219,8 +218,7 @@ class DataIterator(object):
                     continue
                 self.iterations += 1
                 self._iterations_this_epoch += 1
-                batch = Batch(minibatch, self.device, self.is_test, 
-                              self.pad_token_id, cls_id=self.cls_token_id)
+                batch = Batch(minibatch, self.device, self.is_test, self.pad_token_id, cls_id=self.cls_token_id)
                 yield batch
             return
 

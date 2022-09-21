@@ -8,7 +8,7 @@ from models.neural import MultiHeadedAttention, PositionwiseFeedForward
 class Classifier(nn.Module):
     def __init__(self, hidden_size):
         super(Classifier, self).__init__()
-        self.linear1 = nn.Linear(hidden_size, 1)
+        self.linear1 = nn.Linear(hidden_size, 1, bias=True)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x, mask_cls):
@@ -217,5 +217,37 @@ class SentenceClassification(nn.Module):
         sent_scores = sent_scores.squeeze(-1)
 
         return sent_scores
+
+
+
+class ClusterClassification(nn.Module):
+    def __init__(self, d_model, d_ff, heads, dropout, num_inter_layers=0):
+        super(ClusterClassification, self).__init__()
+        self.d_model = d_model
+        self.num_inter_layers = num_inter_layers
+        self.transformer_inter = nn.ModuleList(
+            [TransformerEncoderLayer(d_model, heads, d_ff, dropout)
+             for _ in range(num_inter_layers)])
+        self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.classifier_verd = Classifier(d_model)
+        self.classifier_pros = Classifier(d_model)
+        self.classifier_cons = Classifier(d_model)
+
+    def forward(self, top_vecs, mask):
+        """ See :obj:`EncoderBase.forward()`"""
+
+        batch_size, n_sents = top_vecs.size(0), top_vecs.size(1)
+        x = top_vecs * mask[:, :, None].float()
+
+        for i in range(self.num_inter_layers):
+            x = self.transformer_inter[i](i, x, x, ~ mask)  # all_sents * max_tokens * dim
+
+        x = self.layer_norm(x)
+        verd_scores = self.classifier_verd(x, mask)
+        pros_scores = self.classifier_pros(x, mask)
+        cons_scores = self.classifier_cons(x, mask)
+
+        return verd_scores, pros_scores, cons_scores
 
 

@@ -15,7 +15,7 @@ python preprocess.py \
 	-raw_path ${RAW_PATH} \
 	-save_path ${OUTPUT_PATH} \
         -saved_tokenizer_path ${OUTPUT_PATH}/tokenizer.pt \
-        -tokenizer facebook/bart-base \
+        -tokenizer bert-base-uncased \
 	-n_cpus 32 \
         -max_src_ntokens 256 \
 	-log_file ${LOG_PATH}/preprocess.log

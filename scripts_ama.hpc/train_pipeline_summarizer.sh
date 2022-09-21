@@ -28,4 +28,4 @@ python train.py  \
 	-lr 3e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0,1,2,3
+	-visible_gpus 0

@@ -16,7 +16,7 @@ def is_master(gpu_ranks, device_id):
     return gpu_ranks[device_id] == 0
 
 
-def multi_init(device_id, world_size,gpu_ranks, master_port=10000):
+def multi_init(device_id, world_size,gpu_ranks, master_port='10000'):
     print(gpu_ranks)
     dist_init_method = 'tcp://localhost:'+master_port
     dist_world_size = world_size

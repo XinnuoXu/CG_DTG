@@ -7,13 +7,10 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
-from models.encoder import Classifier, TreeInference, SentenceClassification
-from models.decoder import BartDecoderCS
-from models.t5_encoder_decoder import T5Stacker
 from models.optimizers import Optimizer
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from models.tree_reader import tree_to_content_mask, tree_building, gumbel_softmax_function, topn_function
-from models.neural import SimpleSelfAttention
+from transformers import AutoTokenizer, BertModel
+from models.encoder import SentenceClassification, ClusterClassification
+from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint):
     """ Build optimizer """
@@ -59,22 +56,15 @@ class ExtSummarizer(nn.Module):
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        print (self.vocab_size, len(self.original_tokenizer))
         if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
 
         self.encoder = self.model.get_encoder()
-        if sentence_modelling_for_ext == 'tree':
-            self.planning_layer = TreeInference(self.model.config.hidden_size, 
-                                                args.ext_ff_size, 
-                                                args.ext_dropout, 
-                                                args.ext_layers)
-        else:
-            self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
-                                                         args.ext_ff_size, 
-                                                         args.ext_heads, 
-                                                         args.ext_dropout, 
-                                                         args.ext_layers)
+        self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
+                                                     args.ext_ff_size, 
+                                                     args.ext_heads, 
+                                                     args.ext_dropout, 
+                                                     args.ext_layers)
 
         if checkpoint is not None:
             print ('Load parameters from ext_finetune...')
@@ -179,14 +169,16 @@ class ParagraphMultiClassifier(nn.Module):
         super(ParagraphMultiClassifier, self).__init__()
         self.args = args
         self.device = device
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.local_bert = BertModel.from_pretrained(args.model_name)
+        self.sentence_pooling = Pooling(self.local_bert.config.hidden_size)
+        self.cluster_pooling = Pooling(self.local_bert.config.hidden_size)
+        self.classifiers = ClusterClassification(self.local_bert.config.hidden_size,
+                                                 self.args.ext_ff_size,
+                                                 self.args.ext_heads,
+                                                 self.args.ext_dropout,
+                                                 num_inter_layers=self.args.ext_layers)
 
-        self.encoder = self.model.get_encoder()
-        self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
-                                                         args.ext_ff_size, 
-                                                         args.ext_heads, 
-                                                         args.ext_dropout, 
-                                                         args.ext_layers)
+        self.model_hidden_size = self.local_bert.config.hidden_size
 
         if checkpoint is not None:
             print ('Load parameters from ext_finetune...')
@@ -195,6 +187,7 @@ class ParagraphMultiClassifier(nn.Module):
             self.planning_layer.load_state_dict(dict(tree_params), strict=True)
             tree_params = [(n[8:], p) for n, p in checkpoint['model'].items() if n.startswith('encoder')]
             self.encoder.load_state_dict(dict(tree_params), strict=True)
+        '''
         else:
             if self.planning_layer is not None:
                 if args.param_init != 0.0:
@@ -208,17 +201,54 @@ class ParagraphMultiClassifier(nn.Module):
         if args.freeze_encoder_decoder:
             for param in self.model.parameters():
                 param.requires_grad = False
+        '''
 
         self.to(device)
 
+    def pool_cluster_embeddings(self, sentence_embeddings, cluster_sizes):
+        cluster_numbers = sum([len(ex) for ex in cluster_sizes])
+        maximum_cluster_size = max([max(ex) for ex in cluster_sizes])
+        embedding_size = self.model_hidden_size
+        cluster_embeddings = torch.zeros((cluster_numbers, maximum_cluster_size, embedding_size), device=self.device)
+        cluster_masks = torch.full((cluster_numbers, maximum_cluster_size), False, device=self.device)
+        cluster_idx = 0; start_idx = 0
+        for example_cluster_sizes in cluster_sizes:
+            for cluster_size in example_cluster_sizes:
+                sid = start_idx
+                eid = start_idx + cluster_size
+                cluster_embeddings[cluster_idx][:cluster_size] = sentence_embeddings[sid:eid]
+                cluster_masks[cluster_idx][:cluster_size] = True
+                start_idx += cluster_size
+                cluster_idx += 1
+        res = self.cluster_pooling({'token_embeddings':cluster_embeddings, 'attention_mask':cluster_masks})
+        return res['sentence_embedding']
+        
 
-    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls):
-        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
-        # return transformers.modeling_outputs.BaseModelOutput
-        top_vec = encoder_outputs.last_hidden_state
-        sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
+    def cluster_classification(self, cluster_embeddings, cluster_sizes):
+        example_num = len(cluster_sizes)
+        max_cluster_num = max([len(example) for example in cluster_sizes])
+        embedding_size = self.model_hidden_size
+        example_embeddings = torch.zeros((example_num, max_cluster_num, embedding_size), device=self.device)
+        example_masks = torch.full((example_num, max_cluster_num), False, device=self.device)
+        example_idx = 0; start_idx = 0
+        for example_cluster_size in cluster_sizes:
+            sid = start_idx
+            eid = start_idx + len(example_cluster_size)
+            example_embeddings[example_idx][:len(example_cluster_size)] = cluster_embeddings[sid:eid]
+            example_masks[example_idx][:len(example_cluster_size)] = True
+            start_idx += len(example_cluster_size)
+            example_idx += 1
+        verd_scores, pros_scores, cons_scores = self.classifiers(example_embeddings, example_masks)
+        return verd_scores, pros_scores, cons_scores, example_masks
 
-        sents_vec = sents_vec * mask_cls[:, :, None].float()
-        sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
 
-        return sent_scores, mask_cls, aj_matrixes, top_vec
+    def forward(self, src, mask_src, cluster_sizes):
+        token_embeddings = self.local_bert(input_ids=src, attention_mask=mask_src)
+        res = self.sentence_pooling({'token_embeddings':token_embeddings.last_hidden_state, 'attention_mask':mask_src})
+        # number of sentences * embedding size 
+        sentence_embeddings = res['sentence_embedding']
+        # number of clusters * embedding size 
+        cluster_embeddings = self.pool_cluster_embeddings(sentence_embeddings, cluster_sizes)
+        verd_scores, pros_scores, cons_scores, example_masks = self.cluster_classification(cluster_embeddings, cluster_sizes)
+
+        return verd_scores, pros_scores, cons_scores, example_masks
