@@ -17,61 +17,31 @@ class Batch(object):
     def __init__(self, data=None, device=None, is_test=False, 
                  pad_id=None, cls_id=None):
 
-        """Create a Batch from a list of examples."""
         if data is not None:
             self.batch_size = len(data)
-            pre_src = [x[0] for x in data]
-            pre_tgt = [x[1] for x in data]
-            pre_tgt_pref = [x[2] for x in data]
-            nsent_src = [x[3] for x in data]
-            nsent_tgt = [x[4] for x in data]
+            pre_sentences = []
+            for x in data:
+                pre_sentences.extend(x[0])
+            pre_cluster_sizes = [x[1] for x in data]
+            pre_verdict_labels = [x[2] for x in data]
+            pre_pros_labels = [x[3] for x in data]
+            pre_cons_labels = [x[4] for x in data]
+            pre_eid = [x[5] for x in data]
           
-            if type(pre_src[0][0]) is list:
-                src, src_mask = self.src_is_list(pre_src, pad_id, device)
-                setattr(self, 'src', src)
-                setattr(self, 'mask_src', src_mask)
-            else:
-                src = torch.tensor(self._pad(pre_src, pad_id))
-                mask_src = ~(src == pad_id)
-                setattr(self, 'src', src.to(device))
-                setattr(self, 'mask_src', mask_src.to(device))
+            src = torch.tensor(self._pad(pre_sentences, pad_id))
+            mask_src = ~(src == pad_id)
 
-            new_tgt = [pre_tgt_pref[i] + pre_tgt[i] for i in range(len(pre_tgt))]
-            tgt = torch.tensor(self._pad(new_tgt, pad_id))
-            mask_tgt = ~(tgt == pad_id)
+            verdict_labels = torch.tensor(self._pad(pre_verdict_labels, 0))
+            pros_labels = torch.tensor(self._pad(pre_pros_labels, 0))
+            cons_labels = torch.tensor(self._pad(pre_cons_labels, 0))
 
-            mask_tgt_for_loss = ~(tgt == pad_id)
-            for i in range(mask_tgt_for_loss.size(0)):
-                pref_len = len(pre_tgt_pref[i])
-                mask_tgt_for_loss[i][:pref_len] = 0
-
-            setattr(self, 'tgt', tgt.to(device))
-            setattr(self, 'mask_tgt', mask_tgt.to(device))
-            setattr(self, 'nsent_tgt', nsent_tgt)
-            setattr(self, 'nsent_src', nsent_src)
-            setattr(self, 'mask_tgt_for_loss', mask_tgt_for_loss.to(device))
-
-            if (is_test):
-                src_str = [x[-3] for x in data]
-                setattr(self, 'src_str', src_str)
-                tgt_str = [x[-2] for x in data]
-                setattr(self, 'tgt_str', tgt_str)
-                eid = [x[-1] for x in data]
-                setattr(self, 'eid', eid)
-
-    def src_is_list(self, pre_src, pad_id, device):
-        srcs = []; src_masks = []
-        sent_len = []
-        for src in pre_src:
-            for sent in src:
-                sent_len.append(len(sent))
-        width = max(sent_len)
-        for src in pre_src:
-            src = torch.tensor(self._pad(src, pad_id, width=width)).to(device)
-            src_mask = ~(src == pad_id)
-            srcs.append(src)
-            src_masks.append(src_mask)
-        return srcs, src_masks
+            setattr(self, 'src', src.to(device))
+            setattr(self, 'mask_src', mask_src.to(device))
+            setattr(self, 'verdict_labels', verdict_labels.to(device))
+            setattr(self, 'pros_labels', pros_labels.to(device))
+            setattr(self, 'cons_labels', cons_labels.to(device))
+            setattr(self, 'cluster_sizes', pre_cluster_sizes)
+            setattr(self, 'eid', pre_eid)
 
     def __len__(self):
         return self.batch_size
@@ -166,6 +136,9 @@ class DataIterator(object):
         self.iterations = 0
         self.device = device
         self.shuffle = shuffle
+        self._iterations_this_epoch = 0
+        self.batch_size_fn = ext_batch_size_fn
+
         self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
         if self.tokenizer.cls_token_id is None:
             self.cls_token = self.tokenizer.eos_token
@@ -173,11 +146,6 @@ class DataIterator(object):
             self.cls_token = self.tokenizer.cls_token
         self.pad_token_id = self.tokenizer.pad_token_id
         self.cls_token_id = self.tokenizer.cls_token_id
-        self.pred_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.pred_special_tok])[0]
-        self.obj_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.obj_special_tok])[0]
-
-        self._iterations_this_epoch = 0
-        self.batch_size_fn = ext_batch_size_fn
 
     def data(self):
         if self.shuffle:
@@ -187,23 +155,12 @@ class DataIterator(object):
 
     def preprocess(self, ex, is_test):
         eid = ex['eid']
-        src = ex['src']
-        tgt = ex['tgt']
-        tgt_prefix = ex['tgt_prefix']
-        src_txt = ex['src_txt']
-        tgt_txt = ex['tgt_txt']
-        nsent_tgt = ex['nsent_tgt']
-        nsent_src = ex['nsent_src']
-
-        src = src[:-1][:self.args.max_pos-1]+[src[-1]]
-        tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
-        if len(tgt_prefix) > 0:
-            tgt_prefix = tgt_prefix[:-1][:self.args.max_tgt_len]+[tgt_prefix[-1]]
-
-        if(is_test):
-            return src, tgt, tgt_prefix, nsent_src, nsent_tgt, src_txt, tgt_txt, eid
-        else:
-            return src, tgt, tgt_prefix, nsent_src, nsent_tgt
+        sentences = ex['sentences']
+        verdict_labels = ex['verdict_labels']
+        pros_labels = ex['pros_labels']
+        cons_labels = ex['cons_labels']
+        cluster_sizes = ex['cluster_sizes']
+        return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

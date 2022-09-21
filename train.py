@@ -6,6 +6,7 @@ from __future__ import division
 import os
 import argparse
 from models.logging import init_logger
+from train_classification import train_cls, validate_cls, test_cls
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
 
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'cls'])
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
     parser.add_argument("-model_path", default='../models/')
@@ -116,6 +117,19 @@ if __name__ == '__main__':
             except:
                 step = 0
             test_ext(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'cls':
+        if (args.mode == 'train'):
+            train_cls(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_cls(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_cls(args, device_id, cp, step)
 
     elif args.ext_or_abs == 'abs':
         if (args.mode == 'train'):

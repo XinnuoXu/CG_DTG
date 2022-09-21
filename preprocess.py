@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("-shard_size", default=2000, type=int)
     parser.add_argument('-max_tgt_ntokens', default=500, type=int)
     parser.add_argument('-max_src_ntokens', default=1024, type=int)
+    parser.add_argument("-max_cluster_num", default=250, type=int)
     parser.add_argument("-oracle_topn", default=-1, type=int)
     parser.add_argument("-tokenizer", default='facebook/bart-base')
     parser.add_argument("-add_plan_to_tgt", type=str, default='none', choices=['prompt', 'intersec', 'none'])

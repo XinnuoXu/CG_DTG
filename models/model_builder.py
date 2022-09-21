@@ -173,3 +173,65 @@ class AbsSummarizer(nn.Module):
 
         return decoder_outputs.last_hidden_state
 
+
+
+class ParagraphMultiClassifier(nn.Module):
+    def __init__(self, args, device, vocab_size, checkpoint, sentence_modelling_for_ext):
+        super(ExtSummarizer, self).__init__()
+        self.args = args
+        self.device = device
+        self.vocab_size = vocab_size
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
+
+        self.encoder = self.model.get_encoder()
+        if sentence_modelling_for_ext == 'tree':
+            self.planning_layer = TreeInference(self.model.config.hidden_size, 
+                                                args.ext_ff_size, 
+                                                args.ext_dropout, 
+                                                args.ext_layers)
+        else:
+            self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
+                                                         args.ext_ff_size, 
+                                                         args.ext_heads, 
+                                                         args.ext_dropout, 
+                                                         args.ext_layers)
+
+        if checkpoint is not None:
+            print ('Load parameters from ext_finetune...')
+            #self.load_state_dict(checkpoint['model'], strict=True)
+            tree_params = [(n[15:], p) for n, p in checkpoint['model'].items() if n.startswith('planning_layer')]
+            self.planning_layer.load_state_dict(dict(tree_params), strict=True)
+            tree_params = [(n[8:], p) for n, p in checkpoint['model'].items() if n.startswith('encoder')]
+            self.encoder.load_state_dict(dict(tree_params), strict=True)
+        else:
+            if self.planning_layer is not None:
+                if args.param_init != 0.0:
+                    for p in self.planning_layer.parameters():
+                        p.data.uniform_(-args.param_init, args.param_init)
+                if args.param_init_glorot:
+                    for p in self.planning_layer.parameters():
+                        if p.dim() > 1:
+                            xavier_uniform_(p)
+
+        if args.freeze_encoder_decoder:
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+
+    def forward(self, src, tgt, mask_src, mask_tgt, clss, mask_cls):
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        # return transformers.modeling_outputs.BaseModelOutput
+        top_vec = encoder_outputs.last_hidden_state
+        sents_vec = top_vec[torch.arange(top_vec.size(0)).unsqueeze(1), clss]
+
+        sents_vec = sents_vec * mask_cls[:, :, None].float()
+        sent_scores, aj_matrixes = self.planning_layer(sents_vec, mask_cls)
+
+        return sent_scores, mask_cls, aj_matrixes, top_vec
