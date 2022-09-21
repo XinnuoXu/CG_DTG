@@ -174,28 +174,15 @@ class AbsSummarizer(nn.Module):
         return decoder_outputs.last_hidden_state
 
 
-
 class ParagraphMultiClassifier(nn.Module):
-    def __init__(self, args, device, vocab_size, checkpoint, sentence_modelling_for_ext):
-        super(ExtSummarizer, self).__init__()
+    def __init__(self, args, device, checkpoint, sentence_modelling_for_ext):
+        super(ParagraphMultiClassifier, self).__init__()
         self.args = args
         self.device = device
-        self.vocab_size = vocab_size
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
-        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        print (self.vocab_size, len(self.original_tokenizer))
-        if self.vocab_size > len(self.original_tokenizer):
-            self.model.resize_token_embeddings(self.vocab_size)
-
         self.encoder = self.model.get_encoder()
-        if sentence_modelling_for_ext == 'tree':
-            self.planning_layer = TreeInference(self.model.config.hidden_size, 
-                                                args.ext_ff_size, 
-                                                args.ext_dropout, 
-                                                args.ext_layers)
-        else:
-            self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
+        self.planning_layer = SentenceClassification(self.model.config.hidden_size, 
                                                          args.ext_ff_size, 
                                                          args.ext_heads, 
                                                          args.ext_dropout, 
