@@ -279,7 +279,6 @@ class Trainer(object):
             loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
             loss = loss_verd + loss_pros + loss_cons
             (loss / loss.numel()).backward()
-            print (loss_verd + loss_pros + loss_cons)
 
             '''
             gradient_monitor = {}
@@ -290,9 +289,9 @@ class Trainer(object):
 
             batch_stats = Statistics(float(loss.cpu().data.numpy()),
                                      normalization,
-                                     loss_verd=loss_verd,
-                                     loss_pros=loss_pros,
-                                     loss_cons=loss_cons)
+                                     loss_verd=float(loss_verd.cpu().data.numpy()),
+                                     loss_pros=float(loss_pros.cpu().data.numpy()),
+                                     loss_cons=float(loss_cons.cpu().data.numpy()))
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)

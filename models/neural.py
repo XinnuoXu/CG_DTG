@@ -411,7 +411,6 @@ class MultiHeadedAttention(nn.Module):
 
         if mask is not None:
             mask = mask.unsqueeze(1).expand_as(scores)
-            #scores = scores.masked_fill(mask, -1e18)
             scores = scores.masked_fill(~mask, -1e18)
 
         # 3) Apply attention dropout and compute context vectors.

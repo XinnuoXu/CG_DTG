@@ -152,21 +152,51 @@ class DataIterator(object):
         xs = self.dataset
         return xs
 
-    def sample_clusters(self):
+    def sample_clusters(self, sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes):
+        labels = [(verdict_labels[i] | pros_labels[i]) | cons_labels[i] for i in range(len(verdict_labels))]
+        current_length = sum([cluster_sizes[i] for i in range(len(labels)) if labels[i] == 1])
+        select_ids = [i for i in range(len(labels))]
+        random.shuffle(select_ids)
+        for select_id in select_ids:
+            if current_length > self.args.max_src_nsent:
+                break
+            if current_length + cluster_sizes[select_id] > self.args.max_src_nsent:
+                continue
+            labels[select_id] = 1
+            current_length += cluster_sizes[select_id]
+        new_sentences = []
+        new_verdict_labels = []
+        new_pros_labels = []
+        new_cons_labels = []
+        new_cluster_sizes = []
+        for i, lab in enumerate(labels):
+            if lab == 0:
+                continue
+            sid = sum(cluster_sizes[:i])
+            eid = sid+cluster_sizes[i]
+            new_sentences.extend(sentences[sid:eid])
+            new_verdict_labels.append(verdict_labels[i])
+            new_pros_labels.append(pros_labels[i])
+            new_cons_labels.append(cons_labels[i])
+            new_cluster_sizes.append(cluster_sizes[i])
+        return new_sentences, new_verdict_labels, new_pros_labels, new_cons_labels, new_cluster_sizes
 
-    def preprocess(self, ex, is_test):
+    def preprocess(self, ex):
         eid = ex['eid']
         sentences = ex['sentences']
         verdict_labels = ex['verdict_labels']
         pros_labels = ex['pros_labels']
         cons_labels = ex['cons_labels']
         cluster_sizes = ex['cluster_sizes']
+        if sum(cluster_sizes) > self.args.max_src_nsent:
+            res = self.sample_clusters(sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes)
+            sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes = res
         return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
         for ex in data:
-            ex = self.preprocess(ex, self.is_test)
+            ex = self.preprocess(ex)
             if(ex is None):
                 continue
             minibatch.append(ex)

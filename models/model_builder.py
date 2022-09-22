@@ -182,26 +182,20 @@ class ParagraphMultiClassifier(nn.Module):
 
         if checkpoint is not None:
             print ('Load parameters from ext_finetune...')
-            #self.load_state_dict(checkpoint['model'], strict=True)
-            tree_params = [(n[15:], p) for n, p in checkpoint['model'].items() if n.startswith('planning_layer')]
-            self.planning_layer.load_state_dict(dict(tree_params), strict=True)
-            tree_params = [(n[8:], p) for n, p in checkpoint['model'].items() if n.startswith('encoder')]
-            self.encoder.load_state_dict(dict(tree_params), strict=True)
-        '''
+            params = [(n[12:], p) for n, p in checkpoint['model'].items() if n.startswith('classifiers')]
+            self.classifiers.load_state_dict(dict(params), strict=True)
         else:
-            if self.planning_layer is not None:
-                if args.param_init != 0.0:
-                    for p in self.planning_layer.parameters():
-                        p.data.uniform_(-args.param_init, args.param_init)
-                if args.param_init_glorot:
-                    for p in self.planning_layer.parameters():
-                        if p.dim() > 1:
-                            xavier_uniform_(p)
+            if args.param_init != 0.0:
+                for p in self.classifiers.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.classifiers.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
 
-        if args.freeze_encoder_decoder:
-            for param in self.model.parameters():
-                param.requires_grad = False
-        '''
+        # To save memory
+        for param in self.local_bert.parameters():
+            param.requires_grad = False
 
         self.to(device)
 

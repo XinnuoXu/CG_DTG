@@ -209,7 +209,7 @@ class SentenceClassification(nn.Module):
         x = x + pos_emb
 
         for i in range(self.num_inter_layers):
-            x = self.transformer_inter[i](i, x, x, ~ mask)  # all_sents * max_tokens * dim
+            x = self.transformer_inter[i](i, x, x, mask)  # all_sents * max_tokens * dim
 
         x = self.layer_norm(x)
         sent_scores = self.sigmoid(self.wo(x))
@@ -241,7 +241,7 @@ class ClusterClassification(nn.Module):
         x = top_vecs * mask[:, :, None].float()
 
         for i in range(self.num_inter_layers):
-            x = self.transformer_inter[i](i, x, x, ~ mask)  # all_sents * max_tokens * dim
+            x = self.transformer_inter[i](i, x, x, mask)  # all_sents * max_tokens * dim
 
         x = self.layer_norm(x)
         verd_scores = self.classifier_verd(x, mask)

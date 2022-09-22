@@ -17,18 +17,18 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs cls \
-        -max_src_nsent 2000 \
-        -ext_ff_size 2048 \
+        -max_src_nsent 5000 \
+        -ext_ff_size 1024 \
         -ext_heads 8 \
 	-ext_dropout 0.1 \
-        -ext_layers 3 \
+        -ext_layers 6 \
 	-train_steps 150000 \
 	-save_checkpoint_steps 30000 \
 	-warmup_steps 1000 \
-	-batch_size 3 \
+	-batch_size 100 \
 	-report_every 100 \
 	-lr 3e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-master_port 10001 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2,3
