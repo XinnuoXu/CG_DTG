@@ -141,13 +141,6 @@ class Translator(object):
 
     def _fast_translate_batch(self, batch, max_length, min_length=0):
 
-        def sent_probs_to_selected_ids(sent_probs):
-            selected_ids = []
-            for i in range(sent_probs.size(0)):
-                weights = sent_probs[i, :].tolist()
-                selected_ids.append([i for i in range(len(weights)) if weights[i] == 1])
-            return selected_ids
-
         assert not self.dump_beam
         beam_size = self.beam_size
         batch_size = batch.batch_size
@@ -156,6 +149,7 @@ class Translator(object):
         mask_src = batch.mask_src
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
+        mask_tgt_for_loss = batch.mask_tgt_for_loss
         device = src.device
         results = {}
 
@@ -176,6 +170,11 @@ class Translator(object):
             alive_seq = tile(tgt[:,0], beam_size, dim=0).unsqueeze(1)
         else:
             alive_seq = torch.full([batch_size * beam_size, 1], self.start_token_id, dtype=torch.long, device=device)
+
+        # Tile tgt and mask_tgt_for_loss if the input has prompts
+        prompts = tile(tgt, beam_size, dim=0)
+        prompts_control = torch.eq(mask_tgt_for_loss, mask_tgt)
+        prompts_control = tile(prompts_control, beam_size, dim=0)
 
         # Give full probability to the first beam on the first step.
         topk_log_probs = (torch.tensor([0.0] + [float("-inf")] * (beam_size - 1), device=device).repeat(batch_size))
@@ -245,9 +244,19 @@ class Translator(object):
             select_indices = batch_index.view(-1)
 
             # Append last prediction.
+            
             alive_seq = torch.cat(
                 [alive_seq.index_select(0, select_indices),
                  topk_ids.view(-1, 1)], -1)
+
+            cur_idx = step+1
+            for ex_idx in range(alive_seq.size(0)):
+                if cur_idx < prompts_control.size(1) and prompts_control[ex_idx][cur_idx] == False:
+                    alive_seq[ex_idx][-1] = prompts[ex_idx][cur_idx]
+                    if ex_idx % beam_size == 0:
+                        topk_log_probs[int(ex_idx/beam_size)][(ex_idx%beam_size)] = 0.0
+                    else:
+                        topk_log_probs[int(ex_idx/beam_size)][(ex_idx%beam_size)] = float("-inf")
 
             is_finished = topk_ids.eq(self.end_token_id)
             if step + 1 == max_length:
@@ -285,6 +294,8 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
             mask_src = mask_src.index_select(0, select_indices)
+            prompts = prompts.index_select(0, select_indices)
+            prompts_control = prompts_control.index_select(0, select_indices)
 
         return results
 

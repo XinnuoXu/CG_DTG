@@ -18,12 +18,12 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs cls \
         -max_src_nsent 5000 \
-        -ext_ff_size 1024 \
+        -ext_ff_size 2048 \
         -ext_heads 8 \
 	-ext_dropout 0.1 \
         -ext_layers 6 \
-	-train_steps 150000 \
-	-save_checkpoint_steps 30000 \
+	-train_steps 30000 \
+	-save_checkpoint_steps 10000 \
 	-warmup_steps 1000 \
 	-batch_size 100 \
 	-report_every 100 \

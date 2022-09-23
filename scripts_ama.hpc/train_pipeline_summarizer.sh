@@ -17,8 +17,8 @@ python train.py  \
         -tokenizer_path facebook/bart-base \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs abs \
-	-train_steps 320000 \
-	-save_checkpoint_steps 40000 \
+	-train_steps 150000 \
+	-save_checkpoint_steps 50000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \

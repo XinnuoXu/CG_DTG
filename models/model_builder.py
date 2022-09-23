@@ -8,7 +8,7 @@ from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 from models.optimizers import Optimizer
-from transformers import AutoTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, BertModel
 from models.encoder import SentenceClassification, ClusterClassification
 from sentence_transformers.models import Pooling
 
