@@ -1,6 +1,7 @@
 #coding=utf8
 
 import sys
+import json
 import argparse
 from utils import rouge_results_to_str, test_rouge
 from nltk import word_tokenize
@@ -14,6 +15,18 @@ def str2bool(v):
 		return False
 	else:
 		raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
+def process_selsum(candidate_dir):
+	cons = [line.strip().lower() for line in open(candidate_dir+'/test.cons')]
+	pros = [line.strip().lower() for line in open(candidate_dir+'/test.pros')]
+	verds = [line.strip().lower() for line in open(candidate_dir+'/test.verd')]
+	id_to_sentences = {}
+	for idx, con in enumerate(cons):
+		id_to_sentences[f"TEST_{idx}_cons"] = con
+		id_to_sentences[f"TEST_{idx}_pros"] = pros[idx]
+		id_to_sentences[f"TEST_{idx}_verdict"] = verds[idx]
+	return id_to_sentences
 
 
 def process_system_output(candidate_path, eid_path):
@@ -37,6 +50,22 @@ def process_system_output(candidate_path, eid_path):
 		else:
 			id_to_sentences[line_id] += (' ' + cand)
 	
+	return id_to_sentences
+
+
+def process_raw(gold_path):
+	id_to_sentences = {}
+	json_objs = [json.loads(line.strip()) for line in open(gold_path)]
+	for json_obj in json_objs:
+		raw_tgt = json_obj['raw_tgt']
+		example_id = json_obj['example_id']
+		summaries = raw_tgt.split(' </s> ')
+		verdict = summaries[0]
+		pros = summaries[1]
+		cons = summaries[2]
+		id_to_sentences[f"{example_id}_verdict"] = verdict.lower()
+		id_to_sentences[f"{example_id}_cons"] = cons.lower()
+		id_to_sentences[f"{example_id}_pros"] = pros.lower()
 	return id_to_sentences
 
 
@@ -87,6 +116,8 @@ def run_pyrouge(id_to_cands, id_to_golds):
 	pairs = {}
 	for idx in id_to_cands:
 		cand = id_to_cands[idx]
+		if idx not in id_to_golds:
+			continue
 		gold = id_to_golds[idx]
 		pairs[idx] = [gold, cand]
 
@@ -115,10 +146,14 @@ if __name__ == '__main__':
 	# Process system outputs
 	if args.cand_type == 'systems':
 		id_to_cands = process_system_output(args.cand_path, args.eid_path)
+	elif args.cand_type == 'selsum':
+		id_to_cands = process_selsum(args.cand_path)
 	
 	# Process golds
 	if args.gold_type == 'cluster_clean':
 		id_to_golds = process_cluster_clean(args.gold_path, args.eid_path)
+	elif args.gold_type == 'raw':
+		id_to_golds = process_raw(args.gold_path)
 
 	# Run pyrouge
 	run_pyrouge(id_to_cands, id_to_golds)
