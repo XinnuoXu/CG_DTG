@@ -48,7 +48,7 @@ def build_optim(args, model, checkpoint):
 
 
 class ExtSummarizer(nn.Module):
-    def __init__(self, args, device, vocab_size, checkpoint, sentence_modelling_for_ext):
+    def __init__(self, args, device, vocab_size, checkpoint):
         super(ExtSummarizer, self).__init__()
         self.args = args
         self.device = device
@@ -165,7 +165,7 @@ class AbsSummarizer(nn.Module):
 
 
 class ParagraphMultiClassifier(nn.Module):
-    def __init__(self, args, device, checkpoint, sentence_modelling_for_ext):
+    def __init__(self, args, device, checkpoint):
         super(ParagraphMultiClassifier, self).__init__()
         self.args = args
         self.device = device

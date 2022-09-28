@@ -46,5 +46,6 @@ echo "Creating directory to save model weights"
 #sh ./scripts_cnn.hpc/train_cnn_base.sh
 #sh scripts_cnn.hpc/train_cnn_entity_chain.sh
 #sh scripts_cnn.hpc/train_cnn_parallel.sh
+sh scripts_ama.hpc/train_pipeline_summarizer.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

@@ -290,40 +290,13 @@ def shards(state, shard_size, eval_only=False):
 
 class ConentSelectionLossCompute(nn.Module):
 
-    def __init__(self, sentence_modelling_for_ext):
+    def __init__(self):
         super(ConentSelectionLossCompute, self).__init__()
-        
-        self.sentence_modelling_for_ext = sentence_modelling_for_ext
         self.loss = torch.nn.BCELoss(reduction='none')
 
     def _compute_loss(self, labels, sent_scores, mask):
 
-        if(self.sentence_modelling_for_ext == 'tree'):
-            loss = 0
-            labels = labels.float()
-            for r in sent_scores:
-                r = torch.clamp(r, 1e-5, 1 - 1e-5)
-                _loss = self.loss(r, labels)
-                _loss = (_loss * mask.float()).sum()
-                loss += _loss
-            loss = loss/len(sent_scores)
-        else:
-            loss = self.loss(sent_scores, labels.float())
-            loss = (loss * mask.float()).sum()
+        loss = self.loss(sent_scores, labels.float())
+        loss = (loss * mask.float()).sum()
 
         return loss
-
-    def _compute_loss_test(self, labels, sent_scores, mask):
-
-        if(self.sentence_modelling_for_ext == 'tree'):
-            labels = labels.float()
-            r = torch.clamp(sent_scores[-1], 1e-5, 1 - 1e-5)
-            loss = self.loss(r, labels)
-        else:
-            loss = self.loss(sent_scores, labels.float())
-            loss = (loss * mask.float()).sum()
-
-        return loss
-
-
-

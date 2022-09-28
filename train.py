@@ -44,7 +44,6 @@ if __name__ == '__main__':
     parser.add_argument("-ext_layers", default=3, type=int)
     parser.add_argument("-ext_heads", default=8, type=int)
     parser.add_argument("-ext_ff_size", default=2048, type=int)
-    parser.add_argument("-sentence_modelling_for_ext", default='', type=str, choices=['transformer', 'tree', 'none'])
 
     # planning parameters
     parser.add_argument("-pred_special_tok", default='<PRED>', type=str)

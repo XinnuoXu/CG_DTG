@@ -12,6 +12,7 @@ from collections import Counter
 from os.path import join as pjoin
 
 import torch
+import numpy as np
 from multiprocess import Pool
 from transformers import AutoTokenizer
 
@@ -19,6 +20,7 @@ from models.logging import logger
 from models.spectral_clustering import SpectralCluser
 
 from prepro.dbscan_clustering import DBSCANCluser
+from prepro.clean_testset import TgtCleaner
 
 class DataCreator():
     def __init__(self, args, additional_tokens=None):
@@ -440,6 +442,22 @@ def simple_split_shard(args):
                 dataset = []
 
 
+def format_semantic_cleaning(args):
+
+    input_path = args.raw_path
+    output_path = args.save_path
+    high_freq_reviews = args.additional_token_path
+
+    cleaner_obj = TgtCleaner(distance_metric='euclidean',
+                              sentence_embedding_model='all-MiniLM-L12-v2',
+                              distance_input_dimention=56,
+                              distance_threshold=0.73)
+
+    filename_in = input_path
+    filename_out = output_path
+    cleaner_obj.run(filename_in, filename_out)
+
+
 def format_hdbscan(args):
 
     input_path = args.raw_path
@@ -559,6 +577,44 @@ def format_hdbscan_cluster_to_cls(args):
             fpout.close()
 
 
+def format_selected_cluster_to_s2s(args):
+
+    def rank_and_select(clusters, sent_scores, tag, top_k, example_id):
+        sent_scores = np.array(sent_scores)
+        selected_ids = np.argsort(-sent_scores)
+        prefix_pattern = f'{tag} of this product :'
+        top_k = min(top_k, len(clusters))
+        ret_jsons = []
+        for selected_idx in selected_ids[:top_k]:
+            new_json = {}
+            new_json['src'] = clusters[selected_idx]
+            new_json['example_id'] = f"{example_id}_Cluster{selected_idx}_{tag}"
+            new_json['tgt_prefix'] = [prefix_pattern]
+            new_json['tgt'] = [clusters[selected_idx]]
+            ret_jsons.append(new_json)
+        return ret_jsons
+
+    json_f = pjoin(args.raw_path, 'test.res.json')
+    real_name = json_f.split('/')[-1]
+    fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
+
+    output_jsons = []
+    for line in open(json_f):
+        json_obj = json.loads(line.strip())
+        src_clusters = json_obj['clusters']
+        example_id = json_obj['example_id']
+
+        verd_selected_jsons = rank_and_select(src_clusters, json_obj['verdict_scores'], 'verdict', args.amasum_verdict_cluster_topk, example_id)
+        pros_selected_jsons = rank_and_select(src_clusters, json_obj['pros_scores'], 'pros', args.amasum_pros_cluster_topk, example_id)
+        cons_selected_jsons = rank_and_select(src_clusters, json_obj['cons_scores'], 'cons', args.amasum_cons_cluster_topk, example_id)
+
+        output_jsons.extend(verd_selected_jsons)
+        output_jsons.extend(pros_selected_jsons)
+        output_jsons.extend(cons_selected_jsons)
+
+    fpout.write(json.dumps(output_jsons))
+    fpout.close()
+
 
 def _process_cls(params):
 
@@ -611,6 +667,7 @@ def _process_cls(params):
                        'verdict_labels': new_verdict_labels,
                        "pros_labels": new_pros_labels,
                        "cons_labels": new_cons_labels,
+                       "clusters": new_clusters,
                        "cluster_sizes": new_cluster_sizes,
                        "eid": eid}
 

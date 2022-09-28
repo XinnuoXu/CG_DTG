@@ -18,5 +18,6 @@ python preprocess.py \
         -tokenizer bert-base-uncased \
 	-n_cpus 32 \
         -max_src_ntokens 256 \
+        -max_cluster_num 250 \
 	-log_file ${LOG_PATH}/preprocess.log
 	

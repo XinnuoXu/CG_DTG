@@ -42,6 +42,10 @@ class Batch(object):
             setattr(self, 'cluster_sizes', pre_cluster_sizes)
             setattr(self, 'eid', pre_eid)
 
+            if is_test:
+                pre_clusters = [x[-1] for x in data]
+                setattr(self, 'clusters', pre_clusters)
+
     def __len__(self):
         return self.batch_size
 
@@ -188,10 +192,14 @@ class DataIterator(object):
         pros_labels = ex['pros_labels']
         cons_labels = ex['cons_labels']
         cluster_sizes = ex['cluster_sizes']
-        if sum(cluster_sizes) > self.args.max_src_nsent:
+        clusters = ex['clusters']
+        if sum(cluster_sizes) > self.args.max_src_nsent and (not self.is_test):
             res = self.sample_clusters(sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes)
             sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes = res
-        return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid
+        if (not self.is_test):
+            return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid
+        else:
+            return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid, clusters
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

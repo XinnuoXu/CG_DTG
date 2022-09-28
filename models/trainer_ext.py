@@ -86,7 +86,7 @@ class Trainer(object):
         self.n_gpu = n_gpu
         self.gpu_rank = gpu_rank
         self.report_manager = report_manager
-        self.loss = ConentSelectionLossCompute(self.args.sentence_modelling_for_ext)
+        self.loss = ConentSelectionLossCompute()
 
         self.model_analysis = Analysis()
 
@@ -261,12 +261,7 @@ class Trainer(object):
                                     range(batch.batch_size)]
                 else:
                     sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
-
-                    if (self.args.sentence_modelling_for_ext == 'tree'):
-                        device = mask.device
-                        sent_scores = sent_scores[-1] + mask.float()
-                    else:
-                        sent_scores = sent_scores+mask.float()
+                    sent_scores = sent_scores+mask.float()
 
                     sent_scores = sent_scores.cpu().data.numpy()
                     selected_ids = np.argsort(-sent_scores, 1)

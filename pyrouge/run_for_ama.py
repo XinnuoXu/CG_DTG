@@ -1,6 +1,6 @@
 #coding=utf8
 
-import sys
+import os, sys
 import json
 import argparse
 from utils import rouge_results_to_str, test_rouge
@@ -69,7 +69,60 @@ def process_raw(gold_path):
 	return id_to_sentences
 
 
-def process_cluster_clean(gold_path, eid_path):
+def process_semantic_clean(gold_path):
+	id_to_sentences = {}
+	json_objs = []
+	for filename in os.listdir(gold_path):
+	    file_path = os.path.join(gold_path, filename)
+	    json_objs.extend([json.loads(line.strip()) for line in open(file_path)])
+	for json_obj in json_objs:
+		tgt_sentences = json_obj['cleaned_tgt']
+		example_id = json_obj['example_id']
+		verdicts = []; pros = []; cons = []
+		for sentence in tgt_sentences:
+			chunks = sentence.split(':')
+			summary_sentence = ':'.join(chunks[1:]).strip()
+			summary_type = sentence.split(' ')[0]
+			if summary_type == 'verdict':
+				verdicts.append(summary_sentence)
+			elif summary_type == 'pros':
+				pros.append(summary_sentence)
+			elif summary_type == 'cons':
+				cons.append(summary_sentence)
+		if len(verdicts) > 0:
+			id_to_sentences[f"{example_id}_verdict"] = ' '.join(verdicts).lower()
+		if len(cons) > 0:
+			id_to_sentences[f"{example_id}_cons"] = ' '.join(cons).lower()
+		if len(pros) > 0:
+			id_to_sentences[f"{example_id}_pros"] = ' '.join(pros).lower()
+	return id_to_sentences
+
+
+def process_cluster_clean(gold_path):
+	json_objs = []
+	for filename in os.listdir(gold_path):
+		if not filename.startswith('test.'):
+			continue
+		file_path = os.path.join(gold_path, filename)
+		json_objs.extend([json.loads(line.strip()) for line in open(file_path)])
+
+	id_to_sentences = {}
+	for json_obj in json_objs:
+		eid = json_obj['example_id']
+		eid_list = eid.split('_')
+		example_id = '_'.join(eid_list[:2])
+		tag = eid_list[-1]
+		example_id = example_id + '_' + tag
+
+		tgt_sentences = ' '.join([' '.join(item) for item in json_obj['tgt']])
+		if example_id not in id_to_sentences:
+			id_to_sentences[example_id] = tgt_sentences
+		else:
+			id_to_sentences[example_id] += (' ' + tgt_sentences)
+	return id_to_sentences
+
+
+def process_cluster_clean_v1(gold_path, eid_path):
 	golds = [line.strip() for line in open(gold_path)]
 	eids = [line.strip() for line in open(eid_path)]
 	zipped_pairs = zip(eids, golds)
@@ -151,9 +204,11 @@ if __name__ == '__main__':
 	
 	# Process golds
 	if args.gold_type == 'cluster_clean':
-		id_to_golds = process_cluster_clean(args.gold_path, args.eid_path)
+		id_to_golds = process_cluster_clean(args.gold_path)
 	elif args.gold_type == 'raw':
 		id_to_golds = process_raw(args.gold_path)
+	elif args.gold_type == 'clean':
+		id_to_golds = process_semantic_clean(args.gold_path)
 
 	# Run pyrouge
 	run_pyrouge(id_to_cands, id_to_golds)

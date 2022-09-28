@@ -19,7 +19,7 @@ from models.trainer_cls import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
-model_flags = ['hidden_size', 'ff_size', 'heads', 'inter_layers', 'encoder', 'ff_actv', 'use_interval', 'rnn_size', 'ext_or_abs']
+model_flags = ['max_src_nsent', 'ext_ff_size', 'ext_heads', 'ext_dropout', 'ext_layers', 'ext_or_abs']
 
 
 class ErrorHandler(object):
@@ -72,9 +72,6 @@ def validate_cls(args, device_id):
             break
     xent_lst = sorted(xent_lst, key=lambda x: x[0])[:3]
     logger.info('PPL %s' % str(xent_lst))
-    #for xent, cp in xent_lst:
-    #    step = int(cp.split('.')[-2].split('_')[-1])
-    #    test_ext(args, device_id, cp, step)
 
 
 def validate(args, device_id, pt, step):
@@ -92,12 +89,11 @@ def validate(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint, args.sentence_modelling_for_ext)
+    model = ParagraphMultiClassifier(args, device, checkpoint)
     model.eval()
 
     valid_iter = data_cls_loader.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
-                                        args.batch_size, device,
-                                        shuffle=False, is_test=False)
+                                            args.batch_size, device, shuffle=False, is_test=False)
     trainer = build_trainer(args, device_id, model, None)
     stats = trainer.validate(valid_iter, step)
     return stats.xent()
@@ -118,12 +114,11 @@ def test_cls(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint, args.sentence_modelling_for_ext)
+    model = ParagraphMultiClassifier(args, device, checkpoint)
     model.eval()
 
     test_iter = data_cls_loader.Dataloader(args, load_dataset(args, args.test_data_source, shuffle=False),
-                                       args.batch_size, device,
-                                       shuffle=False, is_test=True)
+                                           args.batch_size, device, shuffle=False, is_test=True)
     trainer = build_trainer(args, device_id, model, None)
 
     trainer.test(test_iter, step)
@@ -192,8 +187,7 @@ def train_single_cls(args, device_id):
 
     if args.train_from != '':
         logger.info('Loading checkpoint from %s' % args.train_from)
-        checkpoint = torch.load(args.train_from,
-                                map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(args.train_from, map_location=lambda storage, loc: storage)
         opt = vars(checkpoint['opt'])
         for k in opt.keys():
             if (k in model_flags):
@@ -203,11 +197,11 @@ def train_single_cls(args, device_id):
 
     def train_iter_fct():
         return data_cls_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
-                                        args.batch_size, device, shuffle=True, is_test=False)
+                                          args.batch_size, device, shuffle=True, is_test=False)
 
     print (args.tokenizer_path)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint, args.sentence_modelling_for_ext)
+    model = ParagraphMultiClassifier(args, device, checkpoint)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

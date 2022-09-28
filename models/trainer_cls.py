@@ -50,211 +50,12 @@ class Trainer(object):
         self.n_gpu = n_gpu
         self.gpu_rank = gpu_rank
         self.report_manager = report_manager
-        self.loss = ConentSelectionLossCompute(self.args.sentence_modelling_for_ext)
+        self.loss = ConentSelectionLossCompute()
 
         assert grad_accum_count > 0
         if (model):
             self.model.train()
 
-    def train(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
-        logger.info('Start training...')
-
-        step = self.optim._step + 1
-        true_batchs = []
-        accum = 0
-        normalization = 0
-        train_iter = train_iter_fct()
-
-        total_stats = Statistics()
-        report_stats = Statistics()
-        self._start_report_manager(start_time=total_stats.start_time)
-
-        while step <= train_steps:
-
-            reduce_counter = 0
-            for i, batch in enumerate(train_iter):
-                if self.n_gpu == 0 or (i % self.n_gpu == self.gpu_rank):
-
-                    true_batchs.append(batch)
-                    normalization += batch.batch_size
-                    accum += 1
-                    if accum == self.grad_accum_count:
-                        reduce_counter += 1
-                        if self.n_gpu > 1:
-                            normalization = sum(distributed.all_gather_list(normalization))
-
-                        self._gradient_accumulation(true_batchs, normalization, total_stats, report_stats)
-
-                        report_stats = self._maybe_report_training(step, train_steps,
-                                                                   [self.optim.learning_rate],
-                                                                   report_stats)
-
-                        true_batchs = []
-                        accum = 0
-                        normalization = 0
-                        if (step % self.save_checkpoint_steps == 0 and self.gpu_rank == 0):
-                            self._save(step)
-
-                        step += 1
-                        if step > train_steps:
-                            break
-            train_iter = train_iter_fct()
-
-        return total_stats
-
-
-    def validate(self, valid_iter, step=0):
-        self.model.eval()
-        stats = Statistics()
-
-        with torch.no_grad():
-            for batch in valid_iter:
-                src = batch.src
-                mask_src = batch.mask_src
-                tgt = batch.tgt
-                mask_tgt = batch.mask_tgt
-                clss = batch.clss
-                mask_cls = batch.mask_cls
-                labels = batch.gt_selection
-
-                sent_scores, mask, _, _ = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
-
-                loss = self.loss._compute_loss_test(labels, sent_scores, mask)
-                loss = (loss * mask.float()).sum()
-
-                batch_stats = Statistics(float(loss.cpu().data.numpy()), len(labels))
-                stats.update(batch_stats)
-
-            self._report_step(0, step, valid_stats=stats)
-            return stats
-
-
-    def test(self, test_iter, step, cal_lead=False, cal_oracle=False):
-        def _get_ngrams(n, text):
-            ngram_set = set()
-            text_length = len(text)
-            max_index_ngram_start = text_length - n
-            for i in range(max_index_ngram_start + 1):
-                ngram_set.add(tuple(text[i:i + n]))
-            return ngram_set
-
-        def _block_tri(c, p):
-            tri_c = _get_ngrams(3, c.split())
-            for s in p:
-                tri_s = _get_ngrams(3, s.split())
-                if len(tri_c.intersection(tri_s)) > 0:
-                    return True
-            return False
-
-        if (not cal_lead and not cal_oracle):
-            self.model.eval()
-        stats = Statistics()
-
-        src_path = '%s.raw_src' % (self.args.result_path)
-        can_path = '%s.candidate' % (self.args.result_path)
-        gold_path = '%s.gold' % (self.args.result_path)
-        gold_select_path = '%s.gold_select' % (self.args.result_path)
-        selected_ids_path = '%s.selected_ids' % (self.args.result_path)
-        tree_path = '%s.trees' % (self.args.result_path)
-        edge_path = '%s.edge' % (self.args.result_path)
-
-        save_src = open(src_path, 'w')
-        save_pred = open(can_path, 'w')
-        save_gold = open(gold_path, 'w')
-        save_gold_select = open(gold_select_path, 'w')
-        save_selected_ids = open(selected_ids_path, 'w')
-        save_trees = open(tree_path, 'w')
-        save_edges = open(edge_path, 'w')
-
-        with torch.no_grad():
-            for batch in test_iter:
-                src = batch.src
-                mask_src = batch.mask_src
-                tgt = batch.tgt
-                mask_tgt = batch.mask_tgt
-                clss = batch.clss
-                mask_cls = batch.mask_cls
-                labels = batch.gt_selection
-                nsent = batch.nsent
-
-                gold = []; pred = []; pred_select = []
-
-                if (cal_lead):
-                    selected_ids = [list(range(batch.clss.size(1)))] * batch.batch_size
-                elif (cal_oracle):
-                    selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in
-                                    range(batch.batch_size)]
-                else:
-                    sent_scores, mask, aj_matrixes, src_features = self.model(src, tgt, mask_src, mask_tgt, clss, mask_cls)
-
-                    if (self.args.sentence_modelling_for_ext == 'tree'):
-                        device = mask.device
-                        sent_scores = sent_scores[-1] + mask.float()
-                    else:
-                        sent_scores = sent_scores+mask.float()
-
-                    sent_scores = sent_scores.cpu().data.numpy()
-                    selected_ids = np.argsort(-sent_scores, 1)
-                    #selected_ids = np.sort(selected_ids,1)
-
-                sent_nums = torch.sum(mask_cls, 1)
-                for i, idx in enumerate(selected_ids):
-                    _pred = []; _pred_select = []
-                    if (len(batch.src_str[i]) == 0):
-                        continue
-                    sent_num = sent_nums[i]
-                    if self.args.select_topn == 0:
-                        select_topn = nsent[i]
-                    elif self.args.select_topn > 0 and self.args.select_topn < 1:
-                        select_topn = int(sent_num * self.args.select_topn) + 1
-                    else:
-                        select_topn = int(self.args.select_topn)
-                    for j in selected_ids[i][:len(batch.src_str[i])]:
-                        if (j >= len(batch.src_str[i])):
-                            continue
-                        candidate = batch.src_str[i][j].strip()
-                        if (self.args.block_trigram):
-                            if (not _block_tri(candidate, _pred)):
-                                _pred.append(candidate)
-                                _pred_select.append(int(j))
-                        else:
-                            _pred.append(candidate)
-                            _pred_select.append(int(j))
-                        if (not cal_oracle) and (not self.args.recall_eval) and len(_pred) == select_topn:
-                            break
-
-                    _pred = ' <q> '.join(_pred)
-
-                    pred_select.append(_pred_select)
-                    pred.append(_pred)
-                    gold.append(' <q> '.join(batch.tgt_str[i]))
-
-                selected_ids = [[j for j in range(batch.clss.size(1)) if labels[i][j] == 1] for i in range(batch.batch_size)]
-
-                for i in range(len(gold)):
-                    save_gold.write(gold[i].strip()+'\n')
-                for i in range(len(pred)):
-                    save_pred.write(pred[i].strip()+'\n')
-                for i in range(len(batch.src_str)):
-                    save_src.write(' '.join(batch.src_str[i]).strip() + '\n')
-                for i in range(len(pred_select)):
-                    item = {'gold':selected_ids[i], 'pred':pred_select[i]}
-                    save_selected_ids.write(json.dumps(item) + '\n')
-                for i, idx in enumerate(selected_ids):
-                    _gold_selection = [batch.src_str[i][j].strip() for j in selected_ids[i][:len(batch.src_str[i])]]
-                    _gold_selection = ' <q> '.join(_gold_selection).strip()
-                    save_gold_select.write(_gold_selection + '\n')
-
-        self._report_step(0, step, valid_stats=stats)
-        save_src.close()
-        save_gold.close()
-        save_pred.close()
-        save_gold_select.close()
-        save_selected_ids.close()
-        save_trees.close()
-        save_edges.close()
-
-        return stats
 
     def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats):
 
@@ -317,6 +118,134 @@ class Trainer(object):
                 distributed.all_reduce_and_rescale_tensors(
                     grads, float(1))
             self.optim.step()
+
+
+    def train(self, train_iter_fct, train_steps, valid_iter_fct=None, valid_steps=-1):
+        logger.info('Start training...')
+
+        step = self.optim._step + 1
+        true_batchs = []
+        accum = 0
+        normalization = 0
+        train_iter = train_iter_fct()
+
+        total_stats = Statistics()
+        report_stats = Statistics()
+        self._start_report_manager(start_time=total_stats.start_time)
+
+        while step <= train_steps:
+
+            reduce_counter = 0
+            for i, batch in enumerate(train_iter):
+                if self.n_gpu == 0 or (i % self.n_gpu == self.gpu_rank):
+
+                    true_batchs.append(batch)
+                    normalization += batch.batch_size
+                    accum += 1
+                    if accum == self.grad_accum_count:
+                        reduce_counter += 1
+                        if self.n_gpu > 1:
+                            normalization = sum(distributed.all_gather_list(normalization))
+
+                        self._gradient_accumulation(true_batchs, normalization, total_stats, report_stats)
+
+                        report_stats = self._maybe_report_training(step, train_steps,
+                                                                   [self.optim.learning_rate],
+                                                                   report_stats)
+
+                        true_batchs = []
+                        accum = 0
+                        normalization = 0
+                        if (step % self.save_checkpoint_steps == 0 and self.gpu_rank == 0):
+                            self._save(step)
+
+                        step += 1
+                        if step > train_steps:
+                            break
+            train_iter = train_iter_fct()
+
+        return total_stats
+
+
+    def validate(self, valid_iter, step=0):
+        self.model.eval()
+        stats = Statistics()
+
+        with torch.no_grad():
+            for batch in valid_iter:
+                src = batch.src
+                mask_src = batch.mask_src
+                verdict_labels = batch.verdict_labels
+                pros_labels = batch.pros_labels
+                cons_labels = batch.cons_labels
+                cluster_sizes = batch.cluster_sizes
+
+                verd_scores, pros_scores, cons_scores, cluster_masks = self.model(src, mask_src, cluster_sizes)
+
+                loss_verd = self.loss._compute_loss(verdict_labels, verd_scores, cluster_masks)
+                loss_pros = self.loss._compute_loss(pros_labels, pros_scores, cluster_masks)
+                loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
+                loss = loss_verd + loss_pros + loss_cons
+
+                batch_stats = Statistics(float(loss.cpu().data.numpy()),
+                                         src.size(0),
+                                         loss_verd=float(loss_verd.cpu().data.numpy()),
+                                         loss_pros=float(loss_pros.cpu().data.numpy()),
+                                         loss_cons=float(loss_cons.cpu().data.numpy()))
+                stats.update(batch_stats)
+
+            self._report_step(0, step, valid_stats=stats)
+            return stats
+
+
+    def test(self, test_iter, step, cal_lead=False, cal_oracle=False):
+
+        self.model.eval()
+
+        res_path = '%s.json' % (self.args.result_path)
+        save_res = open(res_path, 'w')
+
+        with torch.no_grad():
+            for batch in test_iter:
+
+                src = batch.src
+                mask_src = batch.mask_src
+                verdict_labels = batch.verdict_labels
+                pros_labels = batch.pros_labels
+                cons_labels = batch.cons_labels
+                cluster_sizes = batch.cluster_sizes
+                clusters = batch.clusters
+                eid = batch.eid
+
+                verd_scores, pros_scores, cons_scores, cluster_masks = self.model(src, mask_src, cluster_sizes)
+
+                verd_scores = verd_scores + cluster_masks.float()
+                pros_scores = pros_scores + cluster_masks.float()
+                cons_scores = cons_scores + cluster_masks.float()
+
+                verd_scores = verd_scores.cpu().data.numpy()
+                pros_scores = pros_scores.cpu().data.numpy()
+                cons_scores = cons_scores.cpu().data.numpy()
+
+                sent_nums = [len(cluster_size) for cluster_size in cluster_sizes]
+
+                for i in range(len(sent_nums)):
+                    sent_num = sent_nums[i]
+
+                    json_obj = {}
+                    json_obj['clusters'] = clusters[i]
+                    json_obj['verdict_labels'] = verdict_labels[i][:sent_num].cpu().data.numpy().tolist()
+                    json_obj['pros_labels'] = pros_labels[i][:sent_num].cpu().data.numpy().tolist()
+                    json_obj['cons_labels'] = cons_labels[i][:sent_num].cpu().data.numpy().tolist()
+                    
+                    json_obj['verdict_scores'] = verd_scores[i][:sent_num].tolist()
+                    json_obj['pros_scores'] = pros_scores[i][:sent_num].tolist()
+                    json_obj['cons_scores'] = cons_scores[i][:sent_num].tolist()
+                    json_obj['example_id'] = eid[i]
+                    
+                    save_res.write(json.dumps(json_obj)+'\n')
+
+        save_res.close()
 
 
     def _save(self, step):
