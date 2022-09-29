@@ -104,7 +104,9 @@ def process_cluster_clean(gold_path):
 		if not filename.startswith('test.'):
 			continue
 		file_path = os.path.join(gold_path, filename)
-		json_objs.extend([json.loads(line.strip()) for line in open(file_path)])
+		read_objs = [json.loads(line.strip()) for line in open(file_path)]
+		for batch in read_objs:
+			json_objs.extend(batch)
 
 	id_to_sentences = {}
 	for json_obj in json_objs:

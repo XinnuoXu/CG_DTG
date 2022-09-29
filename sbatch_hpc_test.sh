@@ -38,6 +38,7 @@ echo "Creating directory to save model weights"
 #sh scripts_cnn.hpc/test_cnn_entity_chain.sh
 #sh scripts_cnn.hpc/test_cnn_entity_chain_gold.sh
 #sh scripts_cnn.hpc/test_cnn_parallel_gold.sh
-sh scripts_cnn.hpc/test_cnn_parallel.sh
+#sh scripts_cnn.hpc/test_cnn_parallel.sh
+sh scripts_ama.hpc/test_pipeline_summarizer.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

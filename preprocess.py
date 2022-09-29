@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("-amasum_verdict_cluster_topk", default=3, type=int)
     parser.add_argument("-amasum_pros_cluster_topk", default=6, type=int)
     parser.add_argument("-amasum_cons_cluster_topk", default=3, type=int)
+    parser.add_argument("-amasum_random_topk", default=False, type=str2bool)
 
     parser.add_argument('-n_cpus', default=2, type=int)
 

@@ -581,7 +581,11 @@ def format_selected_cluster_to_s2s(args):
 
     def rank_and_select(clusters, sent_scores, tag, top_k, example_id):
         sent_scores = np.array(sent_scores)
-        selected_ids = np.argsort(-sent_scores)
+        if args.amasum_random_topk:
+            selected_ids = [i for i in range(sent_scores.shape[0])]
+            random.shuffle(selected_ids)
+        else:
+            selected_ids = np.argsort(-sent_scores)
         prefix_pattern = f'{tag} of this product :'
         top_k = min(top_k, len(clusters))
         ret_jsons = []
