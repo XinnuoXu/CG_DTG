@@ -177,7 +177,7 @@ class DBSCANCluser():
             
         # get sentences
         sources = preprocess_reviews(json_obj['document_segs'], high_freq_reviews=self.high_freq_reviews)
-        targets, targets_prefixes = preprocess_summaries(json_obj['gold_segs'])
+        targets, targets_prefixes = preprocess_summaries(json_obj['gold_segs'], do_sentence_segmentation=False)
         raw_tgt = json_obj['raw_tgt']
         example_id = json_obj['example_id']
         sentences = sources + targets

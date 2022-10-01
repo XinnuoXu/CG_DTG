@@ -16,5 +16,5 @@ python preprocess.py \
         -amasum_verdict_cluster_topk 3 \
         -amasum_pros_cluster_topk 6 \
         -amasum_cons_cluster_topk 3 \
-        -amasum_random_topk True \
+        -amasum_random_topk False \
 	-log_file ${LOG_PATH}/preprocess.log
