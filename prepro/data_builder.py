@@ -21,6 +21,7 @@ from models.spectral_clustering import SpectralCluser
 
 from prepro.dbscan_clustering import DBSCANCluser
 from prepro.clean_testset import TgtCleaner
+from prepro.reconstruction_data import ReconstructionData
 
 class DataCreator():
     def __init__(self, args, additional_tokens=None):
@@ -478,6 +479,23 @@ def format_hdbscan(args):
     filename_in = input_path
     filename_out = output_path
     dbscan_obj.run(filename_in, filename_out)
+
+
+def format_augment(args):
+
+    input_path = args.raw_path
+    output_path = args.save_path
+    high_freq_reviews = args.additional_token_path
+
+    rec_obj = ReconstructionData(sentence_embedding_model='all-mpnet-base-v2',
+                                 device='cuda',
+                                 metric='euclidean',
+                                 compression_dimention=56,
+                                 semantic_threshold=0.75)
+
+    filename_in = input_path
+    filename_out = output_path
+    rec_obj.run(filename_in, filename_out)
 
 
 def format_hdbscan_cluster_to_s2s(args):

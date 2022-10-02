@@ -3,7 +3,8 @@
 BASE_DIR=./outputs.ama/
 
 DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.summarizer/
+#MODEL_PATH=${BASE_DIR}/models.summarizer/
+MODEL_PATH=${BASE_DIR}/models.summarizer.augment/
 LOG_PATH=${BASE_DIR}/logs.summarizer/
 
 mkdir -p ${MODEL_PATH}
@@ -17,8 +18,8 @@ python train.py  \
         -tokenizer_path facebook/bart-base \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs abs \
-	-train_steps 150000 \
-	-save_checkpoint_steps 50000 \
+	-train_steps 300000 \
+	-save_checkpoint_steps 100000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \
