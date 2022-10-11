@@ -646,11 +646,7 @@ def _process_cls(params):
         logger.info('Ignore %s' % save_file)
         return
 
-    additional_tokens = None
-    if args.additional_token_path != '':
-        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
-
-    data_obj = DataCreator(args, additional_tokens)
+    data_obj = DataCreator(args)
     jobs = json.load(open(json_file))
 
     datasets = []
@@ -730,11 +726,7 @@ def _process_cls_cluster_level(params):
         logger.info('Ignore %s' % save_file)
         return
 
-    additional_tokens = None
-    if args.additional_token_path != '':
-        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
-
-    data_obj = DataCreator(args, additional_tokens)
+    data_obj = DataCreator(args)
     jobs = json.load(open(json_file))
 
     datasets = []
@@ -809,6 +801,74 @@ def format_for_classification_training_v2(args):
         print(a_lst)
         pool = Pool(args.n_cpus)
         for d in pool.imap(_process_cls_cluster_level, a_lst):
+            pass
+
+        pool.close()
+        pool.join()
+
+
+def _process_cls_cluster_as_sentence(params):
+
+    corpus_type, json_file, args, save_file = params
+    logger.info('Processing %s' % json_file)
+    if (os.path.exists(save_file)):
+        logger.info('Ignore %s' % save_file)
+        return
+
+    data_obj = DataCreator(args)
+    jobs = json.load(open(json_file))
+
+    datasets = []
+    for d in jobs:
+        eid = d['example_id']
+        clusters = d['clusters']
+        verdict_labels = d['verdict_labels']
+        pros_labels = d['pros_labels']
+        cons_labels = d['cons_labels']
+
+        cluster_sizes = [len(cluster) for cluster in clusters]
+        obj = zip(cluster_sizes, clusters, verdict_labels, pros_labels, cons_labels)
+        obj = sorted(obj, key=lambda x: x[0], reverse=True)
+        for idx, pair in enumerate(obj):
+            cluster_size = pair[0]
+            cluster = pair[1]
+            verdict_label = pair[2]
+            pros_label = pair[3]
+            cons_label = pair[4]
+            
+            sentences, _ = data_obj.preprocess_src(cluster, args.max_src_ntokens)
+
+            b_data = {"sentences": [sentences],
+                      'verdict_labels': [verdict_label],
+                      "pros_labels": [pros_label],
+                      "cons_labels": [cons_label],
+                      "clusters": [cluster],
+                      "cluster_sizes": [cluster_size],
+                      "eid": f'{eid}_CLUSTER{idx}'}
+
+            datasets.append(b_data)
+
+    logger.info('Processed instances %d' % len(datasets))
+    logger.info('Saving to %s' % save_file)
+    torch.save(datasets, save_file)
+    datasets = []
+    gc.collect()
+
+
+def format_for_classification_training_v3(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['validation', 'train', 'test']
+
+    for corpus_type in datasets:
+        a_lst = []
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            a_lst.append((corpus_type, json_f, args, pjoin(args.save_path, real_name.replace('json', 'bert.pt'))))
+        print(a_lst)
+        pool = Pool(args.n_cpus)
+        for d in pool.imap(_process_cls_cluster_as_sentence, a_lst):
             pass
 
         pool.close()

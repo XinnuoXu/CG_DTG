@@ -47,6 +47,9 @@ if __name__ == '__main__':
     parser.add_argument("-ext_ff_size", default=2048, type=int)
 
     # planning parameters
+    parser.add_argument("-cls_verdict", default='madeupword0000', type=str)
+    parser.add_argument("-cls_pros", default='madeupword0001', type=str)
+    parser.add_argument("-cls_cons", default='madeupword0002', type=str)
     parser.add_argument("-pred_special_tok", default='<PRED>', type=str)
     parser.add_argument("-obj_special_tok", default='<OBJ>', type=str)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)

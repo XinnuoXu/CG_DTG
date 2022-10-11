@@ -14,12 +14,12 @@ import torch
 import distributed
 from models import model_builder, data_cls_loader
 from models.data_cls_loader import load_dataset
-from models.model_builder import ParagraphMultiClassifier, ClusterMultiClassifier
+from models.model_builder import ParagraphMultiClassifier, ClusterMultiClassifier, ClusterLongformerClassifier
 from models.trainer_cls import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
 
-model_flags = ['max_src_nsent', 'ext_ff_size', 'ext_heads', 'ext_dropout', 'ext_layers', 'ext_or_abs']
+model_flags = ['max_src_nsent', 'ext_ff_size', 'ext_heads', 'ext_dropout', 'ext_layers', 'ext_or_abs', 'cls_type', 'cls_verdict', 'cls_pros', 'cls_cons']
 
 
 class ErrorHandler(object):
@@ -211,6 +211,8 @@ def train_single_cls(args, device_id):
         model = ParagraphMultiClassifier(args, device, checkpoint)
     elif args.cls_type == 'version_2':
         model = ClusterMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_3':
+        model = ClusterLongformerClassifier(args, device, tokenizer, checkpoint)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

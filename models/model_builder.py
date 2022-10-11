@@ -8,7 +8,8 @@ from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 from models.optimizers import Optimizer
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, BertModel, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
+from transformers import LongformerModel, BertModel
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
 from sentence_transformers.models import Pooling
 
@@ -282,18 +283,6 @@ class ClusterMultiClassifier(nn.Module):
         if checkpoint is not None:
             print ('Load parameters from ext_finetune...')
             self.load_state_dict(checkpoint['model'], strict=True)
-            '''
-            params = [(n[15:], p) for n, p in checkpoint['model'].items() if n.startswith('cls_tokens_emb')]
-            self.cls_tokens_emb.load_state_dict(dict(params), strict=True)
-            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('cluster_encoder')]
-            self.cluster_encoder.load_state_dict(dict(params), strict=True)
-            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_verd')]
-            self.classifier_verd.load_state_dict(dict(params), strict=True)
-            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_pros')]
-            self.classifier_pros.load_state_dict(dict(params), strict=True)
-            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_cons')]
-            self.classifier_cons.load_state_dict(dict(params), strict=True)
-            '''
         else:
             if args.param_init != 0.0:
                 for p in self.cluster_encoder.parameters():
@@ -368,3 +357,70 @@ class ClusterMultiClassifier(nn.Module):
 
 
 
+class ClusterLongformerClassifier(nn.Module):
+    def __init__(self, args, device, tokenizer, checkpoint):
+        super(ClusterLongformerClassifier, self).__init__()
+        self.args = args
+        self.device = device
+
+        self.cluster_encoder = LongformerModel.from_pretrained(args.model_name)
+
+        self.classifier_verd = Classifier(self.cluster_encoder.config.hidden_size)
+        self.classifier_pros = Classifier(self.cluster_encoder.config.hidden_size)
+        self.classifier_cons = Classifier(self.cluster_encoder.config.hidden_size)
+
+        self.cls_token_ids = tokenizer.convert_tokens_to_ids([args.cls_verdict, args.cls_pros, args.cls_cons])
+        self.cls_token_ids = torch.tensor(self.cls_token_ids, device=self.device)
+        self.cls_token_mask = torch.tensor([True, True, True], device=self.device)
+
+        if checkpoint is not None:
+            print ('Load parameters from ext_finetune...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            if args.param_init != 0.0:
+                for p in self.classifier_verd.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+                for p in self.classifier_pros.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+                for p in self.classifier_cons.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.classifier_verd.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                for p in self.classifier_pros.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                for p in self.classifier_cons.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+
+        self.to(device)
+
+
+    def frame_input(self, src, src_mask):
+        batch_size = src.size(0)
+        cls_token_ids = self.cls_token_ids.repeat(batch_size, 1)
+        new_src = torch.cat((cls_token_ids, src), dim=1)
+        cls_token_mask = self.cls_token_mask.repeat(batch_size, 1)
+        new_mask = torch.cat((cls_token_mask, src_mask), dim=1)
+        global_mask = torch.zeros(new_src.size(), device=self.device)
+        global_mask[:, :3] = 1
+        return new_src, new_mask, global_mask
+        
+
+    def forward(self, src, mask_src, cluster_sizes):
+        src, mask_src, global_mask = self.frame_input(src, mask_src)
+        res = self.cluster_encoder(input_ids=src, attention_mask=mask_src, global_attention_mask=global_mask)
+        cluster_embeddings = res.last_hidden_state
+
+        verd_scores = self.classifier_verd(cluster_embeddings[:,0,:], mask_src[:,0])
+        pros_scores = self.classifier_pros(cluster_embeddings[:,1,:], mask_src[:,1])
+        cons_scores = self.classifier_cons(cluster_embeddings[:,2,:], mask_src[:,2])
+        verd_scores = verd_scores.unsqueeze(1)
+        pros_scores = pros_scores.unsqueeze(1)
+        cons_scores = cons_scores.unsqueeze(1)
+
+        example_masks = mask_src[:,0].unsqueeze(1)
+
+        return verd_scores, pros_scores, cons_scores, example_masks
