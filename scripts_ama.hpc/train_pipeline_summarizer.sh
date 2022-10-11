@@ -1,11 +1,12 @@
 #!/bin/bash
 
-BASE_DIR=./outputs.ama/
+DATA_DIR=./outputs.ama/
+BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama/
 
-DATA_PATH=${BASE_DIR}/data/
+DATA_PATH=${DATA_DIR}/data/
 #MODEL_PATH=${BASE_DIR}/models.summarizer/
 MODEL_PATH=${BASE_DIR}/models.summarizer.augment/
-LOG_PATH=${BASE_DIR}/logs.summarizer/
+LOG_PATH=${DATA_DIR}/logs.summarizer/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -13,12 +14,13 @@ mkdir -p ${LOG_PATH}
 python train.py  \
 	-mode train \
         -model_name facebook/bart-base \
+        -train_from ${MODEL_PATH}/model_step_300000.pt \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path facebook/bart-base \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs abs \
-	-train_steps 300000 \
+	-train_steps 600000 \
 	-save_checkpoint_steps 100000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \

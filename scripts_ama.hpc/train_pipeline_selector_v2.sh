@@ -3,9 +3,9 @@
 DATA_DIR=./outputs.ama/
 BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama/
 
-DATA_PATH=${DATA_DIR}/data_cls/
-MODEL_PATH=${BASE_DIR}/models.selector/
-LOG_PATH=${DATA_DIR}/logs.selector/
+DATA_PATH=${BASE_DIR}/data_cls_v2/
+MODEL_PATH=${BASE_DIR}/models.selector_v2/
+LOG_PATH=${DATA_DIR}/logs.selector_v2/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -18,7 +18,8 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
 	-log_file ${LOG_PATH}/train.log \
         -ext_or_abs cls \
-        -max_src_nsent 4000 \
+        -cls_type version_2 \
+        -max_src_nsent 10000 \
         -ext_ff_size 2048 \
         -ext_heads 8 \
 	-ext_dropout 0.1 \
@@ -28,7 +29,7 @@ python train.py  \
 	-warmup_steps 1000 \
 	-batch_size 100 \
 	-report_every 100 \
-	-lr 3e-5 \
+	-lr 1e-5 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-master_port 10001 \

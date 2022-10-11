@@ -6,16 +6,32 @@ import json
 
 SAMPLE_NUM=15
 
-def check_s2s_quality(print_gold=False):
-	fpout = open('./outputs.ama/logs.summarizer/test.res.120000.candidate')
-	fpgold = open('./outputs.ama/logs.summarizer/test.res.120000.gold')
-	fpin = open('./outputs.ama/logs.summarizer/test.res.120000.raw_src')
-	fpeid = open('./outputs.ama/logs.summarizer/test.res.120000.eid')
+def check_s2s_quality(print_gold=False, example_ids=None):
+	base_file = './outputs.ama/logs.summarizer/test.res.300000'
+	#base_file = './outputs.ama/logs.summarizer.sentence_level/test.res.100000'
+	fpout = open(f'{base_file}.candidate')
+	fpgold = open(f'{base_file}.gold')
+	fpin = open(f'{base_file}.raw_src')
+	fpeid = open(f'{base_file}.eid')
 	system_outputs = [line.strip() for line in fpout]
 	system_inputs = [line.strip() for line in fpin]
 	system_eids = [line.strip() for line in fpeid]
 	golds = [line.strip() for line in fpgold]
-	sampled_pairs = random.sample(list(zip(system_inputs, system_outputs, system_eids, golds)), SAMPLE_NUM)
+	if example_ids != None:
+		new_system_outputs = []
+		new_system_inputs = []
+		new_system_eids = []
+		new_golds = []
+		for i in range(len(system_eids)):
+			if system_eids[i] not in example_ids:
+				continue
+			new_system_outputs.append(system_outputs[i])
+			new_system_inputs.append(system_inputs[i])
+			new_system_eids.append(system_eids[i])
+			new_golds.append(golds[i])
+		sampled_pairs = list(zip(new_system_inputs, new_system_outputs, new_system_eids, new_golds))
+	else:
+		sampled_pairs = random.sample(list(zip(system_inputs, system_outputs, system_eids, golds)), SAMPLE_NUM)
 	for pair in sampled_pairs:
 		system_input = pair[0]
 		system_output = pair[1]
@@ -148,6 +164,7 @@ def process_selsum(dir_path):
 
 
 if __name__ == '__main__':
-	#check_s2s_quality(print_gold=True)
+	example_ids = set([line.strip() for line in open('./pyrouge/example_list.txt')])
+	check_s2s_quality(print_gold=True, example_ids=example_ids)
 	#check_repetitiveness()
-	check_faithfulness()
+	#check_faithfulness()

@@ -192,13 +192,13 @@ class DataIterator(object):
         pros_labels = ex['pros_labels']
         cons_labels = ex['cons_labels']
         cluster_sizes = ex['cluster_sizes']
-        clusters = ex['clusters']
         if sum(cluster_sizes) > self.args.max_src_nsent and (not self.is_test):
             res = self.sample_clusters(sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes)
             sentences, verdict_labels, pros_labels, cons_labels, cluster_sizes = res
         if (not self.is_test):
             return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid
         else:
+            clusters = ex['clusters']
             return  sentences, cluster_sizes, verdict_labels, pros_labels, cons_labels, eid, clusters
 
     def batch_buffer(self, data, batch_size):

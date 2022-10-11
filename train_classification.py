@@ -14,7 +14,7 @@ import torch
 import distributed
 from models import model_builder, data_cls_loader
 from models.data_cls_loader import load_dataset
-from models.model_builder import ParagraphMultiClassifier
+from models.model_builder import ParagraphMultiClassifier, ClusterMultiClassifier
 from models.trainer_cls import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
@@ -89,7 +89,10 @@ def validate(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint)
+    if args.cls_type == 'version_1':
+        model = ParagraphMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_2':
+        model = ClusterMultiClassifier(args, device, checkpoint)
     model.eval()
 
     valid_iter = data_cls_loader.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
@@ -114,7 +117,10 @@ def test_cls(args, device_id, pt, step):
     print(args)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint)
+    if args.cls_type == 'version_1':
+        model = ParagraphMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_2':
+        model = ClusterMultiClassifier(args, device, checkpoint)
     model.eval()
 
     test_iter = data_cls_loader.Dataloader(args, load_dataset(args, args.test_data_source, shuffle=False),
@@ -201,7 +207,10 @@ def train_single_cls(args, device_id):
 
     print (args.tokenizer_path)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    model = ParagraphMultiClassifier(args, device, checkpoint)
+    if args.cls_type == 'version_1':
+        model = ParagraphMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_2':
+        model = ClusterMultiClassifier(args, device, checkpoint)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

@@ -22,6 +22,7 @@ from models.spectral_clustering import SpectralCluser
 from prepro.dbscan_clustering import DBSCANCluser
 from prepro.clean_testset import TgtCleaner
 from prepro.reconstruction_data import ReconstructionData
+from prepro.sort_in_cluster import SortSentsInCluster
 
 class DataCreator():
     def __init__(self, args, additional_tokens=None):
@@ -540,59 +541,58 @@ def format_hdbscan_cluster_to_s2s(args):
 
 
 def format_hdbscan_cluster_to_cls(args):
-    if (args.dataset != ''):
-        datasets = [args.dataset]
-    else:
-        datasets = ['train', 'test', 'validation']
 
-    for corpus_type in datasets:
-        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
-            real_name = json_f.split('/')[-1]
-            fpout = open(pjoin(args.save_path, real_name), 'w')
-            output_jsons = []
-            for line in open(json_f):
-                json_obj = json.loads(line.strip())
-                tgt_clusters = json_obj['tgt_clusters']
-                src_clusters = json_obj['src_clusters']
-                example_id = json_obj['example_id']
-                clusters = []
-                verdict = []; pros = []; cons = []
-                for cluster_id in src_clusters:
-                    if cluster_id == '-1':
-                        continue
-                    clusters.append(src_clusters[cluster_id])
-                    if cluster_id not in tgt_clusters:
-                        verdict.append(0)
-                        pros.append(0)
-                        cons.append(0)
-                    else:
-                        cluster_types = set()
-                        for tgt_sent in tgt_clusters[cluster_id]:
-                            cluster_type = tgt_sent.split()[0]
-                            cluster_types.add(cluster_type)
-                        if 'verdict' in cluster_types:
-                            verdict.append(1)
-                        else:
-                            verdict.append(0)
-                        if 'pros' in cluster_types:
-                            pros.append(1)
-                        else:
-                            pros.append(0)
-                        if 'cons' in cluster_types:
-                            cons.append(1)
-                        else:
-                            cons.append(0)
-                eid = example_id
-                new_json = {}
-                new_json['clusters'] = clusters
-                new_json['verdict_labels'] = verdict
-                new_json['pros_labels'] = pros
-                new_json['cons_labels'] = cons
-                new_json['example_id'] = eid
-                output_jsons.append(new_json)
+    input_path = args.raw_path
+    output_path = args.save_path
+    fpout = open(output_path, 'w')
 
-            fpout.write(json.dumps(output_jsons))
-            fpout.close()
+    sort_obj = SortSentsInCluster()
+
+    output_jsons = []
+    for line in open(input_path):
+        json_obj = json.loads(line.strip())
+        tgt_clusters = json_obj['tgt_clusters']
+        src_clusters = json_obj['src_clusters']
+        example_id = json_obj['example_id']
+        clusters = []
+        verdict = []; pros = []; cons = []
+        for cluster_id in src_clusters:
+            if cluster_id == '-1':
+                continue
+            sorted_src_cluster = sort_obj.sort_sentences(src_clusters[cluster_id])
+            clusters.append(sorted_src_cluster)
+            if cluster_id not in tgt_clusters:
+                verdict.append(0)
+                pros.append(0)
+                cons.append(0)
+            else:
+                cluster_types = set()
+                for tgt_sent in tgt_clusters[cluster_id]:
+                    cluster_type = tgt_sent.split()[0]
+                    cluster_types.add(cluster_type)
+                if 'verdict' in cluster_types:
+                    verdict.append(1)
+                else:
+                    verdict.append(0)
+                if 'pros' in cluster_types:
+                    pros.append(1)
+                else:
+                    pros.append(0)
+                if 'cons' in cluster_types:
+                    cons.append(1)
+                else:
+                    cons.append(0)
+        eid = example_id
+        new_json = {}
+        new_json['clusters'] = clusters
+        new_json['verdict_labels'] = verdict
+        new_json['pros_labels'] = pros
+        new_json['cons_labels'] = cons
+        new_json['example_id'] = eid
+        output_jsons.append(new_json)
+
+    fpout.write(json.dumps(output_jsons))
+    fpout.close()
 
 
 def format_selected_cluster_to_s2s(args):
@@ -716,6 +716,99 @@ def format_for_classification_training(args):
         print(a_lst)
         pool = Pool(args.n_cpus)
         for d in pool.imap(_process_cls, a_lst):
+            pass
+
+        pool.close()
+        pool.join()
+
+
+def _process_cls_cluster_level(params):
+
+    corpus_type, json_file, args, save_file = params
+    logger.info('Processing %s' % json_file)
+    if (os.path.exists(save_file)):
+        logger.info('Ignore %s' % save_file)
+        return
+
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+
+    data_obj = DataCreator(args, additional_tokens)
+    jobs = json.load(open(json_file))
+
+    datasets = []
+    for d in jobs:
+        eid = d['example_id']
+        clusters = d['clusters']
+        verdict_labels = d['verdict_labels']
+        pros_labels = d['pros_labels']
+        cons_labels = d['cons_labels']
+
+        cluster_sizes = [len(cluster) for cluster in clusters]
+        obj = zip(cluster_sizes, clusters, verdict_labels, pros_labels, cons_labels)
+        obj = sorted(obj, key=lambda x: x[0], reverse=True)
+        new_cluster_sizes = []
+        new_clusters = []
+        new_verdict_labels = []
+        new_pros_labels = []
+        new_cons_labels = []
+        for pair in obj[:args.max_cluster_num]:
+            new_cluster_sizes.append(pair[0])
+            new_clusters.append(pair[1])
+            new_verdict_labels.append(pair[2])
+            new_pros_labels.append(pair[3])
+            new_cons_labels.append(pair[4])
+
+        sentences = []
+        for cluster in new_clusters:
+            sentences.extend(cluster)
+
+        if len(sentences) == 0:
+            continue
+
+        sentences, _ = data_obj.preprocess_sentence(sentences, args.max_src_ntokens)
+
+        b_data_list = []
+        for idx in range(len(new_cluster_sizes)):
+            if idx == 0:
+                start_id = 0
+            else:
+                start_id = sum(new_cluster_sizes[:idx])
+            end_id = start_id + new_cluster_sizes[idx]
+
+            b_data = {"sentences": sentences[start_id:end_id], 
+                      'verdict_labels': [new_verdict_labels[idx]],
+                      "pros_labels": [new_pros_labels[idx]],
+                      "cons_labels": [new_cons_labels[idx]],
+                      "clusters": [new_clusters[idx]],
+                      "cluster_sizes": [new_cluster_sizes[idx]],
+                      "eid": f'{eid}_CLUSTER{idx}'}
+            b_data_list.append(b_data)
+
+        datasets.extend(b_data_list)
+
+    logger.info('Processed instances %d' % len(datasets))
+    logger.info('Saving to %s' % save_file)
+    torch.save(datasets, save_file)
+    datasets = []
+    gc.collect()
+
+
+def format_for_classification_training_v2(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['validation', 'train', 'test']
+
+    for corpus_type in datasets:
+        a_lst = []
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            a_lst.append((corpus_type, json_f, args, pjoin(args.save_path, real_name.replace('json', 'bert.pt'))))
+        print(a_lst)
+        pool = Pool(args.n_cpus)
+        for d in pool.imap(_process_cls_cluster_level, a_lst):
             pass
 
         pool.close()

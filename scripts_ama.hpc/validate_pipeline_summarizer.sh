@@ -1,10 +1,12 @@
 #!/bin/bash
 
-BASE_DIR=./outputs.ama/
+#BASE_DIR=./outputs.ama/
+DATA_DIR=./outputs.ama/
+BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama/
 
-DATA_PATH=${BASE_DIR}/data/
-MODEL_PATH=${BASE_DIR}/models.summarizer/
-LOG_PATH=${BASE_DIR}/logs.summarizer/
+DATA_PATH=${DATA_DIR}/data/
+MODEL_PATH=${BASE_DIR}/models.summarizer.augment/
+LOG_PATH=${DATA_DIR}/logs.summarizer/
 
 python train.py \
 	-mode validate \

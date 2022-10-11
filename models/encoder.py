@@ -251,3 +251,28 @@ class ClusterClassification(nn.Module):
         return verd_scores, pros_scores, cons_scores
 
 
+class TransformerEncoder(nn.Module):
+    def __init__(self, d_model, d_ff, heads, dropout, num_inter_layers=0):
+        super(TransformerEncoder, self).__init__()
+        self.d_model = d_model
+        self.num_inter_layers = num_inter_layers
+        self.transformer_inter = nn.ModuleList(
+            [TransformerEncoderLayer(d_model, heads, d_ff, dropout)
+             for _ in range(num_inter_layers)])
+        self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+
+    def forward(self, top_vecs, mask):
+        """ See :obj:`EncoderBase.forward()`"""
+
+        batch_size, n_sents = top_vecs.size(0), top_vecs.size(1)
+        x = top_vecs * mask[:, :, None].float()
+
+        for i in range(self.num_inter_layers):
+            x = self.transformer_inter[i](i, x, x, mask)  # all_sents * max_tokens * dim
+
+        x = self.layer_norm(x)
+
+        return x, mask
+
+

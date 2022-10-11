@@ -200,8 +200,11 @@ class Translator(object):
             log_probs = self.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
-            if step < min_length:
-                log_probs[:, self.end_token_id] = -1e20
+            #if step < min_length:
+            #    print (prompts_control)
+            for i in range(prompts_control.size(0)):
+                if step - (~prompts_control[i]).sum() < min_length:
+                    log_probs[i, self.end_token_id] = -1e20
 
             # Multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)

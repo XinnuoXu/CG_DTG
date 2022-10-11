@@ -8,8 +8,8 @@ from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 from models.optimizers import Optimizer
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, BertModel
-from models.encoder import SentenceClassification, ClusterClassification
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, BertModel, AutoModelForSequenceClassification
+from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
 from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint):
@@ -169,7 +169,8 @@ class ParagraphMultiClassifier(nn.Module):
         super(ParagraphMultiClassifier, self).__init__()
         self.args = args
         self.device = device
-        self.local_bert = BertModel.from_pretrained(args.model_name)
+        #self.local_bert = BertModel.from_pretrained(args.model_name)
+        self.local_bert = AutoModelForSequenceClassification.from_pretrained(args.model_name, output_hidden_states=True, return_dict=True)
         self.sentence_pooling = Pooling(self.local_bert.config.hidden_size)
         self.cluster_pooling = Pooling(self.local_bert.config.hidden_size)
         self.classifiers = ClusterClassification(self.local_bert.config.hidden_size,
@@ -237,12 +238,133 @@ class ParagraphMultiClassifier(nn.Module):
 
 
     def forward(self, src, mask_src, cluster_sizes):
+        res = self.local_bert(input_ids=src, attention_mask=mask_src)
+        token_embeddings = res.hidden_states[-1]
+        sentence_embeddings = token_embeddings[:, 0, :]
+        '''
         token_embeddings = self.local_bert(input_ids=src, attention_mask=mask_src)
         res = self.sentence_pooling({'token_embeddings':token_embeddings.last_hidden_state, 'attention_mask':mask_src})
         # number of sentences * embedding size 
         sentence_embeddings = res['sentence_embedding']
+        '''
         # number of clusters * embedding size 
         cluster_embeddings = self.pool_cluster_embeddings(sentence_embeddings, cluster_sizes)
         verd_scores, pros_scores, cons_scores, example_masks = self.cluster_classification(cluster_embeddings, cluster_sizes)
 
         return verd_scores, pros_scores, cons_scores, example_masks
+
+
+
+class ClusterMultiClassifier(nn.Module):
+    def __init__(self, args, device, checkpoint):
+        super(ClusterMultiClassifier, self).__init__()
+        self.args = args
+        self.device = device
+
+        self.sentence_encoder = AutoModelForSequenceClassification.from_pretrained(args.model_name, 
+                                                                             output_hidden_states=True, 
+                                                                             return_dict=True)
+
+        #self.cls_tokens_emb = torch.rand((3, self.sentence_encoder.config.hidden_size), device=self.device)
+        self.cls_tokens_emb = nn.Embedding(3, self.sentence_encoder.config.hidden_size, device=self.device, max_norm=True)
+
+        self.cluster_encoder = TransformerEncoder(self.sentence_encoder.config.hidden_size,
+                                                 self.args.ext_ff_size,
+                                                 self.args.ext_heads,
+                                                 self.args.ext_dropout,
+                                                 num_inter_layers=self.args.ext_layers)
+
+        self.classifier_verd = Classifier(self.sentence_encoder.config.hidden_size)
+        self.classifier_pros = Classifier(self.sentence_encoder.config.hidden_size)
+        self.classifier_cons = Classifier(self.sentence_encoder.config.hidden_size)
+
+
+        if checkpoint is not None:
+            print ('Load parameters from ext_finetune...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+            '''
+            params = [(n[15:], p) for n, p in checkpoint['model'].items() if n.startswith('cls_tokens_emb')]
+            self.cls_tokens_emb.load_state_dict(dict(params), strict=True)
+            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('cluster_encoder')]
+            self.cluster_encoder.load_state_dict(dict(params), strict=True)
+            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_verd')]
+            self.classifier_verd.load_state_dict(dict(params), strict=True)
+            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_pros')]
+            self.classifier_pros.load_state_dict(dict(params), strict=True)
+            params = [(n[16:], p) for n, p in checkpoint['model'].items() if n.startswith('classifier_cons')]
+            self.classifier_cons.load_state_dict(dict(params), strict=True)
+            '''
+        else:
+            if args.param_init != 0.0:
+                for p in self.cluster_encoder.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+                for p in self.classifier_verd.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+                for p in self.classifier_pros.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+                for p in self.classifier_cons.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.cluster_encoder.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                for p in self.classifier_verd.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                for p in self.classifier_pros.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                for p in self.classifier_cons.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+
+        # To save memory
+        for param in self.sentence_encoder.parameters():
+            param.requires_grad = False
+
+        self.to(device)
+
+
+    def prepare_for_cluster_embeddings(self, sentence_embeddings, cluster_sizes):
+        n_example = sum([len(ex) for ex in cluster_sizes])
+        maximum_cluster_size = max([max(ex) for ex in cluster_sizes])+3
+        embedding_size = self.sentence_encoder.config.hidden_size
+        cluster_embeddings = torch.zeros((n_example, maximum_cluster_size, embedding_size), device=self.device)
+        cluster_masks = torch.full((n_example, maximum_cluster_size), False, device=self.device)
+        cluster_idx = 0; start_idx = 0
+        for item in cluster_sizes:
+            cluster_size = item[0]
+            sid = start_idx
+            eid = start_idx + cluster_size
+            cluster_embeddings[cluster_idx][:3] = self.cls_tokens_emb.weight
+            cluster_embeddings[cluster_idx][3:cluster_size+3] = sentence_embeddings[sid:eid]
+            cluster_masks[cluster_idx][:cluster_size+3] = True
+            start_idx += cluster_size
+            cluster_idx += 1
+        return cluster_embeddings, cluster_masks
+        
+
+    def forward(self, src, mask_src, cluster_sizes):
+        # sentence encoding
+        res = self.sentence_encoder(input_ids=src, attention_mask=mask_src)
+        token_embeddings = res.hidden_states[-1]
+        sentence_embeddings = token_embeddings[:, 0, :] # number of clusters * embedding size 
+
+        # cluster encoding
+        cluster_embeddings, cluster_masks = self.prepare_for_cluster_embeddings(sentence_embeddings, cluster_sizes)
+        cluster_embeddings, cluster_masks = self.cluster_encoder(cluster_embeddings, cluster_masks)
+
+        # classification
+        verd_scores = self.classifier_verd(cluster_embeddings[:,0,:], cluster_masks[:,0])
+        pros_scores = self.classifier_pros(cluster_embeddings[:,1,:], cluster_masks[:,1])
+        cons_scores = self.classifier_cons(cluster_embeddings[:,2,:], cluster_masks[:,2])
+        verd_scores = verd_scores.unsqueeze(1)
+        pros_scores = pros_scores.unsqueeze(1)
+        cons_scores = cons_scores.unsqueeze(1)
+
+        example_masks = cluster_masks[:,0].unsqueeze(1)
+
+        return verd_scores, pros_scores, cons_scores, example_masks
+
+
+

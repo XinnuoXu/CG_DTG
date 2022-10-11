@@ -1,5 +1,6 @@
 #coding=utf8
 
+import sys
 import json
 import copy
 import numpy as np
@@ -9,6 +10,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.metrics import pairwise_distances
 from sklearn.decomposition import PCA
 from sentence_transformers import SentenceTransformer
+sys.path.append('./')
 from prepro.review_summary_preprocess import preprocess_reviews, preprocess_summaries
 
 class DBSCANCluser():
@@ -208,8 +210,10 @@ class DBSCANCluser():
         tgt_clusters = self.read_clusters(target_labels, targets)
 
         #self._print_out(src_clusters, tgt_clusters, reprocessed_cluster_labels, target_labels, example_id)
+        statistic_numbers = self._cluster_statistics(reprocessed_cluster_labels)
 
-        return src_clusters, tgt_clusters, example_id, raw_tgt
+        #return src_clusters, tgt_clusters, example_id, raw_tgt
+        return src_clusters, tgt_clusters, example_id, raw_tgt, statistic_numbers
 
 
     def run(self, filename_in, filename_out):
@@ -225,6 +229,26 @@ class DBSCANCluser():
         fpout.close()
 
 
+    def run_with_analysis(self, filename_in, filename_out):
+        fpout = open(filename_out, 'w')
+        num_clusters = []; clustered_ratios = []; min_sizes = []
+        max_sizes = []; avg_sizes = []
+        for line in open(filename_in):
+            src_clusters, tgt_clusters, example_id, raw_tgt, statistic_numbers = self.process_run(line.strip())
+            num_c, clustered_r, min_s, max_s, avg_s = statistic_numbers
+
+            num_clusters.append(num_c)
+            clustered_ratios.append(clustered_r)
+            min_sizes.append(min_s)
+            max_sizes.append(max_s)
+            avg_sizes.append(avg_s)
+
+        print("numer of clusters is:" + str(sum(num_clusters)/len(num_clusters)) + '\n')
+        print("clustered ratio is:" + str(sum(clustered_ratios)/len(clustered_ratios)) + '\n')
+        print("the size of the smallist cluster is:" + str(sum(min_sizes)/len(min_sizes)) + '\n')
+        print("the size of the largest cluster is:" + str(sum(max_sizes)/len(max_sizes)) + '\n')
+        print("argerage size of the cluaster is:" + str(sum(avg_sizes)/len(avg_sizes)) + '\n')
+
 if __name__ == '__main__':
     dbscan_obj = DBSCANCluser(db_metric='euclidean',
                               sentence_embedding_model='all-MiniLM-L12-v2',
@@ -236,7 +260,7 @@ if __name__ == '__main__':
                               db_targets_similar_topk=0.2,
                               db_targets_threshold=0.8,                              
                               high_freq_reviews='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/common_review.txt')
-    filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/train.jsonl'
+    filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/validation.jsonl'
     filename_out = './temp/train.jsonl'
-    dbscan_obj.run(filename_in, filename_out)
+    dbscan_obj.run_with_analysis(filename_in, filename_out)
 
