@@ -6,8 +6,23 @@ import json
 
 SAMPLE_NUM=15
 
-def check_s2s_quality(print_gold=False, example_ids=None):
-	base_file = './outputs.ama/logs.summarizer/test.res.300000'
+def check_s2s_quality(print_gold=False, example_ids=None, categories=[]):
+	def select_categories(system_outputs, system_inputs, system_eids, golds, categories):
+		new_system_outputs = []
+		new_system_inputs = []
+		new_system_eids = []
+		new_golds = []
+		for i, eid in enumerate(system_eids):
+			if eid.split('_')[-1] not in categories:
+				continue
+			new_system_outputs.append(system_outputs[i])
+			new_system_inputs.append(system_inputs[i])
+			new_system_eids.append(system_eids[i])
+			new_golds.append(golds[i])
+		return new_system_outputs, new_system_inputs, new_system_eids, new_golds
+
+	#base_file = './outputs.ama/logs.summarizer/test.res.300000'
+	base_file = './outputs.ama/logs.summarizer.v3.pro_or_con/test.res.100000'
 	#base_file = './outputs.ama/logs.summarizer.sentence_level/test.res.100000'
 	fpout = open(f'{base_file}.candidate')
 	fpgold = open(f'{base_file}.gold')
@@ -31,6 +46,8 @@ def check_s2s_quality(print_gold=False, example_ids=None):
 			new_golds.append(golds[i])
 		sampled_pairs = list(zip(new_system_inputs, new_system_outputs, new_system_eids, new_golds))
 	else:
+		if len(categories) > 0:
+			system_outputs, system_inputs, system_eids, golds = select_categories(system_outputs, system_inputs, system_eids, golds, categories)
 		sampled_pairs = random.sample(list(zip(system_inputs, system_outputs, system_eids, golds)), SAMPLE_NUM)
 	for pair in sampled_pairs:
 		system_input = pair[0]
@@ -65,19 +82,24 @@ def check_repetitiveness():
 	fp.close()
 
 
-def check_faithfulness():
+def check_faithfulness(example_ids=[]):
 	selsum_path = '../Plan_while_Generate/AmaSum/SelSum/'
 	gold_path = '../Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl'
-	system_output_file = './outputs.ama/logs.summarizer.model_selection/test.res.120000.candidate'
-	system_output_eid = './outputs.ama/logs.summarizer.model_selection/test.res.120000.eid'
+	#system_output_file = './outputs.ama/logs.summarizer.model_selection/test.res.120000.candidate'
+	#system_output_eid = './outputs.ama/logs.summarizer.model_selection/test.res.120000.eid'
+	system_output_file = './outputs.ama/logs.summarizer.v3/test.res.100000.candidate'
+	system_output_eid = './outputs.ama/logs.summarizer.v3/test.res.100000.eid'
 
 	selsum_examples = process_selsum(selsum_path)
 	system_examples = process_system_output(system_output_file, system_output_eid)
 	gold_examples = process_gold_summary(gold_path)
 	src_examples = process_src(gold_path)
 
-	example_ids = src_examples.keys()
-	sampled_examples = random.sample(example_ids, SAMPLE_NUM)
+	if len(example_ids) == 0:
+		example_ids = src_examples.keys()
+		sampled_examples = random.sample(example_ids, SAMPLE_NUM)
+	else:
+		sampled_examples = example_ids
 
 	output_dir = './temp/'
 	for example_id in sampled_examples:
@@ -165,6 +187,7 @@ def process_selsum(dir_path):
 
 if __name__ == '__main__':
 	example_ids = set([line.strip() for line in open('./pyrouge/example_list.txt')])
-	check_s2s_quality(print_gold=True, example_ids=example_ids)
+	#check_s2s_quality(print_gold=True, categories=['cons'])
+	#check_s2s_quality(print_gold=True, example_ids=example_ids)
 	#check_repetitiveness()
-	#check_faithfulness()
+	check_faithfulness(example_ids=example_ids)

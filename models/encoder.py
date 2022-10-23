@@ -6,14 +6,26 @@ from models.neural import MultiHeadedAttention, PositionwiseFeedForward
 
 
 class Classifier(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, hidden_size, output_size=1):
         super(Classifier, self).__init__()
-        self.linear1 = nn.Linear(hidden_size, 1, bias=True)
-        self.sigmoid = nn.Sigmoid()
+        self.linear1 = nn.Linear(hidden_size, output_size, bias=True)
+        self.output_size = output_size
+        if self.output_size == 1:
+            self.func = nn.Sigmoid()
+        else:
+            self.func = nn.Softmax(dim=-1)
 
-    def forward(self, x, mask_cls):
-        h = self.linear1(x).squeeze(-1)
-        sent_scores = self.sigmoid(h) * mask_cls.float()
+    def forward(self, x, mask_cls=None):
+        if self.output_size == 1:
+            h = self.linear1(x).squeeze(-1)
+        else:
+            h = self.linear1(x)
+
+        sent_scores = self.func(h)
+
+        if mask_cls is not None:
+            sent_scores = sent_scores * mask_cls.float()
+
         return sent_scores
 
 

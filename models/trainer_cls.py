@@ -75,24 +75,30 @@ class Trainer(object):
 
             verd_scores, pros_scores, cons_scores, cluster_masks = self.model(src, mask_src, cluster_sizes)
 
-            loss_verd = self.loss._compute_loss(verdict_labels, verd_scores, cluster_masks)
-            loss_pros = self.loss._compute_loss(pros_labels, pros_scores, cluster_masks)
-            loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
-            loss = loss_verd + loss_pros + loss_cons
+            loss_list = []
+            if self.args.cls_type == 'select':
+                verdict_labels = (verdict_labels + pros_labels + cons_labels)
+                verdict_labels = (verdict_labels > 0)
+            if verd_scores is not None:
+                loss_verd = self.loss._compute_loss(verdict_labels, verd_scores, cluster_masks)
+                loss_list.append(loss_verd)
+            if pros_scores is not None:
+                loss_pros = self.loss._compute_loss(pros_labels, pros_scores, cluster_masks)
+                loss_list.append(loss_pros)
+            if cons_scores is not None:
+                loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
+                loss_list.append(loss_cons)
+            loss = sum(loss_list) #loss = loss_verd + loss_pros + loss_cons
             (loss / loss.numel()).backward()
 
             '''
-            gradient_monitor = {}
-            for name, para in self.model.named_parameters():
-                if para.grad is not None:
-                    print (torch.mean(para.grad))
-            '''
-
             batch_stats = Statistics(float(loss.cpu().data.numpy()),
                                      normalization,
                                      loss_verd=float(loss_verd.cpu().data.numpy()),
                                      loss_pros=float(loss_pros.cpu().data.numpy()),
                                      loss_cons=float(loss_cons.cpu().data.numpy()))
+            '''
+            batch_stats = Statistics(float(loss.cpu().data.numpy()), normalization)
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
@@ -182,16 +188,30 @@ class Trainer(object):
 
                 verd_scores, pros_scores, cons_scores, cluster_masks = self.model(src, mask_src, cluster_sizes)
 
-                loss_verd = self.loss._compute_loss(verdict_labels, verd_scores, cluster_masks)
-                loss_pros = self.loss._compute_loss(pros_labels, pros_scores, cluster_masks)
-                loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
-                loss = loss_verd + loss_pros + loss_cons
+                loss_list = []
+                if self.args.cls_type == 'select':
+                    verdict_labels = (verdict_labels + pros_labels + cons_labels)
+                    verdict_labels = (verdict_labels > 0)
+                if verd_scores is not None:
+                    loss_verd = self.loss._compute_loss(verdict_labels, verd_scores, cluster_masks)
+                    loss_list.append(loss_verd)
+                if pros_scores is not None:
+                    loss_pros = self.loss._compute_loss(pros_labels, pros_scores, cluster_masks)
+                    loss_list.append(loss_pros)
+                if cons_scores is not None:
+                    loss_cons = self.loss._compute_loss(cons_labels, cons_scores, cluster_masks)
+                    loss_list.append(loss_cons)
+                loss = sum(loss_list) #loss = loss_verd + loss_pros + loss_cons
 
+                '''
                 batch_stats = Statistics(float(loss.cpu().data.numpy()),
-                                         src.size(0),
+                                         normalization,
                                          loss_verd=float(loss_verd.cpu().data.numpy()),
                                          loss_pros=float(loss_pros.cpu().data.numpy()),
                                          loss_cons=float(loss_cons.cpu().data.numpy()))
+                '''
+                batch_stats = Statistics(float(loss.cpu().data.numpy()), src.size(0))
+
                 stats.update(batch_stats)
 
             self._report_step(0, step, valid_stats=stats)
@@ -219,13 +239,24 @@ class Trainer(object):
 
                 verd_scores, pros_scores, cons_scores, cluster_masks = self.model(src, mask_src, cluster_sizes)
 
-                verd_scores = verd_scores + cluster_masks.float()
-                pros_scores = pros_scores + cluster_masks.float()
-                cons_scores = cons_scores + cluster_masks.float()
+                if self.args.cls_type == 'select':
+                    verdict_labels = (verdict_labels + pros_labels + cons_labels)
+                    verdict_labels = (verdict_labels > 0)
 
-                verd_scores = verd_scores.cpu().data.numpy()
-                pros_scores = pros_scores.cpu().data.numpy()
-                cons_scores = cons_scores.cpu().data.numpy()
+                if verd_scores is not None:
+                    verd_scores = verd_scores.cpu().data.numpy()
+                else:
+                    verd_scores = np.zeros(verdict_labels.size())
+
+                if pros_scores is not None:
+                    pros_scores = pros_scores.cpu().data.numpy()
+                else:
+                    pros_scores = np.zeros(pros_labels.size())
+
+                if cons_scores is not None:
+                    cons_scores = cons_scores.cpu().data.numpy()
+                else:
+                    cons_scores = np.zeros(cons_labels.size())
 
                 sent_nums = [len(cluster_size) for cluster_size in cluster_sizes]
 

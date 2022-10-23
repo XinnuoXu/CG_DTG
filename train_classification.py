@@ -14,7 +14,11 @@ import torch
 import distributed
 from models import model_builder, data_cls_loader
 from models.data_cls_loader import load_dataset
-from models.model_builder import ParagraphMultiClassifier, ClusterMultiClassifier, ClusterLongformerClassifier
+from models.model_builder import ParagraphMultiClassifier
+from models.model_builder import ClusterMultiClassifier
+from models.model_builder import ClusterLongformerClassifier
+from models.model_builder import ClusterBinarySelection
+from models.model_builder import SentimentClassifier
 from models.trainer_cls import build_trainer
 from models.logging import logger, init_logger
 from transformers import AutoTokenizer
@@ -93,6 +97,12 @@ def validate(args, device_id, pt, step):
         model = ParagraphMultiClassifier(args, device, checkpoint)
     elif args.cls_type == 'version_2':
         model = ClusterMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_3':
+        model = ClusterLongformerClassifier(args, device, tokenizer, checkpoint)
+    elif args.cls_type in ['pros', 'cons', 'verdict', 'select']:
+        model = ClusterBinarySelection(args, device, tokenizer, checkpoint)
+    elif args.cls_type == 'sentiment_cls':
+        model = SentimentClassifier(args, device, tokenizer, checkpoint)
     model.eval()
 
     valid_iter = data_cls_loader.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
@@ -121,6 +131,12 @@ def test_cls(args, device_id, pt, step):
         model = ParagraphMultiClassifier(args, device, checkpoint)
     elif args.cls_type == 'version_2':
         model = ClusterMultiClassifier(args, device, checkpoint)
+    elif args.cls_type == 'version_3':
+        model = ClusterLongformerClassifier(args, device, tokenizer, checkpoint)
+    elif args.cls_type in ['pros', 'cons', 'verdict', 'select']:
+        model = ClusterBinarySelection(args, device, tokenizer, checkpoint)
+    elif args.cls_type == 'sentiment_cls':
+        model = SentimentClassifier(args, device, tokenizer, checkpoint)
     model.eval()
 
     test_iter = data_cls_loader.Dataloader(args, load_dataset(args, args.test_data_source, shuffle=False),
@@ -205,7 +221,7 @@ def train_single_cls(args, device_id):
         return data_cls_loader.Dataloader(args, load_dataset(args, 'train', shuffle=True), 
                                           args.batch_size, device, shuffle=True, is_test=False)
 
-    print (args.tokenizer_path)
+    print ('TOKENIZER', args.tokenizer_path)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     if args.cls_type == 'version_1':
         model = ParagraphMultiClassifier(args, device, checkpoint)
@@ -213,6 +229,10 @@ def train_single_cls(args, device_id):
         model = ClusterMultiClassifier(args, device, checkpoint)
     elif args.cls_type == 'version_3':
         model = ClusterLongformerClassifier(args, device, tokenizer, checkpoint)
+    elif args.cls_type in ['pros', 'cons', 'verdict', 'select']:
+        model = ClusterBinarySelection(args, device, tokenizer, checkpoint)
+    elif args.cls_type == 'sentiment_cls':
+        model = SentimentClassifier(args, device, tokenizer, checkpoint)
     optim = model_builder.build_optim(args, model, checkpoint)
 
     logger.info(model)

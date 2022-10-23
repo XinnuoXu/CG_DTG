@@ -52,7 +52,10 @@ if __name__ == '__main__':
     parser.add_argument("-amasum_verdict_cluster_topk", default=3, type=int)
     parser.add_argument("-amasum_pros_cluster_topk", default=6, type=int)
     parser.add_argument("-amasum_cons_cluster_topk", default=3, type=int)
+    parser.add_argument("-amasum_classification_threshold", default=0.0, type=float)
     parser.add_argument("-amasum_random_topk", default=False, type=str2bool)
+    parser.add_argument("-amasum_delete_empty_example", default=False, type=str2bool)
+    parser.add_argument("-amasum_sentiment_cls", default=False, type=str2bool)
 
     parser.add_argument('-n_cpus', default=2, type=int)
 

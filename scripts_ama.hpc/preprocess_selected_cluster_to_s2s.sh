@@ -2,7 +2,8 @@
 
 BASE_DIR=./outputs.ama/
 
-RAW_PATH=${BASE_DIR}/logs.selector/
+#RAW_PATH=${BASE_DIR}/logs.selector/
+RAW_PATH=${BASE_DIR}/logs.selector_v3/
 OUTPUT_PATH=${BASE_DIR}/seq2seq_test/
 LOG_PATH=${BASE_DIR}/logs/
 

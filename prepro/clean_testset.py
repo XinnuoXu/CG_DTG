@@ -18,13 +18,15 @@ class TgtCleaner():
                        device='cuda',
                        distance_metric='euclidean',
                        distance_input_dimention=56,
-                       distance_threshold=0.64):
+                       distance_threshold=0.64,
+                       min_examples_pass_threshold=1):
 
         self.device = device
 
         self.distance_metric = distance_metric
         self.distance_input_dimention = distance_input_dimention
         self.distance_threshold = distance_threshold
+        self.min_examples_pass_threshold = min_examples_pass_threshold
 
         self.s_embedding = SentenceTransformer(sentence_embedding_model, device=device)
         self.dimention_reducer = PCA(n_components=distance_input_dimention)
@@ -42,7 +44,7 @@ class TgtCleaner():
         distances = pairwise_distances(source_embeddings, targets_embeddings, metric=self.distance_metric)
         support_relations = distances<self.distance_threshold
         support_or_not = support_relations.sum(axis=0)
-        selection_labels = (support_or_not > 0)
+        selection_labels = (support_or_not >= self.min_examples_pass_threshold)
         if sources is not None:
             for i in range(support_relations.shape[1]):
                 print ('[TARGET]', targets[i])
@@ -91,7 +93,8 @@ if __name__ == '__main__':
                               sentence_embedding_model='all-MiniLM-L12-v2',
                               device='cuda',
                               distance_input_dimention=56,
-                              distance_threshold=0.73)
+                              distance_threshold=0.73,
+                              min_examples_pass_threshold=3)
     filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl'
     filename_out = './temp/test.jsonl'
     dbscan_obj.run(filename_in, filename_out)

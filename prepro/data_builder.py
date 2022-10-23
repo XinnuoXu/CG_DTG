@@ -453,7 +453,8 @@ def format_semantic_cleaning(args):
     cleaner_obj = TgtCleaner(distance_metric='euclidean',
                               sentence_embedding_model='all-MiniLM-L12-v2',
                               distance_input_dimention=56,
-                              distance_threshold=0.73)
+                              distance_threshold=0.73,
+                              min_examples_pass_threshold=10)
 
     filename_in = input_path
     filename_out = output_path
@@ -597,6 +598,14 @@ def format_hdbscan_cluster_to_cls(args):
 
 def format_selected_cluster_to_s2s(args):
 
+    def preprocess_scores(pros_scores, cons_scores):
+        for i in range(len(pros_scores)):
+            if pros_scores[i] - cons_scores[i] >= 0.0:
+                cons_scores[i] = -1
+            elif cons_scores[i] - pros_scores[i] >= 0.0:
+                pros_scores[i] = -1
+        return pros_scores, cons_scores
+
     def rank_and_select(clusters, sent_scores, tag, top_k, example_id):
         sent_scores = np.array(sent_scores)
         if args.amasum_random_topk:
@@ -608,6 +617,8 @@ def format_selected_cluster_to_s2s(args):
         top_k = min(top_k, len(clusters))
         ret_jsons = []
         for selected_idx in selected_ids[:top_k]:
+            if sent_scores[selected_idx] < args.amasum_classification_threshold:
+                continue
             new_json = {}
             new_json['src'] = clusters[selected_idx]
             new_json['example_id'] = f"{example_id}_Cluster{selected_idx}_{tag}"
@@ -616,19 +627,62 @@ def format_selected_cluster_to_s2s(args):
             ret_jsons.append(new_json)
         return ret_jsons
 
+    def merge_cluster_level_output(json_f):
+        example_map = {}
+        for line in open(json_f):
+            json_obj = json.loads(line.strip())
+            src_cluster = json_obj['clusters']
+            verdict_label = json_obj['verdict_labels']
+            pros_label = json_obj['pros_labels']
+            cons_label = json_obj['cons_labels']
+            verdict_score = json_obj['verdict_scores']
+            pros_score = json_obj['pros_scores']
+            cons_score = json_obj['cons_scores']
+            example_id = json_obj['example_id']
+            id_list = example_id.split('_')
+            example_id = '_'.join(id_list[:2])
+            cluster_id = id_list[-1]
+            
+            if example_id not in example_map:
+                example_map[example_id] = {}
+                example_map[example_id]['clusters'] = []
+                example_map[example_id]['verdict_labels'] = []
+                example_map[example_id]['pros_labels'] = []
+                example_map[example_id]['cons_labels'] = []
+                example_map[example_id]['verdict_scores'] = []
+                example_map[example_id]['pros_scores'] = []
+                example_map[example_id]['cons_scores'] = []
+                example_map[example_id]['example_id'] = example_id
+
+            example_map[example_id]['clusters'].extend(src_cluster)
+            example_map[example_id]['verdict_labels'].extend(verdict_label)
+            example_map[example_id]['pros_labels'].extend(pros_label)
+            example_map[example_id]['cons_labels'].extend(cons_label)
+            example_map[example_id]['verdict_scores'].extend(verdict_score)
+            example_map[example_id]['pros_scores'].extend(pros_score)
+            example_map[example_id]['cons_scores'].extend(cons_score)
+
+        return example_map.values()
+
+
     json_f = pjoin(args.raw_path, 'test.res.json')
-    real_name = json_f.split('/')[-1]
     fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
+    examples = merge_cluster_level_output(json_f)
 
     output_jsons = []
-    for line in open(json_f):
-        json_obj = json.loads(line.strip())
+    for json_obj in examples:
+        #json_obj = json.loads(line.strip())
         src_clusters = json_obj['clusters']
         example_id = json_obj['example_id']
 
-        verd_selected_jsons = rank_and_select(src_clusters, json_obj['verdict_scores'], 'verdict', args.amasum_verdict_cluster_topk, example_id)
-        pros_selected_jsons = rank_and_select(src_clusters, json_obj['pros_scores'], 'pros', args.amasum_pros_cluster_topk, example_id)
-        cons_selected_jsons = rank_and_select(src_clusters, json_obj['cons_scores'], 'cons', args.amasum_cons_cluster_topk, example_id)
+        verdict_scores = json_obj['verdict_scores']
+        pros_scores = json_obj['pros_scores']
+        cons_scores = json_obj['cons_scores']
+        pros_scores, cons_scores = preprocess_scores(pros_scores, cons_scores)
+
+        verd_selected_jsons = rank_and_select(src_clusters, verdict_scores, 'verdict', args.amasum_verdict_cluster_topk, example_id)
+        pros_selected_jsons = rank_and_select(src_clusters, pros_scores, 'pros', args.amasum_pros_cluster_topk, example_id)
+        cons_selected_jsons = rank_and_select(src_clusters, cons_scores, 'cons', args.amasum_cons_cluster_topk, example_id)
 
         output_jsons.extend(verd_selected_jsons)
         output_jsons.extend(pros_selected_jsons)
@@ -826,6 +880,10 @@ def _process_cls_cluster_as_sentence(params):
         pros_labels = d['pros_labels']
         cons_labels = d['cons_labels']
 
+        if args.amasum_delete_empty_example and corpus_type != 'test':
+            if (sum(pros_labels) == 0) or (sum(cons_labels) == 0):
+                continue
+
         cluster_sizes = [len(cluster) for cluster in clusters]
         obj = zip(cluster_sizes, clusters, verdict_labels, pros_labels, cons_labels)
         obj = sorted(obj, key=lambda x: x[0], reverse=True)
@@ -835,6 +893,10 @@ def _process_cls_cluster_as_sentence(params):
             verdict_label = pair[2]
             pros_label = pair[3]
             cons_label = pair[4]
+
+            if args.amasum_sentiment_cls and corpus_type != 'test':
+                if (verdict_label+pros_label+cons_label) == 0:
+                    continue
             
             sentences, _ = data_obj.preprocess_src(cluster, args.max_src_ntokens)
 

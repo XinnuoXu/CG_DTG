@@ -424,3 +424,82 @@ class ClusterLongformerClassifier(nn.Module):
         example_masks = mask_src[:,0].unsqueeze(1)
 
         return verd_scores, pros_scores, cons_scores, example_masks
+
+
+class ClusterBinarySelection(nn.Module):
+    def __init__(self, args, device, tokenizer, checkpoint):
+        super(ClusterBinarySelection, self).__init__()
+        self.args = args
+        self.device = device
+        self.cluster_encoder = LongformerModel.from_pretrained(args.model_name)
+        self.classifier = Classifier(self.cluster_encoder.config.hidden_size)
+
+        if checkpoint is not None:
+            print ('Load parameters from ext_finetune...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            if args.param_init != 0.0:
+                for p in self.classifier.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.classifier.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+
+        self.to(device)
+
+    def forward(self, src, mask_src, cluster_sizes):
+        global_mask = torch.zeros(src.size(), device=self.device)
+        global_mask[:, 0] = 1
+        res = self.cluster_encoder(input_ids=src, attention_mask=mask_src, global_attention_mask=global_mask)
+        cluster_embeddings = res.last_hidden_state
+
+        scores = self.classifier(cluster_embeddings[:,0,:], mask_src[:,0])
+        scores = scores.unsqueeze(1)
+
+        example_masks = mask_src[:,0].unsqueeze(1)
+
+        if self.args.cls_type == 'verdict' or self.args.cls_type == 'select':
+            return scores, None, None, example_masks
+        if self.args.cls_type == 'pros':
+            return None, scores, None, example_masks
+        if self.args.cls_type == 'cons':
+            return None, None, scores, example_masks
+
+
+class SentimentClassifier(nn.Module):
+    def __init__(self, args, device, tokenizer, checkpoint):
+        super(SentimentClassifier, self).__init__()
+        self.args = args
+        self.device = device
+        self.cluster_encoder = LongformerModel.from_pretrained(args.model_name)
+        self.classifier = Classifier(self.cluster_encoder.config.hidden_size, output_size=3)
+
+        if checkpoint is not None:
+            print ('Load parameters from ext_finetune...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            if args.param_init != 0.0:
+                for p in self.classifier.parameters():
+                    p.data.uniform_(-args.param_init, args.param_init)
+            if args.param_init_glorot:
+                for p in self.classifier.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+
+        self.to(device)
+
+    def forward(self, src, mask_src, cluster_sizes):
+        global_mask = torch.zeros(src.size(), device=self.device)
+        global_mask[:, 0] = 1
+        res = self.cluster_encoder(input_ids=src, attention_mask=mask_src, global_attention_mask=global_mask)
+        cluster_embeddings = res.last_hidden_state
+        scores = self.classifier(cluster_embeddings[:,0,:])
+
+        verdict_scores = scores[:, 0].unsqueeze(1)
+        pros_scores = scores[:, 1].unsqueeze(1)
+        cons_scores = scores[:, 2].unsqueeze(1)
+
+        example_masks = mask_src[:,0].unsqueeze(1)
+
+        return verdict_scores, pros_scores, cons_scores, example_masks
