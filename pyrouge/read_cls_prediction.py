@@ -192,7 +192,7 @@ def print_topk_binary(selected_examples):
         clusters = example_obj['clusters']
         sent_scores = example_obj['verdict_scores']
         example_id = example_obj['example_id']
-        tag = 'binary'; top_k = 12
+        tag = 'binary'; top_k = 8
 
         example_ids, srcs, scores, pred = rank_and_select(clusters, sent_scores, tag, top_k, example_id)
 

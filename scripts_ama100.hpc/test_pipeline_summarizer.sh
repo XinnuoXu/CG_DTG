@@ -1,11 +1,11 @@
 #!/bin/bash
 
-DATA_DIR=./outputs.ama/
-BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama/
+DATA_DIR=./outputs.ama100/
+BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama100/
 
-DATA_PATH=${DATA_DIR}/data/
+DATA_PATH=${BASE_DIR}/data/
 MODEL_PATH=${BASE_DIR}/models.summarizer/
-LOG_PATH=${DATA_DIR}/logs.summarizer.v4/
+LOG_PATH=${DATA_DIR}/logs.summarizer.v3/
 
 mkdir -p ${LOG_PATH}
 

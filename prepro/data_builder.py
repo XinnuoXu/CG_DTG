@@ -467,6 +467,7 @@ def format_hdbscan(args):
     output_path = args.save_path
     high_freq_reviews = args.additional_token_path
 
+    '''
     dbscan_obj = DBSCANCluser(db_metric='euclidean',
                               sentence_embedding_model='all-MiniLM-L12-v2',
                               db_eps=0.4,
@@ -476,6 +477,18 @@ def format_hdbscan(args):
                               db_noise_reprocess_threshold=0.6,
                               db_targets_similar_topk=0.2,
                               db_targets_threshold=0.8,
+                              high_freq_reviews=high_freq_reviews)
+    '''
+    dbscan_obj = DBSCANCluser(db_metric='euclidean',
+                              sentence_embedding_model='all-MiniLM-L12-v2',
+                              db_eps=0.5,
+                              db_cluster_size=10,
+                              db_cluster_selection_method='leaf',
+                              db_input_dimention=56,
+                              db_noise_reprocess_similar_topk=5,
+                              db_noise_reprocess_threshold=0.6,
+                              db_targets_similar_topk=0.2,
+                              db_targets_threshold=0.75,
                               high_freq_reviews=high_freq_reviews)
 
     filename_in = input_path
@@ -591,102 +604,6 @@ def format_hdbscan_cluster_to_cls(args):
         new_json['cons_labels'] = cons
         new_json['example_id'] = eid
         output_jsons.append(new_json)
-
-    fpout.write(json.dumps(output_jsons))
-    fpout.close()
-
-
-def format_selected_cluster_to_s2s(args):
-
-    def preprocess_scores(pros_scores, cons_scores):
-        for i in range(len(pros_scores)):
-            if pros_scores[i] - cons_scores[i] >= 0.0:
-                cons_scores[i] = -1
-            elif cons_scores[i] - pros_scores[i] >= 0.0:
-                pros_scores[i] = -1
-        return pros_scores, cons_scores
-
-    def rank_and_select(clusters, sent_scores, tag, top_k, example_id):
-        sent_scores = np.array(sent_scores)
-        if args.amasum_random_topk:
-            selected_ids = [i for i in range(sent_scores.shape[0])]
-            random.shuffle(selected_ids)
-        else:
-            selected_ids = np.argsort(-sent_scores)
-        prefix_pattern = f'{tag} of this product :'
-        top_k = min(top_k, len(clusters))
-        ret_jsons = []
-        for selected_idx in selected_ids[:top_k]:
-            if sent_scores[selected_idx] < args.amasum_classification_threshold:
-                continue
-            new_json = {}
-            new_json['src'] = clusters[selected_idx]
-            new_json['example_id'] = f"{example_id}_Cluster{selected_idx}_{tag}"
-            new_json['tgt_prefix'] = [prefix_pattern]
-            new_json['tgt'] = [clusters[selected_idx]]
-            ret_jsons.append(new_json)
-        return ret_jsons
-
-    def merge_cluster_level_output(json_f):
-        example_map = {}
-        for line in open(json_f):
-            json_obj = json.loads(line.strip())
-            src_cluster = json_obj['clusters']
-            verdict_label = json_obj['verdict_labels']
-            pros_label = json_obj['pros_labels']
-            cons_label = json_obj['cons_labels']
-            verdict_score = json_obj['verdict_scores']
-            pros_score = json_obj['pros_scores']
-            cons_score = json_obj['cons_scores']
-            example_id = json_obj['example_id']
-            id_list = example_id.split('_')
-            example_id = '_'.join(id_list[:2])
-            cluster_id = id_list[-1]
-            
-            if example_id not in example_map:
-                example_map[example_id] = {}
-                example_map[example_id]['clusters'] = []
-                example_map[example_id]['verdict_labels'] = []
-                example_map[example_id]['pros_labels'] = []
-                example_map[example_id]['cons_labels'] = []
-                example_map[example_id]['verdict_scores'] = []
-                example_map[example_id]['pros_scores'] = []
-                example_map[example_id]['cons_scores'] = []
-                example_map[example_id]['example_id'] = example_id
-
-            example_map[example_id]['clusters'].extend(src_cluster)
-            example_map[example_id]['verdict_labels'].extend(verdict_label)
-            example_map[example_id]['pros_labels'].extend(pros_label)
-            example_map[example_id]['cons_labels'].extend(cons_label)
-            example_map[example_id]['verdict_scores'].extend(verdict_score)
-            example_map[example_id]['pros_scores'].extend(pros_score)
-            example_map[example_id]['cons_scores'].extend(cons_score)
-
-        return example_map.values()
-
-
-    json_f = pjoin(args.raw_path, 'test.res.json')
-    fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
-    examples = merge_cluster_level_output(json_f)
-
-    output_jsons = []
-    for json_obj in examples:
-        #json_obj = json.loads(line.strip())
-        src_clusters = json_obj['clusters']
-        example_id = json_obj['example_id']
-
-        verdict_scores = json_obj['verdict_scores']
-        pros_scores = json_obj['pros_scores']
-        cons_scores = json_obj['cons_scores']
-        pros_scores, cons_scores = preprocess_scores(pros_scores, cons_scores)
-
-        verd_selected_jsons = rank_and_select(src_clusters, verdict_scores, 'verdict', args.amasum_verdict_cluster_topk, example_id)
-        pros_selected_jsons = rank_and_select(src_clusters, pros_scores, 'pros', args.amasum_pros_cluster_topk, example_id)
-        cons_selected_jsons = rank_and_select(src_clusters, cons_scores, 'cons', args.amasum_cons_cluster_topk, example_id)
-
-        output_jsons.extend(verd_selected_jsons)
-        output_jsons.extend(pros_selected_jsons)
-        output_jsons.extend(cons_selected_jsons)
 
     fpout.write(json.dumps(output_jsons))
     fpout.close()
@@ -935,5 +852,268 @@ def format_for_classification_training_v3(args):
 
         pool.close()
         pool.join()
+
+
+
+def format_selected_cluster_to_s2s(args):
+
+    def preprocess_scores(pros_scores, cons_scores):
+        for i in range(len(pros_scores)):
+            if pros_scores[i] - cons_scores[i] >= 0.0:
+                cons_scores[i] = -1
+            elif cons_scores[i] - pros_scores[i] >= 0.0:
+                pros_scores[i] = -1
+        return pros_scores, cons_scores
+
+    def rank_and_select(clusters, sent_scores, tag, top_k, example_id):
+        sent_scores = np.array(sent_scores)
+        if args.amasum_random_topk:
+            selected_ids = [i for i in range(sent_scores.shape[0])]
+            random.shuffle(selected_ids)
+        else:
+            selected_ids = np.argsort(-sent_scores)
+        prefix_pattern = f'{tag} of this product :'
+        top_k = min(top_k, len(clusters))
+        ret_jsons = []
+        for selected_idx in selected_ids[:top_k]:
+            if sent_scores[selected_idx] < args.amasum_classification_threshold:
+                continue
+            new_json = {}
+            new_json['src'] = clusters[selected_idx]
+            new_json['example_id'] = f"{example_id}_Cluster{selected_idx}_{tag}"
+            new_json['tgt_prefix'] = [prefix_pattern]
+            new_json['tgt'] = [clusters[selected_idx]]
+            ret_jsons.append(new_json)
+        return ret_jsons
+
+    def merge_cluster_level_output(json_f):
+        example_map = {}
+        for line in open(json_f):
+            json_obj = json.loads(line.strip())
+            src_cluster = json_obj['clusters']
+            verdict_label = json_obj['verdict_labels']
+            pros_label = json_obj['pros_labels']
+            cons_label = json_obj['cons_labels']
+            verdict_score = json_obj['verdict_scores']
+            pros_score = json_obj['pros_scores']
+            cons_score = json_obj['cons_scores']
+            example_id = json_obj['example_id']
+            id_list = example_id.split('_')
+            example_id = '_'.join(id_list[:2])
+            cluster_id = id_list[-1]
+            
+            if example_id not in example_map:
+                example_map[example_id] = {}
+                example_map[example_id]['clusters'] = []
+                example_map[example_id]['verdict_labels'] = []
+                example_map[example_id]['pros_labels'] = []
+                example_map[example_id]['cons_labels'] = []
+                example_map[example_id]['verdict_scores'] = []
+                example_map[example_id]['pros_scores'] = []
+                example_map[example_id]['cons_scores'] = []
+                example_map[example_id]['example_id'] = example_id
+
+            example_map[example_id]['clusters'].extend(src_cluster)
+            example_map[example_id]['verdict_labels'].extend(verdict_label)
+            example_map[example_id]['pros_labels'].extend(pros_label)
+            example_map[example_id]['cons_labels'].extend(cons_label)
+            example_map[example_id]['verdict_scores'].extend(verdict_score)
+            example_map[example_id]['pros_scores'].extend(pros_score)
+            example_map[example_id]['cons_scores'].extend(cons_score)
+
+        return example_map.values()
+
+
+    json_f = pjoin(args.raw_path, 'test.res.json')
+    fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
+    examples = merge_cluster_level_output(json_f)
+
+    output_jsons = []
+    for json_obj in examples:
+        #json_obj = json.loads(line.strip())
+        src_clusters = json_obj['clusters']
+        example_id = json_obj['example_id']
+
+        verdict_scores = json_obj['verdict_scores']
+        pros_scores = json_obj['pros_scores']
+        cons_scores = json_obj['cons_scores']
+        pros_scores, cons_scores = preprocess_scores(pros_scores, cons_scores)
+
+        verd_selected_jsons = rank_and_select(src_clusters, verdict_scores, 'verdict', args.amasum_verdict_cluster_topk, example_id)
+        pros_selected_jsons = rank_and_select(src_clusters, pros_scores, 'pros', args.amasum_pros_cluster_topk, example_id)
+        cons_selected_jsons = rank_and_select(src_clusters, cons_scores, 'cons', args.amasum_cons_cluster_topk, example_id)
+
+        output_jsons.extend(verd_selected_jsons)
+        output_jsons.extend(pros_selected_jsons)
+        output_jsons.extend(cons_selected_jsons)
+
+    fpout.write(json.dumps(output_jsons))
+    fpout.close()
+
+
+def format_selection_and_sentiment_to_s2s(args):
+
+    def preprocess_scores(pros_scores, verd_scores):
+        for i in range(len(pros_scores)):
+            pros_scores[i] = pros_scores[i] + verd_scores[i]
+        return pros_scores
+
+    def rank(selection_scores, cluster_ids):
+        sent_scores = np.array(selection_scores)
+        selected_ids = np.argsort(-sent_scores)
+        new_selection_scores = []
+        new_cluster_ids = []
+        for selected_idx in selected_ids:
+            selection_score = selection_scores[selected_idx]
+            cluster_id = cluster_ids[selected_idx]
+            new_selection_scores.append(selection_score)
+            new_cluster_ids.append(cluster_id)
+        return new_selection_scores, new_cluster_ids
+
+    def select(sorted_selection_scores, sorted_cluster_ids, 
+               binary_select_top_k, binary_select_threshold, 
+               top_k, threshold, example_id,
+               clusters, tag, sentiment_scores, selection_gtruth, cluster_ids):
+
+        sentiment_objs = {}
+        for i, cluster_id in enumerate(cluster_ids):
+            sentiment_objs[cluster_id] = (clusters[i], sentiment_scores[i], selection_gtruth[i])
+        
+        prefix_pattern = f'{tag} of this product :'
+
+        ret_jsons = []
+        for i, cluster_id in enumerate(sorted_cluster_ids):
+            cluster = sentiment_objs[cluster_id][0]
+            sentiment_score = sentiment_objs[cluster_id][1]
+            gtruth = sentiment_objs[cluster_id][2]
+
+            if i >= binary_select_top_k or sorted_selection_scores[i] < binary_select_threshold:
+                break
+            if len(ret_jsons) >= top_k:
+                break
+            if sentiment_score < threshold:
+                continue
+
+            #print ('\n'.join(cluster), '\n', tag, sentiment_score, sorted_selection_scores[i], gtruth, '\n\n\n')
+            new_json = {}
+            new_json['src'] = cluster
+            new_json['example_id'] = f"{example_id}_{cluster_id}_{tag}"
+            new_json['tgt_prefix'] = [prefix_pattern]
+            new_json['tgt'] = [cluster]
+            ret_jsons.append(new_json)
+
+        return ret_jsons
+
+    def merge_cluster_level_output(json_f):
+        example_map = {}
+        for line in open(json_f):
+            json_obj = json.loads(line.strip())
+            src_cluster = json_obj['clusters']
+            verdict_label = json_obj['verdict_labels']
+            pros_label = json_obj['pros_labels']
+            cons_label = json_obj['cons_labels']
+            verdict_score = [item-1 for item in json_obj['verdict_scores']]
+            pros_score = [item-1 for item in json_obj['pros_scores']]
+            cons_score = [item-1 for item in json_obj['cons_scores']]
+            example_id = json_obj['example_id']
+            id_list = example_id.split('_')
+            example_id = '_'.join(id_list[:2])
+            cluster_id = id_list[-1]
+            
+            if example_id not in example_map:
+                example_map[example_id] = {}
+                example_map[example_id]['clusters'] = []
+                example_map[example_id]['verdict_labels'] = []
+                example_map[example_id]['pros_labels'] = []
+                example_map[example_id]['cons_labels'] = []
+                example_map[example_id]['verdict_scores'] = []
+                example_map[example_id]['pros_scores'] = []
+                example_map[example_id]['cons_scores'] = []
+                example_map[example_id]['cluster_ids'] = []
+                example_map[example_id]['example_id'] = example_id
+
+            example_map[example_id]['clusters'].extend(src_cluster)
+            example_map[example_id]['verdict_labels'].extend(verdict_label)
+            example_map[example_id]['pros_labels'].extend(pros_label)
+            example_map[example_id]['cons_labels'].extend(cons_label)
+            example_map[example_id]['verdict_scores'].extend(verdict_score)
+            example_map[example_id]['pros_scores'].extend(pros_score)
+            example_map[example_id]['cons_scores'].extend(cons_score)
+            example_map[example_id]['cluster_ids'].append(cluster_id)
+
+        return example_map
+
+
+    # Read examples
+    json_f = pjoin(args.test_selection_path, 'test.res.json')
+    selection_examples = merge_cluster_level_output(json_f)
+
+    json_f = pjoin(args.test_sentiment_path, 'test.res.json')
+    sentiment_examples = merge_cluster_level_output(json_f)
+
+    output_jsons = []
+    for example_id in selection_examples:
+        selection_example = selection_examples[example_id]
+        sentiment_example = sentiment_examples[example_id]
+
+        # rank by selection scores
+        cluster_ids = selection_example['cluster_ids']
+        selection_scores = selection_example['verdict_scores']
+        sorted_selection_scores, sorted_cluster_ids = rank(selection_scores, cluster_ids)
+
+        # select by sentiment scores
+        clusters = sentiment_example['clusters']
+        tag = 'verdict'
+        sentiment_scores = sentiment_example['verdict_scores']
+        selection_gtruth = sentiment_example['verdict_labels']
+        cluster_ids = sentiment_example['cluster_ids']
+        example_id = sentiment_example['example_id']
+        top_k = args.amasum_verdict_cluster_topk
+        threshold = args.amasum_verdict_sentiment_threshold
+        binary_select_top_k = args.amasum_binary_selection_topk
+        binary_select_threshold = args.amasum_binary_selection_threshold
+        verd_selected_jsons = select(sorted_selection_scores, sorted_cluster_ids,
+                                     binary_select_top_k, binary_select_threshold,
+                                     top_k, threshold, example_id,
+                                     clusters, tag, sentiment_scores, selection_gtruth, cluster_ids)
+
+        clusters = sentiment_example['clusters']
+        tag = 'pros'
+        sentiment_scores = preprocess_scores(sentiment_example['pros_scores'], sentiment_example['verdict_scores'])
+        selection_gtruth = sentiment_example['pros_labels']
+        cluster_ids = sentiment_example['cluster_ids']
+        example_id = sentiment_example['example_id']
+        top_k = args.amasum_pros_cluster_topk
+        threshold = args.amasum_pros_sentiment_threshold
+        binary_select_top_k = args.amasum_binary_selection_topk
+        binary_select_threshold = args.amasum_binary_selection_threshold
+        pros_selected_jsons = select(sorted_selection_scores, sorted_cluster_ids,
+                                     binary_select_top_k, binary_select_threshold,
+                                     top_k, threshold, example_id,
+                                     clusters, tag, sentiment_scores, selection_gtruth, cluster_ids)
+
+        clusters = sentiment_example['clusters']
+        tag = 'cons'
+        sentiment_scores = sentiment_example['cons_scores']
+        selection_gtruth = sentiment_example['cons_labels']
+        cluster_ids = sentiment_example['cluster_ids']
+        example_id = sentiment_example['example_id']
+        top_k = args.amasum_cons_cluster_topk
+        threshold = args.amasum_cons_sentiment_threshold
+        binary_select_top_k = args.amasum_binary_selection_topk
+        binary_select_threshold = args.amasum_binary_selection_threshold
+        cons_selected_jsons = select(sorted_selection_scores, sorted_cluster_ids,
+                                     binary_select_top_k, binary_select_threshold,
+                                     top_k, threshold, example_id,
+                                     clusters, tag, sentiment_scores, selection_gtruth, cluster_ids)
+
+        # output
+        output_jsons.extend(verd_selected_jsons)
+        output_jsons.extend(pros_selected_jsons)
+        output_jsons.extend(cons_selected_jsons)
+
+    fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
+    fpout.write(json.dumps(output_jsons))
+    fpout.close()
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama/ 
+BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama100/ 
 #FILE_NAME=train.0.json
 FILE_NAME=$1
 

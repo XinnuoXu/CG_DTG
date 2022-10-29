@@ -1,0 +1,12 @@
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.6.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.7.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.8.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.9.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.10.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.11.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.12.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh train.13.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh validation.0.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh validation.1.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh test.0.json
+sh ./scripts_ama100.hpc/preprocess_cluster_to_cls.sh test.1.json

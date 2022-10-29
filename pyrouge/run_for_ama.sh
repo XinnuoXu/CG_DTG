@@ -13,12 +13,12 @@
 #	-cand_path ./outputs.ama/logs.summarizer/test.res.300000.candidate \
 #	-eid_path ./outputs.ama/logs.summarizer/test.res.300000.eid \
 
-#python pyrouge/run_for_ama.py \
-#	-gold_type raw \
-#	-gold_path ../Plan_while_Generate/AmaSum/AmaSum_data/test.jsonl \
-#	-cand_type systems \
-#	-cand_path ./outputs.ama/logs.summarizer.v2/test.res.100000.candidate \
-#	-eid_path ./outputs.ama/logs.summarizer.v2/test.res.100000.eid \
+python pyrouge/run_for_ama.py \
+	-gold_type raw \
+	-gold_path ../Plan_while_Generate/AmaSum/AmaSum_data.max100/test.jsonl \
+	-cand_type systems \
+	-cand_path ./outputs.ama100/logs.summarizer.v3/test.res.100000.candidate \
+	-eid_path ./outputs.ama100/logs.summarizer.v3/test.res.100000.eid \
 
 #############################################################################################
 # Full clean set
@@ -40,8 +40,8 @@
 #	-gold_type clean \
 #	-gold_path ./outputs.ama/cleaned_testset/ \
 #	-cand_type systems \
-#	-cand_path ./outputs.ama/logs.summarizer.v3.pro_or_con/test.res.100000.candidate \
-#	-eid_path ./outputs.ama/logs.summarizer.v3.pro_or_con/test.res.100000.eid \
+#	-cand_path ./outputs.ama/logs.summarizer.v4/test.res.100000.candidate \
+#	-eid_path ./outputs.ama/logs.summarizer.v4/test.res.100000.eid \
 
 #############################################################################################
 # Freq=3/10
@@ -63,22 +63,8 @@
 #	-gold_type clean \
 #	-gold_path ./outputs.ama/cleaned_testset.min10/ \
 #	-cand_type systems \
-#	-cand_path ./outputs.ama/logs.summarizer.v2/test.res.100000.candidate \
-#	-eid_path ./outputs.ama/logs.summarizer.v2/test.res.100000.eid \
-
-python pyrouge/run_for_ama.py \
-	-gold_type clean \
-	-gold_path ./outputs.ama/cleaned_testset.min10/ \
-	-cand_type systems \
-	-cand_path ./outputs.ama/logs.summarizer.v3/test.res.100000.candidate \
-	-eid_path ./outputs.ama/logs.summarizer.v3/test.res.100000.eid \
-
-#python pyrouge/run_for_ama.py \
-#	-gold_type clean \
-#	-gold_path ./outputs.ama/cleaned_testset.min10/ \
-#	-cand_type systems \
-#	-cand_path ./outputs.ama/logs.summarizer.v3.pro_or_con/test.res.100000.candidate \
-#	-eid_path ./outputs.ama/logs.summarizer.v3.pro_or_con/test.res.100000.eid \
+#	-cand_path ./outputs.ama/logs.summarizer.v3/test.res.100000.candidate \
+#	-eid_path ./outputs.ama/logs.summarizer.v3/test.res.100000.eid \
 
 #############################################################################################
 

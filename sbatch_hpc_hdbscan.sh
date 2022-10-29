@@ -33,6 +33,7 @@ source /home/hpcxu1/miniconda3/bin/activate Plan
 echo "Creating directory to save model weights"
 
 # This script does not actually do very much. But it does demonstrate the principles of training
-sh ./scripts_ama.hpc/preprocess_hdbscan.sh $1
+#sh ./scripts_ama.hpc/preprocess_hdbscan.sh $1
+sh ./scripts_ama100.hpc/preprocess_hdbscan.sh $1
 
 echo "Job ${SLURM_JOB_ID} is done!"

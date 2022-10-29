@@ -23,6 +23,7 @@ class DBSCANCluser():
                        db_eps=0.4,
                        db_min_samples=1,
                        db_cluster_size=5,
+                       db_cluster_selection_method='eom',
                        db_input_dimention=56,
                        db_noise_reprocess_similar_topk=3,
                        db_noise_reprocess_threshold=0.64,
@@ -48,6 +49,7 @@ class DBSCANCluser():
         self.clustering = hdbscan.HDBSCAN(min_cluster_size=db_cluster_size,
                                           min_samples=db_min_samples, 
                                           cluster_selection_epsilon=db_eps, 
+                                          cluster_selection_method=db_cluster_selection_method,
                                           metric='precomputed')
         #self.clustering = DBSCAN(eps=db_eps, min_samples=db_cluster_size, metric=db_metric)
 
@@ -136,7 +138,7 @@ class DBSCANCluser():
             for key in clusters:
                 one_to_many_distances = clusters[key][:, i]
                 if similar_topk < 1:
-                    similar_topk = max(3, int(similar_topk * one_to_many_distances.shape[-1]))
+                    similar_topk = max(2, int(similar_topk * one_to_many_distances.shape[-1]))
                 top_k = min(one_to_many_distances.shape[-1], similar_topk)
                 top_k_distances = np.sort(one_to_many_distances)[:top_k]
                 mean_distance = np.mean(top_k_distances)
@@ -219,7 +221,7 @@ class DBSCANCluser():
     def run(self, filename_in, filename_out):
         fpout = open(filename_out, 'w')
         for line in open(filename_in):
-            src_clusters, tgt_clusters, example_id, raw_tgt = self.process_run(line.strip())
+            src_clusters, tgt_clusters, example_id, raw_tgt, _ = self.process_run(line.strip())
             output_json = {}
             output_json['src_clusters'] = src_clusters
             output_json['tgt_clusters'] = tgt_clusters
@@ -252,15 +254,16 @@ class DBSCANCluser():
 if __name__ == '__main__':
     dbscan_obj = DBSCANCluser(db_metric='euclidean',
                               sentence_embedding_model='all-MiniLM-L12-v2',
-                              db_eps=0.4,
-                              db_cluster_size=5,
+                              db_eps=0.5,
+                              db_cluster_size=10,
+                              db_cluster_selection_method='leaf',
                               db_input_dimention=56,
-                              db_noise_reprocess_similar_topk=3,
+                              db_noise_reprocess_similar_topk=5,
                               db_noise_reprocess_threshold=0.6,
                               db_targets_similar_topk=0.2,
-                              db_targets_threshold=0.8,                              
+                              db_targets_threshold=0.75,
                               high_freq_reviews='/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/common_review.txt')
-    filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data/validation.jsonl'
+    filename_in = '/home/hpcxu1/Planning/Plan_while_Generate/AmaSum/AmaSum_data.max100/validation.jsonl'
     filename_out = './temp/train.jsonl'
     dbscan_obj.run_with_analysis(filename_in, filename_out)
 
