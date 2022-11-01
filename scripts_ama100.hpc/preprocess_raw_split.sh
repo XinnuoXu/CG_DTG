@@ -11,7 +11,7 @@ mkdir -p ${OUTPUT_PATH}
 rm -rf ${OUTPUT_PATH}/*
 
 python preprocess.py \
-	-mode simple_split_shard \
+	-mode split_shard \
 	-raw_path ${RAW_PATH} \
 	-save_path ${OUTPUT_PATH} \
 	-n_cpus 32 \

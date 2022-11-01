@@ -1,32 +1,29 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.plan/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.plan/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
+DATA_PATH=${BASE_PATH}/data/
+MODEL_PATH=${BASE_PATH}/models.plan/
+LOG_PATH=${BASE_PATH}/logs.plan/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py  \
-	-input_path ${BERT_DATA_PATH} \
+	-mode train \
+	-input_path ${DATA_PATH} \
 	-model_name t5-base \
 	-model_path ${MODEL_PATH} \
-        -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-mode train \
-	-ext_or_abs marginal_projective_tree \
-	-content_planning_model tree \
-        -predicates_start_from_id 32101 \
+        -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+	-ext_or_abs slot \
 	-train_steps 12000 \
 	-save_checkpoint_steps 4000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \
-	-max_pos 250 \
+	-max_pos 1024 \
 	-max_tgt_len 250 \
-	-ext_dropout 0.1 \
 	-lr 3e-4 \
-        -tree_gumbel_softmax_tau 0.2 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2

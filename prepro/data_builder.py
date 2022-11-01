@@ -97,6 +97,21 @@ class DataCreator():
         return target_tokens, tgt_prefix_tokens, [' '.join(sent) for sent in tgt]
 
 
+    def preprocess_tgt_new(self, tgt, max_tgt_length):
+
+        tgt_txt = ' '.join(tgt)
+
+        if self.args.tokenizer.startswith('t5-'):
+            tgt_txt = self.bos_token + ' ' + tgt_txt
+
+        target_tokens = self.tokenizer(tgt_txt, 
+                                       padding='do_not_pad', 
+                                       truncation=True, 
+                                       max_length=max_tgt_length)['input_ids']
+
+        return target_tokens, tgt_txt
+
+
 def _process(params):
 
     corpus_type, json_file, args, save_file = params
@@ -175,15 +190,7 @@ def split_shard(args):
 
         json_objs = []
         for line in open(input_path):
-            json_obj = json.loads(line.strip())
-            new_obj = {}
-            new_obj['src'] = json_obj['document_segs']
-            new_obj['tgt'] = json_obj['gold_segs']
-            new_obj['example_id'] = json_obj['example_id']
-            if 'tgt_prefix' in json_obj:
-                new_obj['tgt_prefix'] = json_obj['tgt_prefix']
-            #print (new_obj['src'], json_obj['tgt_prefix'], new_obj['tgt'], '\n')
-            json_objs.append(new_obj)
+            json_objs.append(line.strip())
 
         dataset = []; p_ct = 0
         for d in json_objs:
@@ -191,14 +198,16 @@ def split_shard(args):
             if (len(dataset) > args.shard_size):
                 pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
                 with open(pt_file, 'w') as save:
-                    save.write(json.dumps(dataset))
+                    for line in dataset:
+                        save.write(line+'\n')
                     p_ct += 1
                     dataset = []
 
         if (len(dataset) > 0):
             pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
             with open(pt_file, 'w') as save:
-                save.write(json.dumps(dataset))
+                for line in dataset:
+                    save.write(line+'\n')
                 p_ct += 1
                 dataset = []
 
@@ -406,40 +415,6 @@ def split_shard_prefix_tgt(args):
             pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
             with open(pt_file, 'w') as save:
                 save.write(json.dumps(dataset))
-                p_ct += 1
-                dataset = []
-
-
-def simple_split_shard(args):
-    if (args.dataset != ''):
-        datasets = [args.dataset]
-    else:
-        datasets = ['train', 'test', 'validation']
-
-    for corpus_type in datasets:
-
-        input_path = os.path.join(args.raw_path, corpus_type+'.jsonl')
-
-        json_objs = []
-        for line in open(input_path):
-            json_objs.append(line.strip())
-
-        dataset = []; p_ct = 0
-        for d in json_objs:
-            dataset.append(d)
-            if (len(dataset) > args.shard_size):
-                pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-                with open(pt_file, 'w') as save:
-                    for line in dataset:
-                        save.write(line+'\n')
-                    p_ct += 1
-                    dataset = []
-
-        if (len(dataset) > 0):
-            pt_file = "{:s}/{:s}.{:d}.json".format(args.save_path, corpus_type, p_ct)
-            with open(pt_file, 'w') as save:
-                for line in dataset:
-                    save.write(line+'\n')
                 p_ct += 1
                 dataset = []
 
@@ -1115,5 +1090,82 @@ def format_selection_and_sentiment_to_s2s(args):
     fpout = open(pjoin(args.save_path, 'test.0.json'), 'w')
     fpout.write(json.dumps(output_jsons))
     fpout.close()
+
+
+def _process_slot_attn(params):
+
+    corpus_type, json_file, args, save_file = params
+    logger.info('Processing %s' % json_file)
+    if (os.path.exists(save_file)):
+        logger.info('Ignore %s' % save_file)
+        return
+
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+
+    data_obj = DataCreator(args, additional_tokens)
+    jobs = json.load(open(json_file))
+
+    datasets = []
+    for d in jobs:
+
+        eid = d['example_id']
+
+        # source side
+        src = d['document_segs']
+        source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens)
+
+        # tokenize predicates
+        predicates = d['predicates']
+        predicates_ids = data_obj.tokenizer.convert_tokens_to_ids(predicates)
+        predicates_txt = ' '.join(predicates)
+        
+        # predicates aggregation and target
+        target_tokens = []; tgt_txt = []
+        tgt = d['gold_segs']
+        alignments = d['oracles_selection']
+        for i, sentence_alg in enumerate(alignments):
+            output_piece = [predicates[idx] for idx in sentence_alg]
+            output_piece = output_piece + ['|||'] + [tgt[i]]
+            tokens, txt = data_obj.preprocess_tgt_new(output_piece, args.max_tgt_ntokens)
+            target_tokens.append(tokens)
+            tgt_txt.append(txt)
+
+        b_data_dict = {"src": source_tokens, 
+                       "pred": predicates_ids,
+                       "tgt": target_tokens,
+                       "src_txt": src_txt,
+                       "pred_txt": predicates_txt,
+                       "tgt_txt": tgt_txt,
+                       "eid": eid}
+
+        datasets.append(b_data_dict)
+
+    logger.info('Processed instances %d' % len(datasets))
+    logger.info('Saving to %s' % save_file)
+    torch.save(datasets, save_file)
+    datasets = []
+    gc.collect()
+
+
+def format_for_slot_attn(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['validation', 'train', 'test']
+
+    for corpus_type in datasets:
+        a_lst = []
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            a_lst.append((corpus_type, json_f, args, pjoin(args.save_path, real_name.replace('json', 'bert.pt'))))
+        print(a_lst)
+        pool = Pool(args.n_cpus)
+        for d in pool.imap(_process_slot_attn, a_lst):
+            pass
+
+        pool.close()
+        pool.join()
 
 

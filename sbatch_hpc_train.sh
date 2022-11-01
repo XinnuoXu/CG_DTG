@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH -A TEAMER-SL2-GPU
+#SBATCH -A BROADSEM-SL2-GPU
 #SBATCH -p ampere
 #SBATCH --nodes=1	  # nodes requested
-#SBATCH --gres=gpu:4  # use 1 GPU
+#SBATCH --gres=gpu:3  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
-#SBATCH -t 30:00:00  # time requested in hour:minute:seconds
-#SBATCH --cpus-per-task=4  # number of cpus to use - there are 32 on each node.
+#SBATCH -t 15:00:00  # time requested in hour:minute:seconds
+#SBATCH --cpus-per-task=3  # number of cpus to use - there are 32 on each node.
 #SBATCH --no-requeue
 
 numnodes=$SLURM_JOB_NUM_NODES
@@ -47,7 +47,7 @@ echo "Creating directory to save model weights"
 #sh scripts_cnn.hpc/train_cnn_entity_chain.sh
 #sh scripts_cnn.hpc/train_cnn_parallel.sh
 #sh scripts_ama.hpc/train_pipeline_summarizer.sh
-
-sh scripts_ama.hpc/train_pipeline_selector_sentiment.sh
+#sh scripts_ama.hpc/train_pipeline_selector_sentiment.sh
+sh ./scripts_d2t.hpc/train_webnlg_plan.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

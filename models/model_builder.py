@@ -11,6 +11,7 @@ from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
 from transformers import LongformerModel, BertModel
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
+from models.slot_attn import SlotAttentionExperimental
 from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint):
@@ -503,3 +504,70 @@ class SentimentClassifier(nn.Module):
         example_masks = mask_src[:,0].unsqueeze(1)
 
         return verdict_scores, pros_scores, cons_scores, example_masks
+
+
+class SlotAttnAggragator(nn.Module):
+    def __init__(self, args, device, vocab_size, checkpoint=None):
+        super(SlotAttnAggragator, self).__init__()
+        self.args = args
+        self.device = device
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+
+        self.vocab_size = vocab_size
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
+
+        model_dim = self.model.config.hidden_size
+        self.planner = SlotAttentionExperimental(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+
+        self.encoder = self.model.get_encoder()
+        self.decoder = self.model.get_decoder()
+        self.generator = get_generator(self.vocab_size, model_dim, device)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            print ('Initialize parameters for generator...')
+            for p in self.generator.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+            for p in self.planner.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        self.to(device)
+
+
+    def forward(self, src, tgt, pred, mask_src, mask_tgt, nsent):
+
+        # Run encoder
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        # Run slot attn
+        slot_embs = []
+        for i in range(len(nsent)):
+            p_emb = self.decoder.embed_tokens(pred[i])
+            p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
+            s_embs, _ = self.planner(p_emb, num_slots=nsent[i]) # (batch_size, slot_num, dim)
+            for j in range(s_embs.size(1)):
+                slot_embs.append(s_embs[:,j,:])
+        slot_embs = torch.cat(slot_embs, dim=0).unsqueeze(dim=1)
+
+        # Run Decoder
+        tgt_embs = self.decoder.embed_tokens(tgt)
+        tgt_embs = torch.cat((slot_embs, tgt_embs[:,1:,:]), dim=1)
+        decoder_outputs = self.decoder(inputs_embeds=tgt_embs, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=mask_src)
+
+        return decoder_outputs.last_hidden_state
+

@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # Setup for Webnlg
-RAW_PATH=/home/hpcxu1/Planning/Plan_while_Generate/D2T_data/webnlg_data/
-JSON_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/jsons/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
+JSON_PATH=${BASE_PATH}/jsons/
+LOG_PATH=${BASE_PATH}/logs/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${JSON_PATH}
