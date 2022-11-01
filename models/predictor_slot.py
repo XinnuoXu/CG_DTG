@@ -140,38 +140,41 @@ class Translator(object):
                 min_length=self.min_length)
 
 
-    def _plan_generation(src_features, mask_src, predicates):
+    def _plan_generation(self, src_features, mask_src, predicates):
+        device = src_features.device
+        plans = []
         for i, pred in enumerate(predicates):
-            p_emb = self.model.decoder.embed_tokens(pred)
+            p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
+
+            candidate_nslot = []; candidate_solutions = []; candidate_scores = []
+
             for nslot in range(1, p_emb.size(1)+1):
                 s_embs, _ = self.model.planner(p_emb, num_slots=nslot) # (batch_size, slot_num, dim)
-                slot_embs = s_embs.squeeze(dim=0) #(slot_num, dim)
+                slot_embs = s_embs.squeeze(dim=0).unsqueeze(dim=1) #(slot_num, dim)
 
                 top_vec = src_features[i].unsqueeze(dim=0)
                 s_mask = mask_src[i].unsqueeze(dim=0)
-                top_vec = tile(top_vec, nslot, dim=0)
-                s_mask = tile(s_mask, nslot, dim=0)
+                top_vec = tile(top_vec, nslot, dim=0) # (batch_size=slot_num, src_length, dim)
+                s_mask = tile(s_mask, nslot, dim=0) # (batch_size=slot_num, src_length)
 
                 # Run decoder
-                alive_seq = torch.full([nslot, 1], self.start_token_id, dtype=torch.long, device=device)
-                scores = torch.tensor([0.0] * nslot, device=device)
-                hypotheses = [None] * nslot
-                for step in range(pred.size(0)):
-                    tgt_embs = self.model.decoder.embed_tokens(alive_seq)
+                alive_seq = torch.full([nslot, 1], self.start_token_id, dtype=torch.long, device=device) # (slot_num, 1)
+                scores = torch.tensor([0.0] * nslot, device=device) # (slot_num)
+                hypotheses = []
+                for step in range(pred.size(0)+1):
+                    tgt_embs = self.model.decoder.embed_tokens(alive_seq) # (slot_num, tgt_length, dim)
                     tgt_embs = torch.cat((slot_embs, tgt_embs[:,1:,:]), dim=1)
                     decoder_outputs = self.model.decoder(inputs_embeds=tgt_embs,
-                                                         attention_mask=mask_tgt,
                                                          encoder_hidden_states=top_vec,
-                                                         encoder_attention_mask=mask_src)
-
-                    dec_out = decoder_outputs.last_hidden_state[:, -1, :]
+                                                         encoder_attention_mask=s_mask)
+                    dec_out = decoder_outputs.last_hidden_state[:, -1, :] # (slot_num, dim)
 
                     log_probs = self.generator.forward(dec_out)
-                    topk_scores, topk_ids = log_probs.topk(1, dim=-1)
-                    scores += topk_scores
+                    topk_scores, topk_ids = log_probs.topk(1, dim=-1) # topk_scores and topk_ids (slot_num, topk)
+                    scores += topk_scores.squeeze(dim=1)
 
-                    alive_seq = torch.cat([alive_seq, topk_ids.view(-1, 1)], -1)
+                    alive_seq = torch.cat([alive_seq, topk_ids], -1) #(slot_num, tgt_length)
 
                     is_finished = topk_ids.eq(self.plan_end_id)
                     if step + 1 == p_emb.size(1)+1:
@@ -181,16 +184,29 @@ class Translator(object):
                     if is_finished.any():
                         finished_hyp = is_finished.nonzero().view(-1)
                         for j in finished_hyp:
-                            hypotheses[j] = (scores[j], alive_seq[j]))
+                            hypotheses.append((scores[j], alive_seq[j]))
 
                         non_finished = is_finished.eq(0).nonzero().view(-1)
                         if len(non_finished) == 0:
                             break
-                        topk_log_probs = topk_log_probs.index_select(0, non_finished)
-                        batch_index = batch_index.index_select(0, non_finished)
-                        batch_offset = batch_offset.index_select(0, non_finished)
-                        alive_seq = predictions.index_select(0, non_finished).view(-1, alive_seq.size(-1))
-        return results
+                        scores = scores.index_select(0, non_finished)
+                        alive_seq = alive_seq.index_select(0, non_finished)
+                        top_vec = top_vec.index_select(0, non_finished)
+                        s_mask = s_mask.index_select(0, non_finished)
+                        slot_embs = slot_embs.index_select(0, non_finished)
+
+                candidate_nslot.append(nslot)
+                candidate_scores.append(sum([pair[0] for pair in hypotheses]))
+                candidate_solutions.append([pair[1] for pair in  hypotheses])
+
+            # store and sort for debugging
+            zipped = zip(candidate_nslot, candidate_solutions, candidate_scores)
+            zipped = list(zipped)
+            res = sorted(zipped, key = lambda x: x[2], reverse=True)
+            bast_solution = res[0][1]
+            plans.append(bast_solution)
+
+        return plans
 
 
     def _fast_translate_batch(self, batch, max_length, min_length=0):
@@ -209,12 +225,12 @@ class Translator(object):
 
         results = {}
 
-        # Predict plan
-        self._plan_generation(pred)
-
         # Run encoder and tree prediction
         encoder_outputs = self.model.encoder(input_ids=src, attention_mask=mask_src)
         src_features = encoder_outputs.last_hidden_state
+
+        # Predict plan
+        self._plan_generation(src_features, mask_src, pred)
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
