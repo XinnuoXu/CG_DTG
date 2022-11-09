@@ -7,11 +7,14 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
+import numpy as np
+from scipy.optimize import linear_sum_assignment
+from scipy.stats import entropy
 from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
 from transformers import LongformerModel, BertModel
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
-from models.slot_attn import SlotAttentionExperimental
+from models.slot_attn import SlotAttention
 from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint):
@@ -507,23 +510,31 @@ class SentimentClassifier(nn.Module):
 
 
 class SlotAttnAggragator(nn.Module):
-    def __init__(self, args, device, vocab_size, checkpoint=None):
+    def __init__(self, args, device, vocab_size, checkpoint=None, pretrained_checkpoint=None):
         super(SlotAttnAggragator, self).__init__()
         self.args = args
         self.device = device
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
-
         self.vocab_size = vocab_size
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        print (self.vocab_size, len(self.original_tokenizer))
-        if self.vocab_size > len(self.original_tokenizer):
-            self.model.resize_token_embeddings(self.vocab_size)
+        self.original_vocab_size = len(self.original_tokenizer)
 
-        model_dim = self.model.config.hidden_size
-        self.planner = SlotAttentionExperimental(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        if pretrained_checkpoint is not None:
+            self.model = pretrained_checkpoint
+            self.encoder = self.model.encoder
+            self.decoder = self.model.decoder
+            self.decoder.embed_tokens.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
+            model_dim = 768
+        else:
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+            print (self.vocab_size, self.original_vocab_size)
+            if self.vocab_size > self.original_vocab_size:
+                self.model.resize_token_embeddings(self.vocab_size)
+            self.encoder = self.model.get_encoder()
+            self.decoder = self.model.get_decoder()
+            model_dim = self.model.config.hidden_size
 
-        self.encoder = self.model.get_encoder()
-        self.decoder = self.model.get_decoder()
+        self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+
         self.generator = get_generator(self.vocab_size, model_dim, device)
 
         if checkpoint is not None:
@@ -545,21 +556,71 @@ class SlotAttnAggragator(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, pred, mask_src, mask_tgt, nsent):
+    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
 
         # Run slot attn
-        slot_embs = []
+        slot_embs = []; new_tgts = []; new_tgt_masks = []
+        entropy_map = {}
         for i in range(len(nsent)):
-            p_emb = self.decoder.embed_tokens(pred[i])
-            p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
-            s_embs, _ = self.planner(p_emb, num_slots=nsent[i]) # (batch_size, slot_num, dim)
-            for j in range(s_embs.size(1)):
-                slot_embs.append(s_embs[:,j,:])
+            # for the i-th example, run slot attention
+            #p_emb = self.decoder.embed_tokens(pred[i])
+            p_emb = self.encoder.embed_tokens(pred[i])
+            p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, pred_num, dim)
+            s_embs, s_attn = self.planner(p_emb, num_slots=nsent[i]) # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
+            s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
+            s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
+
+            if s_attn.size(0) > 1:
+                entropy_attn = s_attn.detach().clone().cpu().numpy()
+                entropy_scores = entropy(entropy_attn, base=2, axis=0)
+                entropy_scores = np.average(entropy_scores)
+                if nsent[i] not in entropy_map:
+                    entropy_map[nsent[i]] = []
+                entropy_map[nsent[i]].append(entropy_scores)
+
+
+            # run predicate-to-slot assignment
+            #_predicate_to_slot = F.gumbel_softmax(s_attn, tau=0.1, hard=True, dim=0) # for future use
+            attn_max = torch.max(s_attn, dim=0)[0]
+            attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
+            _predicate_to_slot = (s_attn == attn_max).int()
+
+            predicate_to_slot = []
+            for j in range(_predicate_to_slot.size(0)):
+                select_idx = _predicate_to_slot[j].nonzero().view(-1)
+                to_slot = pred[i].index_select(0, select_idx).tolist()
+                predicate_to_slot.append(to_slot)
+
+            predicate_to_sentence = p2s[i]
+            slot_to_sentence_costs = np.zeros((nsent[i], nsent[i])) # slot to sentence alignments
+            for j in range(len(predicate_to_slot)):
+                for k in range(len(predicate_to_sentence)):
+                    overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
+                    slot_to_sentence_costs[j][k] = overlap
+
+            #print (predicate_to_slot, predicate_to_sentence)
+            #print (slot_to_sentence_costs)
+            slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
+            #print (slot_to_sentence_costs)
+            row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+            #print (row_ind, col_ind)
+            #print (tgt[i])
+            new_tgt = torch.stack([tgt[i][idx] for idx in col_ind])
+            #print (new_tgt)
+            new_tgt_mask = torch.stack([mask_tgt[i][idx] for idx in col_ind])
+            #print ('\n')
+
+            slot_embs.append(s_embs)
+            new_tgts.append(new_tgt)
+            new_tgt_masks.append(new_tgt_mask)
+
         slot_embs = torch.cat(slot_embs, dim=0).unsqueeze(dim=1)
+        tgt = torch.cat(new_tgts, dim=0)
+        mask_tgt = torch.cat(new_tgt_masks, dim=0)
 
         # Run Decoder
         tgt_embs = self.decoder.embed_tokens(tgt)
@@ -569,5 +630,5 @@ class SlotAttnAggragator(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src)
 
-        return decoder_outputs.last_hidden_state
+        return decoder_outputs.last_hidden_state, tgt, mask_tgt, entropy_map
 

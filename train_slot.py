@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 from models import data_slot_loader, model_builder
 from models.data_slot_loader import load_dataset
 from models.loss import abs_loss 
-from models.model_builder import SlotAttnAggragator
+from models.model_builder import SlotAttnAggragator, AbsSummarizer
 from models.trainer_slot import build_trainer
 from models.predictor_slot import build_predictor
 from models.logging import logger, init_logger
@@ -163,7 +163,12 @@ def train_slot_single(args, device_id):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     # Load model
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint)
+    if args.load_pretrained_model != '':
+        pretrained_model_checkpoint = torch.load(args.load_pretrained_model, map_location=lambda storage, loc: storage)
+        pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+    else:
+        pretrained_model = None
+    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
 
     # Load optimizer
     optim = [model_builder.build_optim(args, model, checkpoint)]
@@ -225,7 +230,13 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint)
+    if args.load_pretrained_model != '':
+        pretrained_model_checkpoint = torch.load(args.load_pretrained_model, map_location=lambda storage, loc: storage)
+        pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+    else:
+        pretrained_model = None
+
+    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint=checkpoint, pretrained_checkpoint=pretrained_model)
     model.eval()
 
     valid_loss = abs_loss(model.generator, model.vocab_size, 
@@ -257,7 +268,12 @@ def test_slot(args, device_id, pt, step):
                                             shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint)
+    if args.load_pretrained_model != '':
+        pretrained_model_checkpoint = torch.load(args.load_pretrained_model, map_location=lambda storage, loc: storage)
+        pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+    else:
+        pretrained_model = None
+    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint=checkpoint, pretrained_checkpoint=pretrained_model)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

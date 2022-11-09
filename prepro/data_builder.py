@@ -1125,16 +1125,20 @@ def _process_slot_attn(params):
         target_tokens = []; tgt_txt = []
         tgt = d['gold_segs']
         alignments = d['oracles_selection']
+        pred_to_sentence = []
         for i, sentence_alg in enumerate(alignments):
             output_piece = [predicates[idx] for idx in sentence_alg]
-            output_piece = output_piece + ['|||'] + [tgt[i]]
+            #output_piece = output_piece + ['|||'] + [tgt[i]]
+            output_piece = [tgt[i]]
             tokens, txt = data_obj.preprocess_tgt_new(output_piece, args.max_tgt_ntokens)
             target_tokens.append(tokens)
             tgt_txt.append(txt)
+            pred_to_sentence.append([predicates_ids[idx] for idx in sentence_alg])
 
         b_data_dict = {"src": source_tokens, 
                        "pred": predicates_ids,
                        "tgt": target_tokens,
+                       "p2s": pred_to_sentence,
                        "src_txt": src_txt,
                        "pred_txt": predicates_txt,
                        "tgt_txt": tgt_txt,
@@ -1169,3 +1173,64 @@ def format_for_slot_attn(args):
         pool.join()
 
 
+
+def _process_d2t_base(params):
+
+    corpus_type, json_file, args, save_file = params
+    logger.info('Processing %s' % json_file)
+    if (os.path.exists(save_file)):
+        logger.info('Ignore %s' % save_file)
+        return
+
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+
+    data_obj = DataCreator(args, additional_tokens)
+    jobs = json.load(open(json_file))
+
+    datasets = []
+    for d in jobs:
+        eid = d['example_id']
+
+        src = d['document_segs']
+        source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens)
+
+        tgt = d['gold_segs']
+        target_tokens, tgt_txt = data_obj.preprocess_tgt_new(tgt, args.max_tgt_ntokens)
+
+        b_data_dict = {"src": source_tokens, 
+                       "tgt": target_tokens,
+                       "src_txt": src_txt,
+                       "tgt_txt": tgt_txt,
+                       "tgt_prefix": [],
+                       "nsent_src":len(src),
+                       "nsent_tgt":len(tgt),
+                       "eid": eid}
+
+        datasets.append(b_data_dict)
+
+    logger.info('Processed instances %d' % len(datasets))
+    logger.info('Saving to %s' % save_file)
+    torch.save(datasets, save_file)
+    datasets = []
+    gc.collect()
+
+
+def format_for_d2t_base(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['validation', 'train', 'test']
+
+    for corpus_type in datasets:
+        a_lst = []
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            a_lst.append((corpus_type, json_f, args, pjoin(args.save_path, real_name.replace('json', 'bert.pt'))))
+        print(a_lst)
+        pool = Pool(args.n_cpus)
+        for d in pool.imap(_process_d2t_base, a_lst):
+            pass
+
+        pool.close()

@@ -1,29 +1,28 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.base/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
+DATA_PATH=${BASE_PATH}/data.base/
+MODEL_PATH=${BASE_PATH}/model.base/
+LOG_PATH=${BASE_PATH}/logs.base/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py  \
-	-input_path ${BERT_DATA_PATH} \
+	-mode train \
+	-input_path ${DATA_PATH} \
 	-model_name t5-base \
 	-model_path ${MODEL_PATH} \
-        -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-mode train \
-	-ext_or_abs abs \
-	-content_planning_model none \
+        -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+	-ext_or_abs abs \
 	-train_steps 6000 \
-	-save_checkpoint_steps 2000 \
+	-save_checkpoint_steps 1000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \
-	-max_pos 250 \
+	-max_pos 1024 \
 	-max_tgt_len 250 \
-	-ext_dropout 0.1 \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \

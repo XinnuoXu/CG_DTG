@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("-temp_dir", default='./temp')
     parser.add_argument('-log_file', default='../logs/cnndm.log')
     parser.add_argument('-log_gradient', default='')
+    parser.add_argument('-load_pretrained_model', default='')
 
     # data parameters
     parser.add_argument("-batch_size", default=140, type=int)
@@ -101,7 +102,6 @@ if __name__ == '__main__':
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
     parser.add_argument("-test_min_length", default=10, type=int)
     parser.add_argument("-test_max_length", default=60, type=int)
-    parser.add_argument("-start_with_the_first_tok_in_gt", type=str2bool, nargs='?', default=False)
 
     args = parser.parse_args()
     args.gpu_ranks = [int(i) for i in range(len(args.visible_gpus.split(',')))]

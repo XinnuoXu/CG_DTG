@@ -513,3 +513,5 @@ class DecoderState(object):
 
     def map_batch_fn(self, fn):
         raise NotImplementedError()
+
+

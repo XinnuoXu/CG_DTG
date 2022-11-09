@@ -86,7 +86,7 @@ class Trainer(object):
                 if self.n_gpu == 0 or (i % self.n_gpu == self.gpu_rank):
 
                     true_batchs.append(batch)
-                    num_tokens = batch.tgt[:, 1:].ne(self.loss.padding_idx).sum()
+                    num_tokens = sum([tgt[:, 1:].ne(self.loss.padding_idx).sum() for tgt in batch.tgt])
                     normalization += num_tokens.item()
                     accum += 1
                     if accum == self.grad_accum_count:
@@ -123,6 +123,7 @@ class Trainer(object):
         if self.grad_accum_count > 1:
             self.model.zero_grad()
 
+        entropy_mapping = {}
         for batch in true_batchs:
             if self.grad_accum_count == 1:
                 self.model.zero_grad()
@@ -132,9 +133,17 @@ class Trainer(object):
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
             pred = batch.pred
+            p2s = batch.p2s
             nsent = batch.nsent
 
-            outputs = self.model(src, tgt, pred, mask_src, mask_tgt, nsent)
+            outputs, tgt, mask_tgt, entropy_map = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent)
+            for key in entropy_map:
+                if key not in entropy_mapping:
+                    entropy_mapping[key] = []
+                entropy_mapping[key].append(sum(entropy_map[key])/len(entropy_map[key]))
+
+            batch.tgt = tgt
+            batch.mask_tgt = mask_tgt
 
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
@@ -166,6 +175,10 @@ class Trainer(object):
             for o in self.optims:
                 o.step()
 
+        for key in entropy_mapping:
+            entropy_mapping[key] = sum(entropy_mapping[key])/len(entropy_mapping[key])
+        print (json.dumps(entropy_mapping))
+
 
     def validate(self, valid_iter, step=0):
         """ Validate model.
@@ -184,9 +197,12 @@ class Trainer(object):
                 tgt = batch.tgt
                 mask_tgt = batch.mask_tgt
                 pred = batch.pred
+                p2s = batch.p2s
                 nsent = batch.nsent
 
-                outputs = self.model(src, tgt, pred, mask_src, mask_tgt, nsent)
+                outputs, tgt, mask_tgt = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent)
+                batch.tgt = tgt
+                batch.mask_tgt = mask_tgt
 
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
                 stats.update(batch_stats)

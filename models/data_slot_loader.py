@@ -23,6 +23,7 @@ class Batch(object):
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
             pre_pred = [x[2] for x in data]
+            pre_p2s = [x[3] for x in data]
             pre_nsent = [len(x) for x in pre_tgt]
           
             # process src
@@ -42,23 +43,27 @@ class Batch(object):
                 tgt = None
                 mask_tgt = None
             else:
-                tgt = []
-                for t in pre_tgt:
-                    random.shuffle(t)
-                    tgt.extend(t)
-                tgt = torch.tensor(self._pad(tgt, pad_id)).to(device)
-                mask_tgt = ~(tgt == pad_id).to(device)
+                widths = []
+                for tgt in pre_tgt:
+                    for t in tgt:
+                        widths.append(len(t))
+
+                tgt = []; mask_tgt = []; width = max(widths)
+                for i, t in enumerate(pre_tgt):
+                    t = torch.tensor(self._pad(t, pad_id, width=width)).to(device)
+                    tgt.append(t)
+                    m_t = ~(t == pad_id).to(device)
+                    mask_tgt.append(m_t)
             setattr(self, 'tgt', tgt)
             setattr(self, 'mask_tgt', mask_tgt)
 
             # process preds
             pred = []
             for pd in pre_pred:
-                if not is_test:
-                    random.shuffle(pd)
                 pred.append(torch.tensor(pd, device=device))
             setattr(self, 'pred', pred)
 
+            setattr(self, 'p2s', pre_p2s)
             setattr(self, 'nsent', pre_nsent)
 
             if (is_test):
@@ -184,13 +189,14 @@ class DataIterator(object):
         src = ex['src']
         tgt = ex['tgt']
         pred = ex['pred']
+        p2s = ex['p2s']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
 
         if(is_test):
-            return src, tgt, pred, src_txt, tgt_txt, eid
+            return src, tgt, pred, p2s, src_txt, tgt_txt, eid
         else:
-            return src, tgt, pred
+            return src, tgt, pred, p2s
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
