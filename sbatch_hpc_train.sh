@@ -49,7 +49,8 @@ echo "Creating directory to save model weights"
 #sh scripts_ama.hpc/train_pipeline_summarizer.sh
 #sh scripts_ama.hpc/train_pipeline_selector_sentiment.sh
 
-sh ./scripts_d2t.hpc/train_webnlg_plan.sh
+#sh ./scripts_d2t.hpc/train_webnlg_plan.sh > entropy_analysis.sparsemax_fromraw
+sh ./scripts_d2t.hpc/train_webnlg_plan.sh > entropy_analysis.sparsemax
 #sh ./scripts_d2t.hpc/train_webnlg_base.sh 
 
 echo "Job ${SLURM_JOB_ID} is done!"

@@ -4,6 +4,8 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 DATA_PATH=${BASE_PATH}/data/
 MODEL_PATH=${BASE_PATH}/models.plan/
 LOG_PATH=${BASE_PATH}/logs.plan/
+#MODEL_PATH=${BASE_PATH}/models.plan.from_raw/
+#LOG_PATH=${BASE_PATH}/logs.plan.from_raw/
 PRETRAINED_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
 
 mkdir -p ${MODEL_PATH}
@@ -28,4 +30,5 @@ python train.py  \
 	-lr 3e-4 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0
+	-visible_gpus 0,1,2
+
