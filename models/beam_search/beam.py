@@ -340,6 +340,7 @@ class BeamSearchDecoding(object):
             # Resolve beam origin and true word ids.
             topk_beam_index = topk_ids.div(vocab_size).int()
             topk_ids = topk_ids.fmod(vocab_size)
+            print (src, topk_ids)
 
             # Map beam_index to batch_index in the flat representation.
             batch_index = (topk_beam_index + beam_offset[:topk_beam_index.size(0)].unsqueeze(1))

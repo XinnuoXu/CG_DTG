@@ -132,6 +132,7 @@ class Trainer(object):
             mask_src = batch.mask_src
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
+            mask_loss = batch.mask_loss
             pred = batch.pred
             p2s = batch.p2s
             nsent = batch.nsent
@@ -200,7 +201,7 @@ class Trainer(object):
                 p2s = batch.p2s
                 nsent = batch.nsent
 
-                outputs, tgt, mask_tgt = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent)
+                outputs, tgt, mask_tgt, _ = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent)
                 batch.tgt = tgt
                 batch.mask_tgt = mask_tgt
 

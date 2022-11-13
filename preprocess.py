@@ -40,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument("-for_stepwise", type=str2bool, default=False)
     parser.add_argument("-plan_generation", type=str2bool, default=False)
     parser.add_argument("-no_bos_for_tgt", type=str2bool, default=False)
+    parser.add_argument("-shuffle_src", type=str2bool, default=False)
 
     parser.add_argument("-spectral_method", default='spectral_clustering', type=str, choices=['spectral_clustering', 'random', 'only_entity', 'ground_truth'])
     parser.add_argument("-spectral_assign_labels", default='discretize', type=str)

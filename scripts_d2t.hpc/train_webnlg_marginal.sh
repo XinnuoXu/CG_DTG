@@ -2,9 +2,9 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 DATA_PATH=${BASE_PATH}/data/
-MODEL_PATH=${BASE_PATH}/models.plan/
-LOG_PATH=${BASE_PATH}/logs.plan/
-PRETRAINED_MODEL_PATH=${BASE_PATH}/models.parallel/model_step_10000.pt
+MODEL_PATH=${BASE_PATH}/models.marginal/
+LOG_PATH=${BASE_PATH}/logs.marginal/
+PRETRAINED_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -18,8 +18,9 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-load_pretrained_model ${PRETRAINED_MODEL_PATH} \
 	-ext_or_abs slot \
-	-train_steps 10000 \
-	-save_checkpoint_steps 2000 \
+	-slot_marginal True \
+	-train_steps 3000 \
+	-save_checkpoint_steps 1000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \

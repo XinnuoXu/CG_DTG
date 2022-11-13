@@ -1,25 +1,23 @@
 #!/bin/bash
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-DATA_PATH=${BASE_PATH}/data/
-MODEL_PATH=${BASE_PATH}/models.plan/
-LOG_PATH=${BASE_PATH}/logs.plan/
-PRETRAINED_MODEL_PATH=${BASE_PATH}/models.parallel/model_step_10000.pt
+DATA_PATH=${BASE_PATH}/data.parallel/
+MODEL_PATH=${BASE_PATH}/models.parallel/
+LOG_PATH=${BASE_PATH}/logs.parallel/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py  \
 	-mode train \
-	-model_name t5-base \
 	-input_path ${DATA_PATH} \
+	-model_name t5-base \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
-	-load_pretrained_model ${PRETRAINED_MODEL_PATH} \
-	-ext_or_abs slot \
-	-train_steps 10000 \
-	-save_checkpoint_steps 2000 \
+	-ext_or_abs abs \
+	-train_steps 20000 \
+	-save_checkpoint_steps 5000 \
 	-warmup_steps 1000 \
 	-batch_size 3000 \
 	-report_every 100 \

@@ -2,7 +2,7 @@
 
 # Setup for Webnlg
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data_aug/
 JSON_PATH=${BASE_PATH}/jsons/
 LOG_PATH=${BASE_PATH}/logs/
 

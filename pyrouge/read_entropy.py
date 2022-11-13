@@ -8,7 +8,7 @@ import random
 def Plot_one_file(filename, linestyles, tag):
     entropy_mapping = {}
     numbers = []
-    for line in open('entropy_analysis.sparsemax'):
+    for line in open(filename):
         try:
             obj = json.loads(line.strip())
         except:
@@ -32,11 +32,11 @@ def Plot_one_file(filename, linestyles, tag):
 
 
 if __name__ == '__main__':
-    Plot_one_file('entropy_analysis.json', 'solid', 'softmax')
-    Plot_one_file('entropy_analysis.sparsemax', 'dotted', 'sparsemax')
-    Plot_one_file('entropy_analysis.sparsemax_fromraw', 'dashed', 'sparsemax_raw')
+    #Plot_one_file('entropy_analysis.json', 'solid', 'softmax')
+    Plot_one_file('entropy_analysis.plan', 'dotted', 'sparsemax')
+    #Plot_one_file('entropy_analysis.sparsemax_fromraw', 'dashed', 'sparsemax_raw')
 
     plt.ylabel('Entropy')
     plt.legend()
-    plt.savefig('entropy_sparse_fromraw.png')
+    plt.savefig('entropy_analysis_plan.png')
 

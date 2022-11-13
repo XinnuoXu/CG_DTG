@@ -15,15 +15,16 @@ class Batch(object):
         return rtn_data
 
     def __init__(self, data=None, device=None, is_test=False, 
-                 pad_id=None, cls_id=None):
+                 pad_id=None, slot_marginal=False):
 
         """Create a Batch from a list of examples."""
         if data is not None:
             self.batch_size = len(data)
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
-            pre_pred = [x[2] for x in data]
-            pre_p2s = [x[3] for x in data]
+            pre_tgt_prompt = [x[2] for x in data]
+            pre_pred = [x[3] for x in data]
+            pre_p2s = [x[4] for x in data]
             pre_nsent = [len(x) for x in pre_tgt]
           
             # process src
@@ -39,23 +40,43 @@ class Batch(object):
             setattr(self, 'mask_src', mask_src.to(device))
 
             # process tgt
-            if is_test: 
+            if is_test:
                 tgt = None
                 mask_tgt = None
+                mask_for_supervision = None
             else:
-                widths = []
-                for tgt in pre_tgt:
-                    for t in tgt:
-                        widths.append(len(t))
+                widths = []; new_tgt = []; loss_mask = []
+                for i, ex in enumerate(pre_tgt):
+                    n_tgt = []; l_mask = []
+                    for j, t in enumerate(ex):
+                        if slot_marginal:
+                            pre_tgt_prompt[i][j] = [pre_tgt_prompt[i][j][0]]
+                        one_sentence = pre_tgt_prompt[i][j] + t
+                        n_tgt.append(one_sentence)
 
-                tgt = []; mask_tgt = []; width = max(widths)
-                for i, t in enumerate(pre_tgt):
+                        prompt_mask = [0] * (len(pre_tgt_prompt[i][j])-1) + [1] * (len(t)+1)
+                        l_mask.append(prompt_mask)
+
+                        widths.append(len(one_sentence))
+
+                    new_tgt.append(n_tgt)
+                    loss_mask.append(l_mask)
+
+                tgt = []; mask_tgt = []; mask_for_supervision = []; width = max(widths)
+                for i, t in enumerate(new_tgt):
                     t = torch.tensor(self._pad(t, pad_id, width=width)).to(device)
                     tgt.append(t)
+
                     m_t = ~(t == pad_id).to(device)
                     mask_tgt.append(m_t)
+
+                    l = torch.tensor(self._pad(loss_mask[i], 0, width=width)).to(device)
+                    mask_for_supervision.append(l)
+
+
             setattr(self, 'tgt', tgt)
             setattr(self, 'mask_tgt', mask_tgt)
+            setattr(self, 'mask_loss', mask_for_supervision)
 
             # process preds
             pred = []
@@ -188,15 +209,16 @@ class DataIterator(object):
         eid = ex['eid']
         src = ex['src']
         tgt = ex['tgt']
+        tgt_prompt = ex['tgt_prompt']
         pred = ex['pred']
         p2s = ex['p2s']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
 
         if(is_test):
-            return src, tgt, pred, p2s, src_txt, tgt_txt, eid
+            return src, tgt, tgt_prompt, pred, p2s, src_txt, tgt_txt, eid
         else:
-            return src, tgt, pred, p2s
+            return src, tgt, tgt_prompt, pred, p2s
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
@@ -254,7 +276,7 @@ class DataIterator(object):
                 self.iterations += 1
                 self._iterations_this_epoch += 1
                 batch = Batch(minibatch, self.device, self.is_test, 
-                              self.pad_token_id, cls_id=self.cls_token_id)
+                              self.pad_token_id, slot_marginal=self.args.slot_marginal)
                 yield batch
             return
 

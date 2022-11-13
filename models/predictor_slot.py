@@ -32,7 +32,10 @@ class Translator(object):
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
         self.pad_token_id = self.tokenizer.pad_token_id
+
         self.plan_end_id = self.tokenizer.convert_tokens_to_ids(['|||'])[0]
+        self.first_sentence_id = self.tokenizer.convert_tokens_to_ids(['<FIRST_SENT>'])[0]
+        self.nonfirst_sentence_id = self.tokenizer.convert_tokens_to_ids(['<NOT_FIRST_SENT>'])[0]
 
         if self.tokenizer.cls_token_id is None:
             self.cls_token = self.tokenizer.eos_token
@@ -118,25 +121,68 @@ class Translator(object):
         return translations
 
 
+    def _discrete_plan_classification(self, predicates, slot_nums=None):
+        plans = []
+        device = predicates[0].device
+        for i, pred in enumerate(predicates):
+            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
+
+            s_embs, attn = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
+
+            slot_embs = s_embs.squeeze(dim=0).unsqueeze(dim=1) #(slot_num, 1, dim)
+            for j in range(slot_embs.size(0)):
+                slot_embs[j] = p_emb[0, j, :]
+            slot_embs = [slot_embs[j].unsqueeze(1) for j in range(slot_embs.size(0))]
+
+            attn = attn.squeeze(dim=0)
+            attn_max = torch.max(attn, dim=0)[1]
+
+            solutions = [[] for j in range(slot_nums[i])]
+            for j in range(attn_max.size(0)):
+                cluster_id = attn_max[j]
+                pred_id = int(pred[j])
+                solutions[cluster_id].append(pred_id)
+
+            new_solutions = []; new_slot_embs = []
+            for j, item in enumerate(solutions):
+                if len(item) == 0:
+                    continue
+                if j == 0:
+                    new_s = [self.start_token_id]+item + [self.first_sentence_id]
+                else:
+                    new_s = [self.start_token_id]+item + [self.nonfirst_sentence_id]
+                new_solutions.append(new_s)
+                new_slot_embs.append(slot_embs[j])
+            solutions = [torch.tensor(item, dtype=torch.long, device=device).unsqueeze(0) for item in new_solutions]
+            slot_embs = new_slot_embs
+
+            res = (len(solutions), solutions, 0.0, slot_embs)
+            plans.append(res)
+
+        return plans
+
+
     def _marginal_plan_generation(self, predicates, slot_nums=None):
         plans = []
         device = predicates[0].device
         for i, pred in enumerate(predicates):
-            p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
-            p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
-
+            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = p_emb.unsqueeze(0)
             s_embs, attn = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
-            if slot_nums[i] > 1:
-                print (attn)
             slot_embs = s_embs.squeeze(dim=0).unsqueeze(dim=1) #(slot_num, 1, dim)
-            for j in range(slot_embs.size(0)):
-                slot_embs[j] = p_emb[0, j, :]
+            slot_embs = [slot_embs[j].unsqueeze(0) for j in range(slot_embs.size(0))]
 
-            solutions = torch.full([slot_nums[i], 1], self.start_token_id, dtype=torch.long, device=device) # (slot_num, 1)
-            solutions = [solutions[j].unsqueeze(1) for j in range(solutions.size(0))]
-            slot_embs = [slot_embs[j].unsqueeze(1) for j in range(slot_embs.size(0))]
+            solutions = []
+            for j in range(slot_nums[i]):
+                if j == 0:
+                    prompt = [self.start_token_id, self.first_sentence_id]
+                else:
+                    #prompt = [self.start_token_id, self.nonfirst_sentence_id]
+                    prompt = [self.start_token_id, self.first_sentence_id]
+                solutions.append(torch.tensor(prompt, dtype=torch.long, device=device).unsqueeze(0))
 
-            res = (slot_nums[i], solutions, 0.0, slot_embs)
+            res = (len(solutions), solutions, 0.0, slot_embs)
             plans.append(res)
 
         return plans
@@ -146,7 +192,7 @@ class Translator(object):
         device = src_features.device
         plans = []
         for i, pred in enumerate(predicates):
-            p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
 
             candidate_nslot = []; candidate_solutions = []; candidate_scores = []; candidate_start_embs = []
@@ -274,6 +320,7 @@ class Translator(object):
         mask_src = batch.mask_src
         tgt = batch.tgt
         mask_tgt = batch.mask_tgt
+        mask_loss = batch.mask_loss
         pred = batch.pred
         nsent = batch.nsent
         eids = batch.eid
@@ -286,8 +333,9 @@ class Translator(object):
         src_features = encoder_outputs.last_hidden_state
 
         # Predict plan
+        plans = self._discrete_plan_classification(pred, slot_nums=nsent)
+        #plans = self._marginal_plan_generation(pred, slot_nums=nsent)
         #plans = self._discrete_plan_generation(src_features, mask_src, pred, slot_nums=nsent)
-        plans = self._marginal_plan_generation(pred, slot_nums=nsent)
 
         # Preprocess sentence generation
         preprocessed_data = self._generation_preprocess(plans, src, src_features, mask_src, pred, eids, src_txts, tgt_txts, device)
