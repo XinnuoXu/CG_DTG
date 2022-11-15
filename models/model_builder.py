@@ -522,36 +522,42 @@ class SlotAttnAggragator(nn.Module):
             self.model = pretrained_checkpoint
             self.encoder = self.model.encoder
             self.decoder = self.model.decoder
-            self.decoder.embed_tokens.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
+            self.generator = self.model.generator
+            #self.decoder.embed_tokens.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
             model_dim = 768
         else:
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
-            print (self.vocab_size, self.original_vocab_size)
             if self.vocab_size > self.original_vocab_size:
                 self.model.resize_token_embeddings(self.vocab_size)
             self.encoder = self.model.get_encoder()
             self.decoder = self.model.get_decoder()
             model_dim = self.model.config.hidden_size
+            self.generator = get_generator(self.vocab_size, model_dim, device)
 
         self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
-
-        self.generator = get_generator(self.vocab_size, model_dim, device)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
         else:
             print ('Initialize parameters for generator...')
-            for p in self.generator.parameters():
-                if p.dim() > 1:
-                    xavier_uniform_(p)
-                else:
-                    p.data.zero_()
+            if pretrained_checkpoint is None:
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
             for p in self.planner.parameters():
                 if p.dim() > 1:
                     xavier_uniform_(p)
                 else:
                     p.data.zero_()
+
+        if args.freeze_encoder_decoder:
+            for param in self.model.parameters():
+                param.requires_grad = False
+            for param in self.generator.parameters():
+                param.requires_grad = False
 
         self.to(device)
 
@@ -567,8 +573,8 @@ class SlotAttnAggragator(nn.Module):
         entropy_map = {}
         for i in range(len(nsent)):
             # for the i-th example, run slot attention
-            #p_emb = self.decoder.embed_tokens(pred[i])
-            p_emb = self.encoder.embed_tokens(pred[i])
+            p_emb = self.decoder.embed_tokens(pred[i])
+            #p_emb = self.encoder.embed_tokens(pred[i])
             p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, pred_num, dim)
             s_embs, s_attn = self.planner(p_emb, num_slots=nsent[i]) # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
             s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
@@ -630,5 +636,168 @@ class SlotAttnAggragator(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src)
 
-        return decoder_outputs.last_hidden_state, tgt, mask_tgt, entropy_map
+        return decoder_outputs.last_hidden_state, tgt, mask_tgt, None, entropy_map
+
+
+class SlotAttnAggragatorDiscrete(nn.Module):
+    def __init__(self, args, device, vocab_size, pad_id, first_sent_lable, not_first_sent_label, checkpoint=None, pretrained_checkpoint=None):
+        super(SlotAttnAggragatorDiscrete, self).__init__()
+        self.args = args
+        self.device = device
+        self.vocab_size = vocab_size
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        self.original_vocab_size = len(self.original_tokenizer)
+        self.first_sent_lable = first_sent_lable
+        self.not_first_sent_label = not_first_sent_label
+        self.pad_id = pad_id
+
+        if pretrained_checkpoint is not None:
+            self.model = pretrained_checkpoint
+            self.encoder = self.model.encoder
+            self.decoder = self.model.decoder
+            self.generator = self.model.generator
+            model_dim = 768
+        else:
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+            if self.vocab_size > self.original_vocab_size:
+                self.model.resize_token_embeddings(self.vocab_size)
+            self.encoder = self.model.get_encoder()
+            self.decoder = self.model.get_decoder()
+            model_dim = self.model.config.hidden_size
+            self.generator = get_generator(self.vocab_size, model_dim, device)
+
+        self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            print ('Initialize parameters for generator...')
+            if pretrained_checkpoint is None:
+                for p in self.generator.parameters():
+                    if p.dim() > 1:
+                        xavier_uniform_(p)
+                    else:
+                        p.data.zero_()
+            for p in self.planner.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        if args.freeze_encoder_decoder:
+            for param in self.model.parameters():
+                param.requires_grad = False
+            for param in self.generator.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+
+    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent):
+
+        # Run encoder
+        encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        # Run slot attn
+        slot_embs = []; new_tgts = []; new_tgt_masks = []; new_loss_masks = []; new_plan_scores = []
+        entropy_map = {}
+        for i in range(len(nsent)):
+            # for the i-th example, run slot attention
+            p_emb = self.decoder.embed_tokens(pred[i])
+            p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, pred_num, dim)
+            s_embs, s_attn = self.planner(p_emb, num_slots=nsent[i]) 
+            # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
+            s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
+            s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
+
+            # debug entropy
+            if s_attn.size(0) > 1:
+                entropy_attn = s_attn.detach().clone().cpu().numpy()
+                entropy_scores = entropy(entropy_attn, base=2, axis=0)
+                entropy_scores = np.average(entropy_scores)
+                if nsent[i] not in entropy_map:
+                    entropy_map[nsent[i]] = []
+                entropy_map[nsent[i]].append(entropy_scores)
+
+            # run predicate-to-slot assignment
+            _predicate_to_slot = F.gumbel_softmax(s_attn, tau=0.1, hard=True, dim=0) # for future use
+
+            predicate_to_slot = []
+            for j in range(_predicate_to_slot.size(0)):
+                select_idx = _predicate_to_slot[j].nonzero().view(-1)
+                to_slot = pred[i].index_select(0, select_idx).tolist()
+                predicate_to_slot.append(to_slot)
+
+            predicate_to_sentence = p2s[i]
+            slot_to_sentence_costs = np.zeros((nsent[i], nsent[i])) # slot to sentence alignments
+            for j in range(len(predicate_to_slot)):
+                for k in range(len(predicate_to_sentence)):
+                    overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
+                    slot_to_sentence_costs[j][k] = overlap
+
+            slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
+            row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+            new_tgt = torch.stack([tgt[i][idx] for idx in col_ind])
+            new_tgt_mask = torch.stack([mask_tgt[i][idx] for idx in col_ind])
+            new_loss_mask = torch.zeros(new_tgt.size(), device=new_tgt.device)
+
+            # edit slot embedding based one the sampling result
+            new_s_embs = torch.mm(_predicate_to_slot, p_emb.squeeze(dim=0))
+            # calculate log scores
+            log_plan_scores = torch.log(s_attn)
+            # get sampled predicates
+            for k, sent in enumerate(new_tgt):
+                # keep the sentence
+                for j, tok in enumerate(sent):
+                    if tok == self.first_sent_lable or tok == self.not_first_sent_label:
+                        sent_len = new_tgt_mask[k][j:].sum()
+                        pure_sent = sent[j:j+sent_len].clone()
+                        break
+                # erase tgt
+                new_tgt[k][1:] = self.pad_id
+                # copy selected slots
+                pred_list = pred[i]
+                sampled_indicator = _predicate_to_slot[k]
+                tgt_idx = 1
+                for j in range(sampled_indicator.size(0)):
+                    if sampled_indicator[j]:
+                        new_tgt[k][tgt_idx] = pred_list[j]
+                        tgt_idx += 1
+                # copy tgt tokens
+                new_tgt[k][tgt_idx:tgt_idx+pure_sent.size(0)] = pure_sent
+                new_loss_mask[k][tgt_idx:tgt_idx+pure_sent.size(0)] = 1
+                # log(plan_scores)
+                plan_score = sum([log_plan_scores[k][j] for j in range(sampled_indicator.size(0)) if sampled_indicator[j]])
+                new_plan_scores.append(plan_score)
+
+            slot_embs.append(new_s_embs)
+            new_tgts.append(new_tgt)
+
+            new_tgt_mask = ~(new_tgt == self.pad_id)
+            new_tgt_masks.append(new_tgt_mask)
+
+            new_loss_masks.append(new_loss_mask)
+
+
+        slot_embs = torch.cat(slot_embs, dim=0).unsqueeze(dim=1)
+        tgt = torch.cat(new_tgts, dim=0)
+        mask_tgt = torch.cat(new_tgt_masks, dim=0)
+        loss_mask = torch.cat(new_loss_masks, dim=0)
+        plan_scores = new_plan_scores
+
+        # Run Decoder
+        tgt_embs = self.decoder.embed_tokens(tgt)
+        tgt_embs = torch.cat((slot_embs, tgt_embs[:,1:,:]), dim=1)
+        decoder_outputs = self.decoder(inputs_embeds=tgt_embs, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=mask_src)
+
+        # loss calculation
+        tgt = (tgt * loss_mask) + self.pad_id * (1-loss_mask)
+        tgt = tgt.long()
+
+        return decoder_outputs.last_hidden_state, tgt, loss_mask, plan_scores, entropy_map
 

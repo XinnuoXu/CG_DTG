@@ -125,7 +125,8 @@ class Translator(object):
         plans = []
         device = predicates[0].device
         for i, pred in enumerate(predicates):
-            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            #p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
 
             s_embs, attn = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
@@ -345,7 +346,7 @@ class Translator(object):
         results = self.beam_search_generator.run(src, src_features, mask_src, 
                                                  tgt, prompts_control, 
                                                  src_txts, tgt_txts,
-                                                 min_length, max_length, device, 
-                                                 example_ids, init_embeddings=init_embeddings)
+                                                 min_length, max_length, device, example_ids) 
+        #                                         example_ids, init_embeddings=init_embeddings)
 
         return results

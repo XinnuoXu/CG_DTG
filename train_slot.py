@@ -18,7 +18,7 @@ from transformers import AutoTokenizer
 from models import data_slot_loader, model_builder
 from models.data_slot_loader import load_dataset
 from models.loss import abs_loss 
-from models.model_builder import SlotAttnAggragator, AbsSummarizer
+from models.model_builder import SlotAttnAggragatorDiscrete, SlotAttnAggragator, AbsSummarizer
 from models.trainer_slot import build_trainer
 from models.predictor_slot import build_predictor
 from models.logging import logger, init_logger
@@ -161,6 +161,10 @@ def train_slot_single(args, device_id):
 
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+    tids = tokenizer.convert_tokens_to_ids(['<FIRST_SENT>', '<NOT_FIRST_SENT>'])
+    first_sent_lable = tids[0]
+    not_first_sent_label = tids[1]
+    pad_token_id = tokenizer.pad_token_id
 
     # Load model
     if args.load_pretrained_model != '':
@@ -168,7 +172,17 @@ def train_slot_single(args, device_id):
         pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
     else:
         pretrained_model = None
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
+
+    if args.slot_sample_mode == 'full_sample':
+        model = SlotAttnAggragatorDiscrete(args, device, 
+                                           len(tokenizer), 
+                                           pad_token_id, 
+                                           first_sent_lable, 
+                                           not_first_sent_label, 
+                                           checkpoint, 
+                                           pretrained_checkpoint=pretrained_model)
+    else:
+        model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
 
     # Load optimizer
     optim = [model_builder.build_optim(args, model, checkpoint)]
@@ -236,7 +250,11 @@ def validate(args, device_id, pt, step):
     else:
         pretrained_model = None
 
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint=checkpoint, pretrained_checkpoint=pretrained_model)
+    if args.slot_sample_mode == 'full_sample':
+        model = SlotAttnAggragatorDiscrete(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
+    else:
+        model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
+
     model.eval()
 
     valid_loss = abs_loss(model.generator, model.vocab_size, 
@@ -273,7 +291,12 @@ def test_slot(args, device_id, pt, step):
         pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
     else:
         pretrained_model = None
-    model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint=checkpoint, pretrained_checkpoint=pretrained_model)
+
+    if args.slot_sample_mode == 'full_sample':
+        model = SlotAttnAggragatorDiscrete(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
+    else:
+        model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
+
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

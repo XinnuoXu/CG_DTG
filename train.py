@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("-slot_num_slots", default=7, type=int)
     parser.add_argument("-slot_iters", default=3, type=int)
     parser.add_argument("-slot_eps", default=1e-8, type=float)
-    parser.add_argument("-slot_marginal", type=str2bool, default=False)
+    parser.add_argument("-slot_sample_mode", type=str, choices=['marginal', 'normal', 'full_sample'])
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

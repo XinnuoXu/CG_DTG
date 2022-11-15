@@ -18,6 +18,7 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-load_pretrained_model ${PRETRAINED_MODEL_PATH} \
 	-ext_or_abs slot \
+	-freeze_encoder_decoder True \
 	-train_steps 10000 \
 	-save_checkpoint_steps 2000 \
 	-warmup_steps 1000 \

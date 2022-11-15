@@ -15,7 +15,7 @@ class Batch(object):
         return rtn_data
 
     def __init__(self, data=None, device=None, is_test=False, 
-                 pad_id=None, slot_marginal=False):
+                 pad_id=None, slot_sample_mode=''):
 
         """Create a Batch from a list of examples."""
         if data is not None:
@@ -49,7 +49,7 @@ class Batch(object):
                 for i, ex in enumerate(pre_tgt):
                     n_tgt = []; l_mask = []
                     for j, t in enumerate(ex):
-                        if slot_marginal:
+                        if slot_sample_mode=='marginal':
                             pre_tgt_prompt[i][j] = [pre_tgt_prompt[i][j][0]]
                         one_sentence = pre_tgt_prompt[i][j] + t
                         n_tgt.append(one_sentence)
@@ -57,7 +57,9 @@ class Batch(object):
                         prompt_mask = [0] * (len(pre_tgt_prompt[i][j])-1) + [1] * (len(t)+1)
                         l_mask.append(prompt_mask)
 
-                        widths.append(len(one_sentence))
+                        #widths.append(len(one_sentence))
+                        #for future work
+                        widths.append(len(t)+len(pre_pred[i])+1) # +1 is for the begin_tok
 
                     new_tgt.append(n_tgt)
                     loss_mask.append(l_mask)
@@ -86,6 +88,7 @@ class Batch(object):
 
             setattr(self, 'p2s', pre_p2s)
             setattr(self, 'nsent', pre_nsent)
+            setattr(self, 'plan_probs', None)
 
             if (is_test):
                 src_str = [x[-3] for x in data]
@@ -276,7 +279,7 @@ class DataIterator(object):
                 self.iterations += 1
                 self._iterations_this_epoch += 1
                 batch = Batch(minibatch, self.device, self.is_test, 
-                              self.pad_token_id, slot_marginal=self.args.slot_marginal)
+                              self.pad_token_id, slot_sample_mode=self.args.slot_sample_mode)
                 yield batch
             return
 

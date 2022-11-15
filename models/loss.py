@@ -88,7 +88,11 @@ class LossComputeBase(nn.Module):
             :obj:`onmt.utils.Statistics`: loss statistics
         """
         shard_state = self._make_shard_state(batch, output)
-        _, batch_stats = self._compute_loss(batch, **shard_state)
+        if batch.plan_probs is not None:
+            extra_loss = sum(batch.plan_probs) * (-1)
+        else:
+            extra_loss = None
+        _, batch_stats = self._compute_loss(batch, **shard_state, extra_loss = extra_loss)
 
         return batch_stats
 
@@ -126,6 +130,7 @@ class LossComputeBase(nn.Module):
         shard_state = self._make_shard_state(batch, output)
         if output.requires_grad == False:
             output.requires_grad = True 
+            
         for shard in shards(shard_state, shard_size):
             loss, stats = self._compute_loss(batch, **shard)
             loss.div(float(normalization)).backward()
@@ -212,12 +217,14 @@ class NMTLossCompute(LossComputeBase):
         return {"output": output[:, :-1, :],
             "target": batch.tgt[:,1:],}
 
-    def _compute_loss(self, batch, output, target):
+    def _compute_loss(self, batch, output, target, extra_loss=None):
         bottled_output = self._bottle(output)
         scores = self.generator(bottled_output)
-        gtruth =target.contiguous().view(-1)
+        gtruth = target.contiguous().view(-1)
 
         loss = self.criterion(scores, gtruth)
+        if extra_loss is not None:
+            loss += extra_loss
         stats = self._stats(loss.clone(), scores, gtruth)
 
         return loss, stats
