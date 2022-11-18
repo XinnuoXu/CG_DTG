@@ -96,7 +96,7 @@ class Trainer(object):
                                                 .all_gather_list
                                                 (normalization))
 
-                        self._gradient_accumulation(true_batchs, normalization, total_stats, report_stats)
+                        self._gradient_accumulation(true_batchs, normalization, total_stats, report_stats, step/train_steps)
 
                         report_stats = self._maybe_report_training(
                             self.report_manager,
@@ -118,7 +118,7 @@ class Trainer(object):
         return total_stats
 
 
-    def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats):
+    def _gradient_accumulation(self, true_batchs, normalization, total_stats, report_stats, train_progress):
 
         if self.grad_accum_count > 1:
             self.model.zero_grad()
@@ -137,26 +137,25 @@ class Trainer(object):
             p2s = batch.p2s
             nsent = batch.nsent
 
-            outputs, tgt, mask_tgt, plan_scores, entropy_map = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent)
+            outputs, tgt, mask_tgt, entropy_map = self.model(src, tgt, pred, p2s, mask_src, mask_tgt, nsent, train_progress)
             
             batch.tgt = tgt
             batch.mask_tgt = mask_tgt
-            batch.plan_probs = plan_scores
 
             for key in entropy_map:
                 if key not in entropy_mapping:
                     entropy_mapping[key] = []
                 entropy_mapping[key].append(sum(entropy_map[key])/len(entropy_map[key]))
 
-            #batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
-            batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
+            batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
+            #batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
             batch_stats.n_docs = int(src.size(0))
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
 
             if self.log_gradient is not None:
-                gradients = parameter_reporter(self.model)
+                gradients = parameter_reporter(self.model.planner)
                 self.log_gradient.write(json.dumps(gradients)+'\n')
 
             # 4. Update the parameters and statistics.

@@ -14,7 +14,7 @@ from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
 from transformers import LongformerModel, BertModel
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
-from models.slot_attn import SlotAttention
+from models.slot_attn import SlotAttention, SoftKMeans
 from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint):
@@ -50,6 +50,67 @@ def build_optim(args, model, checkpoint):
     optim.set_parameters(params)
     return optim
 
+
+def build_optim_encdec(args, model, checkpoint):
+    """ Build optimizer """
+
+    if checkpoint is not None:
+        optim = checkpoint['optims'][0]
+        saved_optimizer_state_dict = optim.optimizer.state_dict()
+        optim.optimizer.load_state_dict(saved_optimizer_state_dict)
+        if args.visible_gpus != '-1':
+            for state in optim.optimizer.state.values():
+                for k, v in state.items():
+                    if torch.is_tensor(v):
+                        state[k] = v.cuda()
+
+        if (optim.method == 'adam') and (len(optim.optimizer.state) < 1):
+            raise RuntimeError(
+                "Error: loaded Adam optimizer from existing model" +
+                " but optimizer state is empty")
+
+    else:
+        optim = Optimizer(
+            args.optim, args.lr_encdec, args.max_grad_norm,
+            beta1=args.beta1, beta2=args.beta2,
+            decay_method='noam',
+            warmup_steps=args.warmup_steps_encdec)
+
+    params = [(n, p) for n, p in list(model.named_parameters()) if not n.startswith('planner')]
+    optim.set_parameters(params)
+
+    return optim
+
+
+def build_optim_planner(args, model, checkpoint):
+    """ Build optimizer """
+
+    if checkpoint is not None:
+        optim = checkpoint['optims'][1]
+        saved_optimizer_state_dict = optim.optimizer.state_dict()
+        optim.optimizer.load_state_dict(saved_optimizer_state_dict)
+        if args.visible_gpus != '-1':
+            for state in optim.optimizer.state.values():
+                for k, v in state.items():
+                    if torch.is_tensor(v):
+                        state[k] = v.cuda()
+
+        if (optim.method == 'adam') and (len(optim.optimizer.state) < 1):
+            raise RuntimeError(
+                "Error: loaded Adam optimizer from existing model" +
+                " but optimizer state is empty")
+
+    else:
+        optim = Optimizer(
+            args.optim, args.lr_planner, args.max_grad_norm,
+            beta1=args.beta1, beta2=args.beta2,
+            decay_method='noam',
+            warmup_steps=args.warmup_steps_planner)
+
+    params = [(n, p) for n, p in list(model.named_parameters()) if n.startswith('planner')]
+    optim.set_parameters(params)
+
+    return optim
 
 
 class ExtSummarizer(nn.Module):
@@ -523,7 +584,8 @@ class SlotAttnAggragator(nn.Module):
             self.encoder = self.model.encoder
             self.decoder = self.model.decoder
             self.generator = self.model.generator
-            #self.decoder.embed_tokens.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
+            #if self.args.slot_sample_mode=='marginal':
+            #    self.decoder.embed_tokens.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
             model_dim = 768
         else:
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
@@ -534,7 +596,12 @@ class SlotAttnAggragator(nn.Module):
             model_dim = self.model.config.hidden_size
             self.generator = get_generator(self.vocab_size, model_dim, device)
 
-        self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        if self.args.cluster_algorithm == 'soft_kmeans':
+            self.planner = SoftKMeans(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        else:
+            self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        self.planner_emb = nn.Embedding(self.decoder.embed_tokens.num_embeddings, self.decoder.embed_tokens.embedding_dim)
+        self.planner_emb.weight[self.original_vocab_size:, :].data = self.encoder.embed_tokens.weight[self.original_vocab_size:, :].data
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -562,7 +629,7 @@ class SlotAttnAggragator(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent):
+    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent, train_progress=1):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
@@ -573,12 +640,13 @@ class SlotAttnAggragator(nn.Module):
         entropy_map = {}
         for i in range(len(nsent)):
             # for the i-th example, run slot attention
-            p_emb = self.decoder.embed_tokens(pred[i])
-            #p_emb = self.encoder.embed_tokens(pred[i])
+            #p_emb = self.decoder.embed_tokens(pred[i])
+            p_emb = self.planner_emb(pred[i])
             p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, pred_num, dim)
-            s_embs, s_attn = self.planner(p_emb, num_slots=nsent[i]) # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
+            s_embs, s_attn, raw_attn_scores = self.planner(p_emb, num_slots=nsent[i]) # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
             s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
             s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
+            raw_attn_scores = raw_attn_scores.squeeze(dim=0) # (slot_num, dim)
 
             if s_attn.size(0) > 1:
                 entropy_attn = s_attn.detach().clone().cpu().numpy()
@@ -590,7 +658,6 @@ class SlotAttnAggragator(nn.Module):
 
 
             # run predicate-to-slot assignment
-            #_predicate_to_slot = F.gumbel_softmax(s_attn, tau=0.1, hard=True, dim=0) # for future use
             attn_max = torch.max(s_attn, dim=0)[0]
             attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
             _predicate_to_slot = (s_attn == attn_max).int()
@@ -620,7 +687,18 @@ class SlotAttnAggragator(nn.Module):
             new_tgt_mask = torch.stack([mask_tgt[i][idx] for idx in col_ind])
             #print ('\n')
 
-            slot_embs.append(s_embs)
+            #slot_embs.append(s_embs)
+            if not self.args.slot_sample_schedule:
+                _attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+            else:
+                switch = random.uniform(0, 1)
+                if switch < train_progress:
+                    _attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+                else:
+                    _attn_matrix = s_attn
+            new_s_embs = torch.mm(_attn_matrix, p_emb.squeeze(dim=0))
+            slot_embs.append(new_s_embs)
+
             new_tgts.append(new_tgt)
             new_tgt_masks.append(new_tgt_mask)
 
@@ -636,7 +714,7 @@ class SlotAttnAggragator(nn.Module):
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src)
 
-        return decoder_outputs.last_hidden_state, tgt, mask_tgt, None, entropy_map
+        return decoder_outputs.last_hidden_state, tgt, mask_tgt, entropy_map
 
 
 class SlotAttnAggragatorDiscrete(nn.Module):
@@ -694,20 +772,20 @@ class SlotAttnAggragatorDiscrete(nn.Module):
         self.to(device)
 
 
-    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent):
+    def forward(self, src, tgt, pred, p2s, mask_src, mask_tgt, nsent, train_progress=1):
 
         # Run encoder
         encoder_outputs = self.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
 
         # Run slot attn
-        slot_embs = []; new_tgts = []; new_tgt_masks = []; new_loss_masks = []; new_plan_scores = []
+        slot_embs = []; new_tgts = []; new_tgt_masks = []; new_loss_masks = []
         entropy_map = {}
         for i in range(len(nsent)):
             # for the i-th example, run slot attention
             p_emb = self.decoder.embed_tokens(pred[i])
             p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, pred_num, dim)
-            s_embs, s_attn = self.planner(p_emb, num_slots=nsent[i]) 
+            s_embs, s_attn, raw_attn_scores = self.planner(p_emb, num_slots=nsent[i]) 
             # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
             s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
             s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
@@ -745,8 +823,6 @@ class SlotAttnAggragatorDiscrete(nn.Module):
 
             # edit slot embedding based one the sampling result
             new_s_embs = torch.mm(_predicate_to_slot, p_emb.squeeze(dim=0))
-            # calculate log scores
-            log_plan_scores = torch.log(s_attn)
             # get sampled predicates
             for k, sent in enumerate(new_tgt):
                 # keep the sentence
@@ -768,9 +844,6 @@ class SlotAttnAggragatorDiscrete(nn.Module):
                 # copy tgt tokens
                 new_tgt[k][tgt_idx:tgt_idx+pure_sent.size(0)] = pure_sent
                 new_loss_mask[k][tgt_idx:tgt_idx+pure_sent.size(0)] = 1
-                # log(plan_scores)
-                plan_score = sum([log_plan_scores[k][j] for j in range(sampled_indicator.size(0)) if sampled_indicator[j]])
-                new_plan_scores.append(plan_score)
 
             slot_embs.append(new_s_embs)
             new_tgts.append(new_tgt)
@@ -785,7 +858,6 @@ class SlotAttnAggragatorDiscrete(nn.Module):
         tgt = torch.cat(new_tgts, dim=0)
         mask_tgt = torch.cat(new_tgt_masks, dim=0)
         loss_mask = torch.cat(new_loss_masks, dim=0)
-        plan_scores = new_plan_scores
 
         # Run Decoder
         tgt_embs = self.decoder.embed_tokens(tgt)
@@ -799,5 +871,5 @@ class SlotAttnAggragatorDiscrete(nn.Module):
         tgt = (tgt * loss_mask) + self.pad_id * (1-loss_mask)
         tgt = tgt.long()
 
-        return decoder_outputs.last_hidden_state, tgt, loss_mask, plan_scores, entropy_map
+        return decoder_outputs.last_hidden_state, tgt, loss_mask, entropy_map
 

@@ -33,7 +33,11 @@ def Plot_one_file(filename, linestyles, tag):
 
 if __name__ == '__main__':
     #Plot_one_file('entropy_analysis.json', 'solid', 'softmax')
-    Plot_one_file('entropy_analysis.plan', 'dotted', 'sparsemax')
+    Plot_one_file('entropy_analysis.marginal', 'dotted', 'marginal')
+    #Plot_one_file('entropy_analysis.marginal.kmeans', 'solid', 'soft-kmeans')
+    #Plot_one_file('entropy_analysis.marginal.schedule', 'solid', 'marginal_schedule')
+    #Plot_one_file('entropy_analysis.plan', 'dotted', 'sparsemax')
+    #Plot_one_file('entropy_analysis.sample', 'dotted', 'sparsemax')
     #Plot_one_file('entropy_analysis.sparsemax_fromraw', 'dashed', 'sparsemax_raw')
 
     plt.ylabel('Entropy')

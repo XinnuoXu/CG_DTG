@@ -185,7 +185,13 @@ def train_slot_single(args, device_id):
         model = SlotAttnAggragator(args, device, len(tokenizer), checkpoint, pretrained_checkpoint=pretrained_model)
 
     # Load optimizer
-    optim = [model_builder.build_optim(args, model, checkpoint)]
+    if args.lr_encdec > -1 and args.lr_planner > -1:
+        optim_encdec = model_builder.build_optim_encdec(args, model, checkpoint)
+        optim_planner = model_builder.build_optim_planner(args, model, checkpoint)
+        optim = [optim_encdec, optim_planner]
+    else:
+        optim = [model_builder.build_optim(args, model, checkpoint)]
+
     logger.info(model)
 
     # Load loss

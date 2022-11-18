@@ -6,6 +6,8 @@ import os
 import json
 import math
 import torch
+import numpy as np
+from scipy.stats import entropy
 from models.beam_search.beam import GNMTGlobalScorer, BeamSearchDecoding, tile
 
 def build_predictor(args, tokenizer, model, logger=None):
@@ -51,12 +53,14 @@ class Translator(object):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
         raw_src_path = self.args.result_path + '.%d.raw_src' % step
+        cluster_path = self.args.result_path + '.%d.cluster' % step
         eid_path = self.args.result_path + '.%d.eid' % step
 
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
-        self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
+        gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
+        can_out_file = codecs.open(can_path, 'w', 'utf-8')
+        src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
+        cluster_file = codecs.open(cluster_path, 'w', 'utf-8')
+        eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
 
         self.model.eval()
         with torch.no_grad():
@@ -66,27 +70,30 @@ class Translator(object):
                                          max_length=self.max_length,
                                          min_length=self.min_length)
                 # prepare output data
-                translations = self._write_output(batch_data)
+                translations = self._process_output(batch_data)
 
                 for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid = trans
-                    self.can_out_file.write(pred_str.strip() + '\n')
-                    self.gold_out_file.write(gold_str.strip() + '\n')
-                    self.src_out_file.write(src_str.strip() + '\n')
-                    self.eid_out_file.write(eid + '\n')
+                    pred_str, gold_str, src_str, src_list, cluster_info, eid = trans
+                    can_out_file.write(pred_str.strip() + '\n')
+                    gold_out_file.write(gold_str.strip() + '\n')
+                    src_out_file.write(src_str.strip() + '\n')
+                    cluster_file.write(cluster_info.strip() + '\n')
+                    eid_out_file.write(eid + '\n')
 
-                self.can_out_file.flush()
-                self.gold_out_file.flush()
-                self.src_out_file.flush()
-                self.eid_out_file.flush()
+                can_out_file.flush()
+                gold_out_file.flush()
+                src_out_file.flush()
+                cluster_file.flush()
+                eid_out_file.flush()
 
-        self.can_out_file.close()
-        self.gold_out_file.close()
-        self.src_out_file.close()
-        self.eid_out_file.close()
+        can_out_file.close()
+        gold_out_file.close()
+        src_out_file.close()
+        cluster_file.close()
+        eid_out_file.close()
 
 
-    def _write_output(self, translation_batch):
+    def _process_output(self, translation_batch):
 
         assert (len(translation_batch["scores"]) == len(translation_batch["predictions"]))
 
@@ -97,6 +104,9 @@ class Translator(object):
         tgt_str = translation_batch["tgt_txts"]
         src = translation_batch["src"]
         eid = translation_batch["eid"]
+        slot_scores = translation_batch['cluster_scores']
+        pred_alignments = translation_batch['pred_alignments']
+        gt_alignments = translation_batch['gt_alignments']
 
         batch_size = len(preds)
 
@@ -110,10 +120,16 @@ class Translator(object):
             src_list = src_str[b]
             raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
 
+            pred_alg = ' '.join(self.tokenizer.convert_ids_to_tokens(pred_alignments[b]))
+            gt_alg = ' '.join(self.tokenizer.convert_ids_to_tokens(gt_alignments[b]))
+            alg_score = slot_scores[b]
+            cluster_info = '\t'.join([str(alg_score), pred_alg, gt_alg])
+
             translation = (pred_sent, 
                            gold_sent, 
                            raw_src, 
                            src_list, 
+                           cluster_info,
                            eid[b])
 
             translations.append(translation)
@@ -129,11 +145,9 @@ class Translator(object):
             p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
 
-            s_embs, attn = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
+            s_embs, attn, raw_attn_scores = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
 
             slot_embs = s_embs.squeeze(dim=0).unsqueeze(dim=1) #(slot_num, 1, dim)
-            for j in range(slot_embs.size(0)):
-                slot_embs[j] = p_emb[0, j, :]
             slot_embs = [slot_embs[j].unsqueeze(1) for j in range(slot_embs.size(0))]
 
             attn = attn.squeeze(dim=0)
@@ -164,26 +178,44 @@ class Translator(object):
         return plans
 
 
-    def _marginal_plan_generation(self, predicates, slot_nums=None):
+    def _soft_plan_generation(self, predicates, slot_nums=None):
         plans = []
         device = predicates[0].device
         for i, pred in enumerate(predicates):
-            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            #p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            #p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = self.model.planner_emb(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0)
-            s_embs, attn = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
-            slot_embs = s_embs.squeeze(dim=0).unsqueeze(dim=1) #(slot_num, 1, dim)
-            slot_embs = [slot_embs[j].unsqueeze(0) for j in range(slot_embs.size(0))]
+            s_embs, s_attn, raw_attn_scores = self.model.planner(p_emb, num_slots=slot_nums[i]) # (batch_size, slot_num, dim)
+            s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
+
+            attn_max = torch.max(s_attn, dim=0)[0]
+            attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
+            _attn_matrix = (s_attn == attn_max).float()
+            slot_embs = torch.mm(_attn_matrix, p_emb.squeeze(dim=0))
+            slot_embs = slot_embs.unsqueeze(dim=1)
+            slot_embs = [slot_embs[j].unsqueeze(1) for j in range(slot_embs.size(0))]
 
             solutions = []
             for j in range(slot_nums[i]):
                 if j == 0:
                     prompt = [self.start_token_id, self.first_sentence_id]
                 else:
-                    #prompt = [self.start_token_id, self.nonfirst_sentence_id]
-                    prompt = [self.start_token_id, self.first_sentence_id]
+                    prompt = [self.start_token_id, self.nonfirst_sentence_id]
                 solutions.append(torch.tensor(prompt, dtype=torch.long, device=device).unsqueeze(0))
 
-            res = (len(solutions), solutions, 0.0, slot_embs)
+            cluster_info = []
+            for cluster in _attn_matrix:
+                indices = torch.nonzero(cluster).view(-1)
+                cl = torch.index_select(pred, 0, indices)
+                cluster_info.append(cl.tolist())
+
+            entropy_attn = s_attn.detach().clone().cpu().numpy()
+            entropy_scores = entropy(entropy_attn, base=2, axis=0)
+            hard_selection = _attn_matrix.detach().clone().cpu().numpy()
+            slot_entropy_scores = np.matmul(hard_selection, entropy_scores).tolist()
+
+            res = (len(solutions), solutions, slot_entropy_scores, slot_embs, cluster_info)
             plans.append(res)
 
         return plans
@@ -193,7 +225,8 @@ class Translator(object):
         device = src_features.device
         plans = []
         for i, pred in enumerate(predicates):
-            p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            #p_emb = self.model.encoder.embed_tokens(pred) # pred.size() = [number of predicates]
+            p_emb = self.model.decoder.embed_tokens(pred) # pred.size() = [number of predicates]
             p_emb = p_emb.unsqueeze(0) # (batch_size=1, length, dim)
 
             candidate_nslot = []; candidate_solutions = []; candidate_scores = []; candidate_start_embs = []
@@ -263,15 +296,16 @@ class Translator(object):
         return plans
 
 
-    def _generation_preprocess(self, plans, src, src_features, mask_src, pred, eids, src_txts, tgt_txts, device):
+    def _generation_preprocess(self, plans, src, src_features, mask_src, pred, eids, src_txts, tgt_txts, gt_alignments, device):
         # Expend src and tgt for subsentences
         new_src = []; new_src_features = []; new_mask_src = []
         new_tgt = []; new_prompts_control = []; new_init_embeddings = []
         new_src_txts = []; new_tgt_txts = []; new_example_ids = []
+        new_slot_scores = []; new_pred_alignments = []; new_gt_alignments = []
 
         max_plan_length = max([len(item) for item in pred]) + 2
         for i, example in enumerate(plans):
-            nslot, plan, score, init_emb = example
+            nslot, plan, score, init_emb, cluster_info = example
             # src
             src_t = torch.cat([src[i].unsqueeze(0)] * nslot, dim=0) # slot_num * src_ntoken 
             src_emb = torch.cat([src_features[i].unsqueeze(0)] * nslot, dim=0) # slot_num * src_ntoken * dim
@@ -293,6 +327,9 @@ class Translator(object):
             # src_txts and tgt_txts
             new_src_txts.extend([src_txts[i]] * nslot)
             new_tgt_txts.extend([tgt_txts[i]] * nslot)
+            new_slot_scores.extend(score)
+            new_pred_alignments.extend(cluster_info)
+            new_gt_alignments.extend(gt_alignments[i])
 
             new_src.append(src_t)
             new_src_features.append(src_emb)
@@ -311,8 +348,11 @@ class Translator(object):
         example_ids = new_example_ids
         src_txts = new_src_txts
         tgt_txts = new_tgt_txts
+        slot_scores = new_slot_scores
+        pred_alignments = new_pred_alignments
+        gt_alignments = new_gt_alignments
 
-        return src, src_features, mask_src, tgt, prompts_control, init_embeddings, example_ids, src_txts, tgt_txts
+        return src, src_features, mask_src, tgt, prompts_control, init_embeddings, example_ids, src_txts, tgt_txts, slot_scores, pred_alignments, gt_alignments
 
 
     def _predict_batch(self, batch, max_length=128, min_length=0):
@@ -327,6 +367,7 @@ class Translator(object):
         eids = batch.eid
         src_txts = batch.src_str
         tgt_txts = batch.tgt_str
+        gt_alignments = batch.p2s
         device = src.device
 
         # Run encoder and tree prediction
@@ -334,19 +375,25 @@ class Translator(object):
         src_features = encoder_outputs.last_hidden_state
 
         # Predict plan
-        plans = self._discrete_plan_classification(pred, slot_nums=nsent)
-        #plans = self._marginal_plan_generation(pred, slot_nums=nsent)
+        #plans = self._discrete_plan_classification(pred, slot_nums=nsent)
+        plans = self._soft_plan_generation(pred, slot_nums=nsent)
         #plans = self._discrete_plan_generation(src_features, mask_src, pred, slot_nums=nsent)
 
         # Preprocess sentence generation
-        preprocessed_data = self._generation_preprocess(plans, src, src_features, mask_src, pred, eids, src_txts, tgt_txts, device)
-        src, src_features, mask_src, tgt, prompts_control, init_embeddings, example_ids, src_txts, tgt_txts = preprocessed_data
+        preprocessed_data = self._generation_preprocess(plans, src, src_features, mask_src, pred, eids, src_txts, tgt_txts, gt_alignments, device)
+        src, src_features, mask_src, tgt, prompts_control, init_embeddings, example_ids, src_txts, tgt_txts, slot_scores, pred_alignments, gt_alignments = preprocessed_data
 
         # Generation text
         results = self.beam_search_generator.run(src, src_features, mask_src, 
                                                  tgt, prompts_control, 
-                                                 src_txts, tgt_txts,
-                                                 min_length, max_length, device, example_ids) 
-        #                                         example_ids, init_embeddings=init_embeddings)
+                                                 min_length, max_length, device,
+                                                 init_embeddings=init_embeddings)
+
+        results['src_txts'] = src_txts
+        results['tgt_txts'] = tgt_txts
+        results['eid'] = example_ids
+        results['cluster_scores'] = slot_scores
+        results['pred_alignments'] = pred_alignments
+        results['gt_alignments'] = gt_alignments
 
         return results

@@ -2,8 +2,8 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 DATA_PATH=${BASE_PATH}/data/
-MODEL_PATH=${BASE_PATH}/models.marginal/
-LOG_PATH=${BASE_PATH}/logs.marginal/
+MODEL_PATH=${BASE_PATH}/models.marginal.kmeans/
+LOG_PATH=${BASE_PATH}/logs.marginal.kmeans/
 PRETRAINED_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
 
 mkdir -p ${MODEL_PATH}
@@ -20,6 +20,7 @@ python train.py  \
 	-load_pretrained_model ${PRETRAINED_MODEL_PATH} \
 	-ext_or_abs slot \
 	-slot_sample_mode 'marginal' \
+	-cluster_algorithm 'soft_kmeans' \
 	-slot_sample_schedule False \
 	-batch_size 6000 \
 	-max_pos 1024 \

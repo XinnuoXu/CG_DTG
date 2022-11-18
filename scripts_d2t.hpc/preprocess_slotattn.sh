@@ -9,7 +9,7 @@ LOG_PATH=${BASE_PATH}/logs/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
-rm -rf ${DATA_PATH}/*
+#rm -rf ${DATA_PATH}/*
 
 python preprocess.py \
 	-mode format_for_slot_attn \

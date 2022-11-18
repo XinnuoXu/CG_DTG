@@ -48,8 +48,8 @@ echo "Creating directory to save model weights"
 
 #sh ./scripts_d2t.hpc/train_webnlg_parallel.sh
 #sh ./scripts_d2t.hpc/train_webnlg_plan.sh > entropy_analysis.plan
-sh ./scripts_d2t.hpc/train_webnlg_sample.sh > entropy_analysis.sample
-#sh ./scripts_d2t.hpc/train_webnlg_marginal.sh > entropy_analysis.marginal
+#sh ./scripts_d2t.hpc/train_webnlg_sample.sh > entropy_analysis.sample
+sh ./scripts_d2t.hpc/train_webnlg_marginal.sh > entropy_analysis.marginal
 #sh ./scripts_d2t.hpc/train_webnlg_base.sh 
 
 echo "Job ${SLURM_JOB_ID} is done!"

@@ -239,9 +239,8 @@ class BeamSearchDecoding(object):
 
     def run(self, src, src_features, mask_src, 
             tgt, prompts_indicator, 
-            src_txts, tgt_txts,
             min_length, max_length, device, 
-            example_ids, init_embeddings=None):
+            init_embeddings=None):
 
         beam_size = self.beam_size
         batch_size = src_features.size(0)
@@ -269,10 +268,7 @@ class BeamSearchDecoding(object):
         results = {}
         results["predictions"] = [[] for _ in range(batch_size)]
         results["scores"] = [[] for _ in range(batch_size)]
-        results["src_txts"] = src_txts
-        results["tgt_txts"] = tgt_txts
         results["src"] = src
-        results["eid"] = example_ids
 
         for step in range(max_length):
 
@@ -340,7 +336,6 @@ class BeamSearchDecoding(object):
             # Resolve beam origin and true word ids.
             topk_beam_index = topk_ids.div(vocab_size).int()
             topk_ids = topk_ids.fmod(vocab_size)
-            print (src, topk_ids)
 
             # Map beam_index to batch_index in the flat representation.
             batch_index = (topk_beam_index + beam_offset[:topk_beam_index.size(0)].unsqueeze(1))

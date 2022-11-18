@@ -3,7 +3,7 @@
 # Setup for WebNLG
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-JSON_PATH=${BASE_PATH}/jsons/
+JSON_PATH=${BASE_PATH}/jsons.aug/
 DATA_PATH=${BASE_PATH}/data.parallel/
 LOG_PATH=${BASE_PATH}/logs.parallel/
 
