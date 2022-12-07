@@ -123,7 +123,7 @@ class Translator(object):
             pred_alg = ' '.join(self.tokenizer.convert_ids_to_tokens(pred_alignments[b]))
             gt_alg = ' '.join(self.tokenizer.convert_ids_to_tokens(gt_alignments[b]))
             alg_score = slot_scores[b]
-            cluster_info = '\t'.join([str(alg_score), pred_alg, gt_alg])
+            cluster_info = '\t'.join([eid[b], str(alg_score), pred_alg, gt_alg])
 
             translation = (pred_sent, 
                            gold_sent, 
@@ -192,16 +192,22 @@ class Translator(object):
             attn_max = torch.max(s_attn, dim=0)[0]
             attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
             _attn_matrix = (s_attn == attn_max).float()
-            slot_embs = torch.mm(_attn_matrix, p_emb.squeeze(dim=0))
+
+            p_emb_dec = p_emb = self.model.decoder.embed_tokens(pred)
+            slot_embs = torch.mm(_attn_matrix, p_emb_dec.squeeze(dim=0))
             slot_embs = slot_embs.unsqueeze(dim=1)
             slot_embs = [slot_embs[j].unsqueeze(1) for j in range(slot_embs.size(0))]
 
             solutions = []
             for j in range(slot_nums[i]):
+                '''
                 if j == 0:
                     prompt = [self.start_token_id, self.first_sentence_id]
                 else:
-                    prompt = [self.start_token_id, self.nonfirst_sentence_id]
+                    #prompt = [self.start_token_id, self.nonfirst_sentence_id]
+                    prompt = [self.start_token_id, self.first_sentence_id]
+                '''
+                prompt = [self.start_token_id]
                 solutions.append(torch.tensor(prompt, dtype=torch.long, device=device).unsqueeze(0))
 
             cluster_info = []

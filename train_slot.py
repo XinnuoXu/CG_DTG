@@ -169,7 +169,8 @@ def train_slot_single(args, device_id):
     # Load model
     if args.load_pretrained_model != '':
         pretrained_model_checkpoint = torch.load(args.load_pretrained_model, map_location=lambda storage, loc: storage)
-        pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+        #pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+        pretrained_model = SlotAttnAggragator(args, device, len(tokenizer), pretrained_model_checkpoint)
     else:
         pretrained_model = None
 
@@ -294,7 +295,8 @@ def test_slot(args, device_id, pt, step):
 
     if args.load_pretrained_model != '':
         pretrained_model_checkpoint = torch.load(args.load_pretrained_model, map_location=lambda storage, loc: storage)
-        pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+        #pretrained_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), pretrained_model_checkpoint)
+        pretrained_model = SlotAttnAggragator(args, device, len(tokenizer), pretrained_model_checkpoint)
     else:
         pretrained_model = None
 

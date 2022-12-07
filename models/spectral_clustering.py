@@ -68,9 +68,13 @@ class SpectralCluser():
         edge_weights = {}
         for line in open(train_file):
             json_obj = json.loads(line.strip())
-            groups = json_obj['prompt_str'].split(' ||| ')
+            alignments = json_obj['oracles_selection']
+            predicates = json_obj['predicates']
+            groups = []
+            for idx_group in alignments:
+                groups.append([predicates[idx] for idx in idx_group])
             for i, group in enumerate(groups):
-                group = group.split(' ')
+                #group = group.split(' ')
                 if i == 0 and len(groups) > 1:
                     group.append(FIRST_SENT_LABEL)
                 edge_weights = self.one_sentence(edge_weights, group)
@@ -97,7 +101,8 @@ class SpectralCluser():
         ngroup_dict = {}
         for line in open(train_file):
             json_obj = json.loads(line.strip())
-            groups = json_obj['prompt_str'].split(' ||| ')
+            #groups = json_obj['prompt_str'].split(' ||| ')
+            groups = json_obj['oracles_selection']
             npred = len(json_obj['predicates'])
             if npred not in ngroup_dict:
                 ngroup_dict[npred] = [0] * (npred+1)
@@ -140,8 +145,8 @@ class SpectralCluser():
 
         candidate_map = {}
         for candidate in candidates:
-            print ('*******')
-            print (candidate)
+            #print ('*******')
+            #print (candidate)
 
             # if the candidate contains a very big group or empty group
             bad_group = False
@@ -168,10 +173,10 @@ class SpectralCluser():
                             freq = 0
                         else:
                             freq = self.model[pred_1][pred_2]
-                        print ('Pair frequence:', pred_1, pred_2, freq)
+                        #print ('Pair frequence:', pred_1, pred_2, freq)
                         if freq < group_min_freq:
                             group_min_freq = freq
-                print ('Group lowest frequence:', group, group_min_freq)
+                #print ('Group lowest frequence:', group, group_min_freq)
                 if group_min_freq < self.min_pair_freq:
                     good_candidate = False
                 if group_min_freq < min_freq:
@@ -251,7 +256,7 @@ class SpectralCluser():
         return pred_to_subs_objs
 
 
-    def run_test(self, predicates, triples):
+    def run_test(self, predicates, triples, gt_ncluster=None):
 
         candidates = []; ajacency_matrix=None
         if len(predicates) == 1:
@@ -260,12 +265,14 @@ class SpectralCluser():
         pred_to_subs_objs = self.triples_to_entityes(triples, predicates)
 
         for n_clusters in range(1, len(predicates)+1):
+            if (gt_ncluster is not None) and (n_clusters != gt_ncluster):
+                continue
             labels, ajacency_matrix = self.process(predicates, pred_to_subs_objs, n_clusters)
             pred_groups = [[] for i in range(n_clusters)]
             for i, label in enumerate(labels):
                 pred_groups[label].append(predicates[i])
             candidates.append(pred_groups)
-        print (ajacency_matrix)
+        #print (ajacency_matrix)
 
         if len(candidates) == 0:
             best_candidate = [predicates]
@@ -326,7 +333,7 @@ class SpectralCluser():
         return sorted_candidate
 
 
-    def run(self, predicates, triples, prompt_str=None):
+    def run(self, predicates, triples, prompt_str=None, gt_ncluster=None):
         if self.method == 'random':
             candidate = self.run_random(predicates, triples)
         elif self.method == 'only_entity':
@@ -334,7 +341,7 @@ class SpectralCluser():
         elif self.method == 'ground_truth':
             candidate = [item.split() for item in prompt_str.split('<ref-sep>')[1].split(' ||| ')]
         else:
-            candidate = self.run_test(predicates, triples)
+            candidate = self.run_test(predicates, triples, gt_ncluster=gt_ncluster)
         return candidate
 
 

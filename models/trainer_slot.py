@@ -142,10 +142,12 @@ class Trainer(object):
             batch.tgt = tgt
             batch.mask_tgt = mask_tgt
 
+            '''
             for key in entropy_map:
                 if key not in entropy_mapping:
                     entropy_mapping[key] = []
                 entropy_mapping[key].append(sum(entropy_map[key])/len(entropy_map[key]))
+            '''
 
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             #batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
@@ -154,9 +156,9 @@ class Trainer(object):
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
 
-            if self.log_gradient is not None:
-                gradients = parameter_reporter(self.model.planner)
-                self.log_gradient.write(json.dumps(gradients)+'\n')
+            #if self.log_gradient is not None:
+            #gradients = parameter_reporter(self.model)
+            #self.log_gradient.write(json.dumps(gradients)+'\n')
 
             # 4. Update the parameters and statistics.
             if self.grad_accum_count == 1:
@@ -178,9 +180,11 @@ class Trainer(object):
             for o in self.optims:
                 o.step()
 
+        '''
         for key in entropy_mapping:
             entropy_mapping[key] = sum(entropy_mapping[key])/len(entropy_mapping[key])
         print (json.dumps(entropy_mapping))
+        '''
 
 
     def validate(self, valid_iter, step=0):

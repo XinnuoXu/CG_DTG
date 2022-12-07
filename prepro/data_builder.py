@@ -1146,7 +1146,8 @@ def _process_slot_attn(params):
             predicate_prompt = predicate_prompt[:-1]
             tgt_prompts.append(predicate_prompt)
 
-            tokens, txt = data_obj.preprocess_tgt_new([sep_tok] + [tgt[i]], args.max_tgt_ntokens)
+            #tokens, txt = data_obj.preprocess_tgt_new([sep_tok] + [tgt[i]], args.max_tgt_ntokens)
+            tokens, txt = data_obj.preprocess_tgt_new([tgt[i]], args.max_tgt_ntokens)
             tokens = tokens[1:]
             target_tokens.append(tokens)
             tgt_txt.append(txt)

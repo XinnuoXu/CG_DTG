@@ -656,7 +656,6 @@ class SlotAttnAggragator(nn.Module):
                     entropy_map[nsent[i]] = []
                 entropy_map[nsent[i]].append(entropy_scores)
 
-
             # run predicate-to-slot assignment
             attn_max = torch.max(s_attn, dim=0)[0]
             attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
@@ -687,16 +686,22 @@ class SlotAttnAggragator(nn.Module):
             new_tgt_mask = torch.stack([mask_tgt[i][idx] for idx in col_ind])
             #print ('\n')
 
-            #slot_embs.append(s_embs)
             if not self.args.slot_sample_schedule:
-                _attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+                #_attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+                _attn_matrix = s_attn
             else:
                 switch = random.uniform(0, 1)
                 if switch < train_progress:
                     _attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
                 else:
                     _attn_matrix = s_attn
-            new_s_embs = torch.mm(_attn_matrix, p_emb.squeeze(dim=0))
+
+            print (p2s[i], pred[i])
+            print (_attn_matrix)
+            print (new_tgt, new_tgt_mask)
+            print ('\n\n')
+            p_emb_dec = self.decoder.embed_tokens(pred[i])
+            new_s_embs = torch.mm(_attn_matrix, p_emb_dec.squeeze(dim=0))
             slot_embs.append(new_s_embs)
 
             new_tgts.append(new_tgt)
@@ -744,7 +749,10 @@ class SlotAttnAggragatorDiscrete(nn.Module):
             model_dim = self.model.config.hidden_size
             self.generator = get_generator(self.vocab_size, model_dim, device)
 
-        self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        if self.args.cluster_algorithm == 'soft_kmeans':
+            self.planner = SoftKMeans(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
+        else:
+            self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, model_dim)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')

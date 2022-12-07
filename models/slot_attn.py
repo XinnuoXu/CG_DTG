@@ -153,13 +153,12 @@ class SlotAttention(nn.Module):
         b, n, d, device = *inputs.shape, inputs.device
         n_s = num_slots if num_slots is not None else self.num_slots
         
-        mu = self.slots_mu.expand(b, n_s, -1)
-        sigma = self.slots_logsigma.exp().expand(b, n_s, -1)
-
-        slots = mu + sigma * torch.randn(mu.shape, device = device)
-
         #inputs = self.norm_input(inputs)
         k, v = self.to_k(inputs), self.to_v(inputs)
+
+        mu = self.slots_mu.expand(b, n_s, -1)
+        sigma = self.slots_logsigma.exp().expand(b, n_s, -1)
+        slots = mu + sigma * torch.randn(mu.shape, device = device)
 
         for _ in range(self.iters):
             slots_prev = slots
@@ -168,10 +167,9 @@ class SlotAttention(nn.Module):
             q = self.to_q(slots)
 
             dots = torch.einsum('bid,bjd->bij', q, k) * self.scale
-            #attn = dots.softmax(dim=1) + self.eps
             attn = self.max_function(dots) + self.eps
-            attn = attn / attn.sum(dim=-1, keepdim=True)
 
+            attn = attn / attn.sum(dim=-1, keepdim=True)
             updates = torch.einsum('bjd,bij->bid', v, attn)
 
             slots = self.gru(
@@ -180,13 +178,11 @@ class SlotAttention(nn.Module):
             )
 
             slots = slots.reshape(b, -1, d)
-            slots = slots + self.mlp(self.norm_pre_ff(slots))
+            #slots = slots + self.mlp(self.norm_pre_ff(slots))
 
-        f_slots = slots.clone()
-        q = self.to_q(f_slots)
+        q = self.to_q(slots)
         dots = torch.einsum('bid,bjd->bij', q, k) * self.scale
-        #attn = dots.softmax(dim=1) + self.eps
-        attn = self.max_function(dots) + self.eps
+        attn = self.max_function(dots)
 
         return slots, attn, dots
 
@@ -201,53 +197,36 @@ class SoftKMeans(nn.Module):
         self.scale = dim ** -0.5
 
         self.slots_mu = nn.Parameter(torch.randn(1, 1, dim))
-
         self.slots_logsigma = nn.Parameter(torch.zeros(1, 1, dim))
         init.xavier_uniform_(self.slots_logsigma)
 
-        self.to_q = nn.Linear(dim, dim)
-        self.to_k = nn.Linear(dim, dim)
-        self.to_v = nn.Linear(dim, dim)
-
-        hidden_dim = max(dim, hidden_dim)
-
-        self.norm_pre_ff = nn.LayerNorm(dim, eps=1e-6)
-
-        #self.max_function = nn.Softmax(dim=1)
-        self.max_function = Sparsemax(dim=1)
+        self.max_function = nn.Softmax(dim=1)
+        #self.max_function = Sparsemax(dim=1)
 
     def forward(self, inputs, num_slots = None):
         b, n, d, device = *inputs.shape, inputs.device
         n_s = num_slots if num_slots is not None else self.num_slots
         
-        mu = self.slots_mu.expand(b, n_s, -1)
+        #mu = self.slots_mu.expand(b, n_s, -1)
+        mu = torch.mean(inputs, dim=1).unsqueeze(1).repeat(1, n_s, 1)
         sigma = self.slots_logsigma.exp().expand(b, n_s, -1)
-
         slots = mu + sigma * torch.randn(mu.shape, device = device)
 
-        k, v = self.to_k(inputs), self.to_v(inputs)
-
         for _ in range(self.iters):
-            slots_prev = slots
+            #dots = torch.einsum('bid,bjd->bij', slots, inputs) * self.scale
+            slots = slots.contiguous()
+            dist = torch.cdist(slots, inputs, p=2)
+            scores = -dist ** 0.5
+            #attn = self.max_function(scores) + self.eps
+            #attn = attn / attn.sum(dim=-1, keepdim=True)
+            attn = self.max_function(scores)
+            print (attn)
 
-            q = self.to_q(slots)
-            dots = torch.einsum('bid,bjd->bij', q, k) * self.scale
-            attn = self.max_function(dots) + self.eps
-            attn = attn / attn.sum(dim=-1, keepdim=True)
-
-            updates = torch.einsum('bjd,bij->bid', v, attn)
+            updates = torch.einsum('bjd,bij->bid', inputs, attn)
             slots = updates
-            #slots = self.gru(
-            #    updates.reshape(-1, d),
-            #    slots_prev.reshape(-1, d)
-            #)
-            slots = slots.reshape(b, -1, d)
-            #slots = slots + self.mlp(self.norm_pre_ff(slots))
+        print ('\n\n')
 
-        f_slots = slots.clone()
-        q = self.to_q(f_slots)
-        dots = torch.einsum('bid,bjd->bij', q, k) * self.scale
-        #attn = dots.softmax(dim=1) + self.eps
-        attn = self.max_function(dots) + self.eps
+        dots = torch.einsum('bid,bjd->bij', slots, inputs) * self.scale
+        attn = self.max_function(dots)
 
         return slots, attn, dots
