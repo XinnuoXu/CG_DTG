@@ -10,6 +10,7 @@ from train_classification import train_cls, validate_cls, test_cls
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
 from train_slot import train_slot, validate_slot, test_slot
+from train_reinforce import train_re, validate_re, test_re
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'cls', 'slot'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'cls', 'slot', 'reinforce'])
     parser.add_argument("-cls_type", default='version_1', type=str)
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
@@ -84,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument("-warmup_steps", default=8000, type=int)
     parser.add_argument("-warmup_steps_planner", default=8000, type=int)
     parser.add_argument("-warmup_steps_encdec", default=8000, type=int)
+    parser.add_argument("-warmup_steps_reinforce", default=8000, type=int)
     parser.add_argument("-report_every", default=1, type=int)
     parser.add_argument("-train_steps", default=1000, type=int)
     parser.add_argument("-save_checkpoint_steps", default=5, type=int)
@@ -154,6 +156,19 @@ if __name__ == '__main__':
             except:
                 step = 0
             test_slot(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'reinforce':
+        if (args.mode == 'train'):
+            train_re(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_re(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_re(args, device_id, cp, step)
 
     elif args.ext_or_abs == 'abs':
         if (args.mode == 'train'):

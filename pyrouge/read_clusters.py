@@ -55,7 +55,7 @@ def generate_spectual_cluster(predicates, srcs, cls_num):
 
 
 if __name__ == '__main__':
-    random_clustering = True; spectual_clustering = False
+    random_clustering = False; spectual_clustering = True
 
     if spectual_clustering:
         spectual_training_path = '../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl'

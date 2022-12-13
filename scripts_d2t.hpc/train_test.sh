@@ -4,8 +4,7 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 DATA_PATH=${BASE_PATH}/test.data/
 MODEL_PATH=${BASE_PATH}/test.models.marginal.kmeans/
 LOG_PATH=${BASE_PATH}/test.logs.marginal.kmeans/
-#PRETRAINED_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
-PRETRAINED_MODEL_PATH=${MODEL_PATH}/model_step_500.pt
+PRETRAINED_MODEL_PATH=${BASE_PATH}/model.test/model_step_1000.pt
 
 mkdir -p ${MODEL_PATH}
 rm ${MODEL_PATH}/model_step_600.pt

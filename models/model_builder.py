@@ -8,6 +8,7 @@ from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 import numpy as np
+from sklearn.cluster import SpectralClustering
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import entropy
 from models.optimizers import Optimizer
@@ -17,7 +18,7 @@ from models.encoder import SentenceClassification, ClusterClassification, Transf
 from models.slot_attn import SlotAttention, SoftKMeans
 from sentence_transformers.models import Pooling
 
-def build_optim(args, model, checkpoint):
+def build_optim(args, model, checkpoint, lr=None, warmup_steps=None):
     """ Build optimizer """
     if checkpoint is not None:
         for key in checkpoint:
@@ -36,17 +37,25 @@ def build_optim(args, model, checkpoint):
                 "Error: loaded Adam optimizer from existing model" +
                 " but optimizer state is empty")
 
+        if lr is not None:
+            optim.learning_rate = lr
+
     else:
+        if lr is None:
+            lr = args.lr
+        if warmup_steps is None:
+            warmup_steps = args.warmup_steps
         optim = Optimizer(
-            args.optim, args.lr, args.max_grad_norm,
+            args.optim, lr, args.max_grad_norm,
             beta1=args.beta1, beta2=args.beta2,
             decay_method=args.decay_method,
-            warmup_steps=args.warmup_steps)
+            warmup_steps=warmup_steps)
 
     params = []
     for name, para in model.named_parameters():
         if para.requires_grad:
             params.append((name, para))
+            print ('Grad parameters:', name)
     optim.set_parameters(params)
     return optim
 
@@ -177,7 +186,6 @@ def get_generator(vocab_size, dec_hidden_size, device):
     )
     generator.to(device)
     return generator
-
 
 
 class AbsSummarizer(nn.Module):
@@ -881,3 +889,223 @@ class SlotAttnAggragatorDiscrete(nn.Module):
 
         return decoder_outputs.last_hidden_state, tgt, loss_mask, entropy_map
 
+
+class SpectralReinforce(nn.Module):
+    def __init__(self, args, device, pad_id, vocab_size, abs_model, checkpoint=None):
+        super(SpectralReinforce, self).__init__()
+        self.args = args
+        self.device = device
+        self.vocab_size = vocab_size
+        self.pad_id = pad_id
+        self.warmup_steps_reinforce = args.warmup_steps_reinforce
+
+        self.abs_model = abs_model
+        self.predicate_graph = nn.Parameter(torch.zeros(self.vocab_size, self.vocab_size, device=self.device))
+        #self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), 0.5))
+        self.sigmoid = torch.nn.Sigmoid()
+        self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        if args.freeze_encoder_decoder:
+            for param in self.abs_model.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+
+    def _pad(self, data, width=-1):
+        if (width == -1):
+            width = max(len(d) for d in data)
+        rtn_data = [d + [self.pad_id] * (width - len(d)) for d in data]
+        return rtn_data
+
+
+    def run_spectral(self, predicates, n_clusters):
+        ajacency_matrix = torch.zeros(len(predicates),len(predicates), device=self.device)
+        for i, head_1 in enumerate(predicates):
+            for j, head_2 in enumerate(predicates):
+                if head_1 < head_2:
+                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_1][head_2])
+                else:
+                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_2][head_1])
+
+        '''
+        print (ajacency_matrix)
+        print (predicates)
+        ajacency_matrix_sample = torch.bernoulli(ajacency_matrix)
+        ajacency_matrix_sample_t = torch.transpose(ajacency_matrix_sample, 0, 1)
+        ajacency_matrix_sample = ajacency_matrix_sample + ajacency_matrix_sample_t
+        ajacency_matrix_sample = (ajacency_matrix_sample > 0).int()
+        #ajacency_matrix = (ajacency_matrix * ajacency_matrix_sample).cpu().detach().numpy()
+        ajacency_matrix = ajacency_matrix_sample.cpu().detach().numpy()
+        '''
+        ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
+        print (ajacency_matrix)
+        clustering = SpectralClustering(n_clusters=n_clusters,
+                                        assign_labels='discretize',
+                                        eigen_solver='arpack',
+                                        affinity='precomputed').fit(ajacency_matrix)
+        return clustering.labels_
+
+
+    def run_random(self, predicates, n_clusters):
+        labels = [random.sample(range(n_clusters), 1)[0] for item in predicates]
+        return labels
+
+
+    def calculate_graph_prob(self, pred_groups):
+        # TODO: carefully design is required
+        probs = []
+        for group in pred_groups:
+            log_prob = []
+            for i, head_1 in enumerate(group):
+                for j, head_2 in enumerate(group):
+                    if head_1 < head_2:
+                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
+                        log_likelihood = torch.log(likelihood)
+                    else:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        log_likelihood = torch.log(likelihood)
+                    log_prob.append(log_likelihood)
+            log_prob = sum(log_prob)/len(log_prob)
+            probs.append(log_prob)
+        return probs
+
+
+    def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral'):
+        # run clustering
+        if mode == 'gold':
+            pred_to_group = {}
+            for i, group in enumerate(p2s):
+                for pred in group:
+                    pred_to_group[pred] = i
+            labels = []
+            for pred in preds:
+                labels.append(pred_to_group[pred])
+        elif mode == 'random':
+            labels = self.run_random(preds, n_clusters)
+            while len(set(labels)) < n_clusters:
+                labels = self.run_random(preds, n_clusters)
+        else:
+            labels = self.run_spectral(preds, n_clusters)
+
+        # group predicates and src based on the cluster method
+        pred_groups = [[] for i in range(n_clusters)]
+        src_groups = [[] for i in range(n_clusters)]
+        for i, label in enumerate(labels):
+            pred_groups[label].append(preds[i])
+            src_groups[label].extend(src[i])
+
+        graph_prob = self.calculate_graph_prob(pred_groups)
+
+        return src_groups, pred_groups, graph_prob
+
+
+    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, p2s, n_clusters):
+        # Hungrian alignment
+        print (pred_groups, p2s)
+        predicate_to_slot = pred_groups
+        predicate_to_sentence = p2s
+        slot_to_sentence_costs = np.zeros((n_clusters, n_clusters)) # slot to sentence alignments
+        for j in range(len(predicate_to_slot)):
+            for k in range(len(predicate_to_sentence)):
+                overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
+                slot_to_sentence_costs[j][k] = overlap
+
+        slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
+        row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+        new_tgt = torch.stack([tgt[idx] for idx in col_ind])
+        new_tgt_mask = torch.stack([mask_tgt[idx] for idx in col_ind])
+
+        return new_tgt, new_tgt_mask
+
+
+    def _log_stats(self, scores, target, src):
+        pred = scores.max(1)[1]
+        non_padding = target.ne(self.pad_id)
+        num_correct = pred.eq(target) \
+                          .masked_select(non_padding) \
+                          .sum() \
+                          .item()
+        num_non_padding = non_padding.sum().item()
+        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
+        return log_info
+
+
+    def forward(self, src, tgt, mask_tgt, preds, p2s, nsent, step, run_decoder=True, mode='spectral'):
+
+        parallel_src = []
+        parallel_tgt = []
+        parallel_tgt_mask = []
+        parallel_graph_probs = []
+        ngroups = []
+
+        for i in range(len(preds)):
+            s = src[i]
+            t = tgt[i]
+            m_t = mask_tgt[i]
+            p = preds[i]
+            p_s = p2s[i]
+
+            n_clusters = t.size(0)
+            # run clustering
+            if mode == 'spectral' and step < self.warmup_steps_reinforce:
+                src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode='random')
+            else:
+                src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+            # run cluster-to-output_sentence alignment
+            new_tgt, new_tgt_mask = self.hungrian_alignment(pred_groups, t, m_t, p_s, n_clusters)
+
+            parallel_src.extend(src_groups)
+            parallel_tgt.append(new_tgt)
+            parallel_tgt_mask.append(new_tgt_mask)
+            parallel_graph_probs.extend(graph_probs)
+            ngroups.append(t.size(0))
+
+        src = torch.tensor(self._pad(parallel_src), device=self.device)
+        mask_src = ~(src == self.pad_id)
+        tgt = torch.cat(parallel_tgt)
+        mask_tgt = torch.cat(parallel_tgt_mask)
+
+        encoder_outputs = self.abs_model.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
+
+        # Decoding
+        decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
+                                                attention_mask=mask_tgt,
+                                                encoder_hidden_states=top_vec,
+                                                encoder_attention_mask=mask_src)
+        output = decoder_outputs.last_hidden_state
+        bottled_output = output.reshape(-1, output.size(2))
+        scores = self.abs_model.generator(bottled_output)
+        gtruth = tgt.contiguous().view(-1)
+        log_likelihood = (-1) * self.nll(scores, gtruth)
+        logging_info = self._log_stats(scores, gtruth, src) # log_info
+
+        log_likelihood = log_likelihood.view(tgt.size(0),-1)
+        log_likelihood = torch.mean(log_likelihood, dim=1)
+
+        weights = torch.stack(parallel_graph_probs)
+
+        # post process
+        cur_id = 0
+        processed_log_likelihood = []
+        processed_weights = []
+        for nline in nsent:
+            processed_log_likelihood.append(log_likelihood[cur_id:(cur_id+nline)].min())
+            processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
+            cur_id += nline
+
+        log_likelihood = torch.stack(processed_log_likelihood)
+        weights = torch.stack(processed_weights)
+
+        print (log_likelihood)
+        print ('\n')
+
+        return log_likelihood, weights, logging_info

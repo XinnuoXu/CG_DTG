@@ -1345,5 +1345,86 @@ def format_for_d2t_base(args):
         pool = Pool(args.n_cpus)
         for d in pool.imap(_process_d2t_base, a_lst):
             pass
+        pool.close()
 
+
+def _process_sentence_level(params):
+
+    corpus_type, json_file, args, save_file = params
+    logger.info('Processing %s' % json_file)
+    if (os.path.exists(save_file)):
+        logger.info('Ignore %s' % save_file)
+        return
+
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+
+    data_obj = DataCreator(args, additional_tokens)
+    jobs = json.load(open(json_file))
+
+    datasets = []
+    for d in jobs:
+        eid = d['example_id']
+
+        src = d['document_segs']
+        shuffle_src = False
+        if corpus_type == 'train' and args.shuffle_src:
+            shuffle_src = True
+
+        source_tokens = []
+        for s in src:
+            source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, shuffle_src=shuffle_src)
+            source_tokens.append(source_token)
+        src_txt = src
+
+        tgt = d['gold_segs']
+        target_tokens = []
+        for t in tgt:
+            target_token, _ = data_obj.preprocess_tgt_new([t], args.max_tgt_ntokens)
+            target_tokens.append(target_token)
+        tgt_txt = tgt
+
+        # tokenize predicates
+        predicates = d['predicates']
+        predicates_ids = data_obj.tokenizer.convert_tokens_to_ids(predicates)
+        predicates_txt = ' '.join(predicates)
+
+        pred_to_sentence = []
+        for sentence_alg in d['oracles_selection']:
+            pred_to_sentence.append([predicates_ids[idx] for idx in sentence_alg])
+
+        b_data_dict = {"src": source_tokens, 
+                       "tgt": target_tokens,
+                       "pred": predicates_ids,
+                       "p2s": pred_to_sentence,
+                       "src_txt": src_txt,
+                       "tgt_txt": tgt_txt,
+                       "pred_txt": predicates_txt,
+                       "eid": eid}
+
+        datasets.append(b_data_dict)
+
+    logger.info('Processed instances %d' % len(datasets))
+    logger.info('Saving to %s' % save_file)
+    torch.save(datasets, save_file)
+    datasets = []
+    gc.collect()
+
+
+def format_sentence_level(args):
+    if (args.dataset != ''):
+        datasets = [args.dataset]
+    else:
+        datasets = ['validation', 'train', 'test']
+
+    for corpus_type in datasets:
+        a_lst = []
+        for json_f in glob.glob(pjoin(args.raw_path, corpus_type + '.*.json')):
+            real_name = json_f.split('/')[-1]
+            a_lst.append((corpus_type, json_f, args, pjoin(args.save_path, real_name.replace('json', 'bert.pt'))))
+        print(a_lst)
+        pool = Pool(args.n_cpus)
+        for d in pool.imap(_process_sentence_level, a_lst):
+            pass
         pool.close()
