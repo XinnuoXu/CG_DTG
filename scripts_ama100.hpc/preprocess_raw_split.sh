@@ -2,7 +2,7 @@
 
 BASE_DIR=/rds/user/hpcxu1/hpc-work/outputs.ama100/
 
-RAW_PATH=../Plan_while_Generate/AmaSum/AmaSum_data.max100/
+RAW_PATH=../Plan_while_Generate/AmaSum/AmaSum_data.test/
 OUTPUT_PATH=${BASE_DIR}/raw_split/
 LOG_PATH=${BASE_DIR}/logs/
 

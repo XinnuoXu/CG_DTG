@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-ABS_MODEL_PATH=${BASE_PATH}/model.test/model_step_1000.pt
+#ABS_MODEL_PATH=${BASE_PATH}/model.test/model_step_1000.pt
 MODEL_PATH=${BASE_PATH}/model.re/
 DATA_PATH=${BASE_PATH}/test.data/
 LOG_PATH=${BASE_PATH}/test.logs/

@@ -10,6 +10,7 @@ from train_classification import train_cls, validate_cls, test_cls
 from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
 from train_slot import train_slot, validate_slot, test_slot
+from train_slotsumm import train_slotsumm, validate_slotsumm, test_slotsumm
 from train_reinforce import train_re, validate_re, test_re
 
 def str2bool(v):
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument("-model_name", default='facebook/bart-base', type=str)
     parser.add_argument("-tokenizer_path", default='facebook/bart-base', type=str)
     parser.add_argument("-mode", default='train', type=str, choices=['train', 'validate', 'test'])
-    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'cls', 'slot', 'reinforce'])
+    parser.add_argument("-ext_or_abs", default='abs', type=str, choices=['ext', 'abs', 'cls', 'slot', 'reinforce', 'slotsumm'])
     parser.add_argument("-cls_type", default='version_1', type=str)
 
     parser.add_argument("-input_path", default='../bert_data_new/cnndm')
@@ -56,12 +57,14 @@ if __name__ == '__main__':
     parser.add_argument("-pred_special_tok", default='<PRED>', type=str)
     parser.add_argument("-obj_special_tok", default='<OBJ>', type=str)
     parser.add_argument("-freeze_encoder_decoder", type=str2bool, default=False)
+    parser.add_argument("-freeze_predicate_graph", type=str2bool, default=False)
     parser.add_argument("-slot_num_slots", default=7, type=int)
     parser.add_argument("-slot_iters", default=3, type=int)
     parser.add_argument("-slot_eps", default=1e-8, type=float)
     parser.add_argument("-slot_sample_mode", type=str, default='normal', choices=['marginal', 'normal', 'full_sample'])
     parser.add_argument("-slot_sample_schedule", type=str2bool, default=False)
     parser.add_argument("-cluster_algorithm", type=str, default='slot_attn', choices=['slot_attn', 'soft_kmeans'])
+    parser.add_argument("-slotsumm_train_stage", type=str, default='pre-train', choices=['pre-train', 'gold_align', 'slot_attn'])
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)
@@ -156,6 +159,19 @@ if __name__ == '__main__':
             except:
                 step = 0
             test_slot(args, device_id, cp, step)
+
+    elif args.ext_or_abs == 'slotsumm':
+        if (args.mode == 'train'):
+            train_slotsumm(args, device_id)
+        elif (args.mode == 'validate'):
+            validate_slotsumm(args, device_id)
+        if (args.mode == 'test'):
+            cp = args.test_from
+            try:
+                step = int(cp.split('.')[-2].split('_')[-1])
+            except:
+                step = 0
+            test_slotsumm(args, device_id, cp, step)
 
     elif args.ext_or_abs == 'reinforce':
         if (args.mode == 'train'):

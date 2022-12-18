@@ -21,22 +21,47 @@ class Batch(object):
         if data is not None:
             self.batch_size = len(data)
             pre_src = [x[0] for x in data]
-            pre_tgt = [x[1] for x in data]
-            nsent_src = [x[2] for x in data]
-            nsent_tgt = [x[3] for x in data]
+            pre_src_sents = [x[1] for x in data]
+            pre_tgt = [x[2] for x in data]
+            pre_s2t = [x[3] for x in data]
           
             src = torch.tensor(self._pad(pre_src, pad_id))
             mask_src = ~(src == pad_id)
             setattr(self, 'src', src.to(device))
             setattr(self, 'mask_src', mask_src.to(device))
 
-            tgt = torch.tensor(self._pad(pre_tgt, pad_id))
-            mask_tgt = ~(tgt == pad_id)
+            src_sents = []
+            for group in pre_src_sents:
+                src_sents.extend(group)
+            src_sents = torch.tensor(self._pad(src_sents, pad_id))
+            mask_src_sents = ~ (src_sents == pad_id)
+            nsent_src = [len(group) for group in pre_src_sents]
+            setattr(self, 'src_sents', src_sents.to(device))
+            setattr(self, 'mask_src_sents', mask_src_sents.to(device))
+            setattr(self, 'nsent_src', nsent_src)
 
+            tgt = []; tgt_sents = []
+            start_tok = pre_tgt[0][0][0]
+            end_tok = pre_tgt[-1][-1][-1]
+            for group in pre_tgt:
+                tgt_sents.extend(group)
+                t = []
+                for sentence in group:
+                    t.extend(sentence[1:-1])
+                t = [start_tok] + t + [end_tok]
+                tgt.append(t)
+
+            tgt = torch.tensor(self._pad(tgt, pad_id))
+            mask_tgt = ~(tgt == pad_id)
             setattr(self, 'tgt', tgt.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
-            setattr(self, 'nsent_tgt', nsent_tgt)
-            setattr(self, 'nsent_src', nsent_src)
+
+            tgt_sents = torch.tensor(self._pad(tgt_sents, pad_id))
+            mask_tgt_sents = ~(tgt_sents == pad_id)
+            setattr(self, 'tgt_sents', tgt_sents.to(device))
+            setattr(self, 'mask_tgt_sents', mask_tgt_sents.to(device))
+
+            setattr(self, 's2t', pre_s2t)
 
             if (is_test):
                 src_str = [x[-3] for x in data]
@@ -161,19 +186,16 @@ class DataIterator(object):
     def preprocess(self, ex, is_test):
         eid = ex['eid']
         src = ex['src']
+        src_sents = ex['src_sents']
         tgt = ex['tgt']
+        s2t = ex['s2t']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
-        nsent_tgt = ex['nsent_tgt']
-        nsent_src = ex['nsent_src']
-
-        src = src[:-1][:self.args.max_pos-1]+[src[-1]]
-        tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
 
         if(is_test):
-            return src, tgt, nsent_src, nsent_tgt, src_txt, tgt_txt, eid
+            return src, src_sents, tgt, s2t, src_txt, tgt_txt, eid
         else:
-            return src, tgt, nsent_src, nsent_tgt
+            return src, src_sents, tgt, s2t
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

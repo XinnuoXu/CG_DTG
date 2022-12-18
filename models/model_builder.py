@@ -78,6 +78,8 @@ def build_optim_encdec(args, model, checkpoint):
                 "Error: loaded Adam optimizer from existing model" +
                 " but optimizer state is empty")
 
+        optim.learning_rate = args.lr_encdec
+
     else:
         optim = Optimizer(
             args.optim, args.lr_encdec, args.max_grad_norm,
@@ -94,6 +96,7 @@ def build_optim_encdec(args, model, checkpoint):
 def build_optim_planner(args, model, checkpoint):
     """ Build optimizer """
 
+    optim = None
     if checkpoint is not None:
         optim = checkpoint['optims'][1]
         saved_optimizer_state_dict = optim.optimizer.state_dict()
@@ -105,11 +108,12 @@ def build_optim_planner(args, model, checkpoint):
                         state[k] = v.cuda()
 
         if (optim.method == 'adam') and (len(optim.optimizer.state) < 1):
-            raise RuntimeError(
-                "Error: loaded Adam optimizer from existing model" +
-                " but optimizer state is empty")
+            #raise RuntimeError(
+            #    "Error: loaded Adam optimizer from existing model" +
+            #    " but optimizer state is empty")
+            optim = None
 
-    else:
+    if optim is None:
         optim = Optimizer(
             args.optim, args.lr_planner, args.max_grad_norm,
             beta1=args.beta1, beta2=args.beta2,
@@ -912,6 +916,8 @@ class SpectralReinforce(nn.Module):
         if args.freeze_encoder_decoder:
             for param in self.abs_model.parameters():
                 param.requires_grad = False
+        if args.freeze_predicate_graph:
+            self.predicate_graph.requires_grad = False
 
         self.to(device)
 
@@ -1035,8 +1041,6 @@ class SpectralReinforce(nn.Module):
         return log_info
 
 
-    def forward(self, src, tgt, mask_tgt, preds, p2s, nsent, step, run_decoder=True, mode='spectral'):
-
         parallel_src = []
         parallel_tgt = []
         parallel_tgt_mask = []
@@ -1105,7 +1109,214 @@ class SpectralReinforce(nn.Module):
         log_likelihood = torch.stack(processed_log_likelihood)
         weights = torch.stack(processed_weights)
 
-        print (log_likelihood)
-        print ('\n')
+        #print (log_likelihood)
+        #print ('\n')
 
         return log_likelihood, weights, logging_info
+
+
+
+class SlotSumm(nn.Module):
+    def __init__(self, args, device, vocab_size, pad_token_id, checkpoint=None):
+        super(SlotSumm, self).__init__()
+        self.args = args
+        self.device = device
+        self.pad_token_id = pad_token_id
+        self.vocab_size = vocab_size
+        self.train_stage = self.args.slotsumm_train_stage
+
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        self.token_encoder = self.model.get_encoder()
+        self.sentence_encoder = copy.deepcopy(self.token_encoder)
+        self.decoder = self.model.get_decoder()
+
+        model_dim = self.model.config.hidden_size
+        self.generator = get_generator(self.vocab_size, model_dim, device)
+
+        if self.args.cluster_algorithm == 'soft_kmeans':
+            self.planner = SoftKMeans(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, hidden_dim=model_dim)
+        else:
+            self.planner = SlotAttention(args.slot_num_slots, model_dim, args.slot_iters, args.slot_eps, hidden_dim=model_dim)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+        else:
+            print ('Initialize parameters for generator...')
+            for p in self.generator.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+            for p in self.planner.parameters():
+                if p.dim() > 1:
+                    xavier_uniform_(p)
+                else:
+                    p.data.zero_()
+
+        if args.freeze_encoder_decoder:
+            for param in self.token_encoder.parameters():
+                param.requires_grad = False
+            for param in self.sentence_encoder.parameters():
+                param.requires_grad = False
+            for param in self.decoder.parameters():
+                param.requires_grad = False
+
+        self.to(device)
+
+    def slot_attn(self, tgt, tgt_mask, s2t, sentence_emb, num_slots):
+        print (tgt.size(), tgt_mask.size(), sentence_emb.size(), s2t)
+        p_emb = sentence_emb
+        p_emb = p_emb.unsqueeze(dim=0) # (batch_size=1, nsent_src, dim)
+        s_embs, s_attn, raw_attn_scores = self.planner(p_emb, num_slots=num_slots) # (batch_size=1, slot_num, dim), (batch_size=1, slot_num, pred_num)
+        s_embs = s_embs.squeeze(dim=0) # (slot_num, dim)
+        s_attn = s_attn.squeeze(dim=0) # (slot_num, dim)
+        raw_attn_scores = raw_attn_scores.squeeze(dim=0) # (slot_num, dim)
+
+        # run predicate-to-slot assignment
+        attn_max = torch.max(s_attn, dim=0)[0]
+        attn_max = torch.stack([attn_max] * s_attn.size(0), dim=0)
+        _predicate_to_slot = (s_attn == attn_max).int()
+
+        predicate_to_slot = []
+        for j in range(_predicate_to_slot.size(0)):
+            select_idx = _predicate_to_slot[j].nonzero().view(-1)
+            to_slot = pred[i].index_select(0, select_idx).tolist()
+            predicate_to_slot.append(to_slot)
+
+        predicate_to_sentence = p2s[i]
+        slot_to_sentence_costs = np.zeros((nsent[i], nsent[i])) # slot to sentence alignments
+        for j in range(len(predicate_to_slot)):
+            for k in range(len(predicate_to_sentence)):
+                overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
+                slot_to_sentence_costs[j][k] = overlap
+
+        #print (predicate_to_slot, predicate_to_sentence)
+        #print (slot_to_sentence_costs)
+        slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
+        #print (slot_to_sentence_costs)
+        row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+        #print (row_ind, col_ind)
+        #print (tgt[i])
+        new_tgt = torch.stack([tgt[i][idx] for idx in col_ind])
+        #print (new_tgt)
+        new_tgt_mask = torch.stack([mask_tgt[i][idx] for idx in col_ind])
+        #print ('\n')
+
+        if not self.args.slot_sample_schedule:
+            #_attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+            _attn_matrix = s_attn
+        else:
+            switch = random.uniform(0, 1)
+            if switch < train_progress:
+                _attn_matrix = F.gumbel_softmax(raw_attn_scores, tau=0.2, hard=True, dim=0)
+            else:
+                _attn_matrix = s_attn
+
+        print (p2s[i], pred[i])
+        print (_attn_matrix)
+        print (new_tgt, new_tgt_mask)
+        print ('\n\n')
+
+
+    def ground_truth_attn(self, src_to_tgt, src_embeddings):
+        nsent_src = src_embeddings.size(0)
+        nsent_tgt = len(src_to_tgt)
+        gold_attn = torch.zeros(nsent_tgt, nsent_src, device=self.device)
+        for i in range(len(src_to_tgt)):
+            for idx in src_to_tgt[i]:
+                gold_attn[i][idx] = 1
+        return gold_attn
+
+
+    def forward(self, src, src_sents, tgt, tgt_sents, mask_src, mask_src_sents, mask_tgt, mask_tgt_sents, nsent_src, s2t, run_decoder=True):
+
+        # Run token-level encoder
+        token_encoder_outputs = self.token_encoder(input_ids=src_sents, attention_mask=mask_src_sents) 
+        sentence_emb = token_encoder_outputs.last_hidden_state[:, 0, :]
+
+        # Run sentence-level encoder
+        idx = 0
+        width = max(nsent_src)
+        nonpad_sentence_emb = []; pad_sentence_emb = []; sentence_mask = []
+        for i, nsent in enumerate(nsent_src):
+            example_src_emb = sentence_emb[idx:idx+nsent]
+            nonpad_sentence_emb.append(sentence_emb[idx:idx+nsent])
+            if width-nsent == 0:
+                pad_sentence_emb.append(example_src_emb)
+            else:
+                pads = torch.tensor([self.pad_token_id] * (width-nsent), device=self.device).int()
+                pad_embeddings = self.sentence_encoder.embed_tokens(pads)
+                pad_sentence_emb.append(torch.cat(example_src_emb, pad_embeddings))
+            smask = [True] * nsent + [False] * (width-nsent)
+            sentence_mask.append(smask)
+            idx += nsent
+        pad_sentence_emb = torch.stack(pad_sentence_emb, dim=0) # n_example * n_sent * dim
+        sentence_mask = torch.tensor(sentence_mask, device=self.device)
+        sentence_encoder_outputs = self.sentence_encoder(inputs_embeds=pad_sentence_emb, attention_mask=sentence_mask)
+        top_vec = sentence_encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":sentence_mask}
+
+        # slotsumm_train_stage is pre-train
+        if self.train_stage == 'pre-train':
+            decoder_outputs = self.decoder(input_ids=tgt, 
+                                           attention_mask=mask_tgt,
+                                           encoder_hidden_states=top_vec,
+                                           encoder_attention_mask=sentence_mask)
+            return decoder_outputs.last_hidden_state, tgt, mask_tgt, None
+
+        # Run slot attn
+        slot_embs = []; new_tgts = []; new_tgt_masks = []; entropy_map = {}
+        new_top_vec = []; new_sentence_masks = []
+        nsent_tgt = [len(item) for item in s2t]; row_idx = 0
+        for i in range(len(s2t)):
+            # for the i-th example, run slot attention
+            if self.train_stage == 'gold_align':
+                _attn_matrix = self.ground_truth_attn(s2t[i], nonpad_sentence_emb[i])
+                example_tgt = tgt_sents[row_idx:row_idx+nsent_tgt[i]]
+                example_tgt_mask = mask_tgt_sents[row_idx:row_idx+nsent_tgt[i]]
+                row_idx += nsent_tgt[i]
+            else:
+                # self.train_stage == 'slot_attn'
+                example_tgt = tgt_sents[row_idx:row_idx+nsent_tgt[i]]
+                example_tgt_mask = mask_tgt_sents[row_idx:row_idx+nsent_tgt[i]]
+                _attn_matrix, example_tgt, example_tgt_mask = self.slot_attn(example_tgt, 
+                                                                             example_tgt_mask, 
+                                                                             s2t[i], 
+                                                                             nonpad_sentence_emb[i],
+                                                                             nsent_tgt[i])
+                row_idx += nsent_tgt[i]
+
+            # calculate slot_embs
+            example_slot_embs = torch.mm(_attn_matrix, nonpad_sentence_emb[i])
+            slot_embs.append(example_slot_embs)
+            new_tgts.append(example_tgt)
+            new_tgt_masks.append(example_tgt_mask)
+
+            # duplicate sentence_encoder output
+            example_src_embedding = top_vec[i].unsqueeze(dim=0)
+            example_src_embedding = example_src_embedding.repeat(nsent_tgt[i], 1, 1)
+            new_top_vec.append(example_src_embedding)
+
+            # duplicate sentence_mask
+            example_sentence_mask = sentence_mask[i].unsqueeze(dim=0)
+            example_sentence_mask = example_sentence_mask.repeat(nsent_tgt[i], 1)
+            new_sentence_masks.append(example_sentence_mask)
+
+        slot_embs = torch.cat(slot_embs, dim=0).unsqueeze(dim=1)
+        tgt = torch.cat(new_tgts, dim=0)
+        mask_tgt = torch.cat(new_tgt_masks, dim=0)
+        top_vec = torch.cat(new_top_vec, dim=0)
+        sentence_mask = torch.cat(new_sentence_masks, dim=0)
+
+        # Run Decoder
+        tgt_embs = self.decoder.embed_tokens(tgt)
+        tgt_embs = torch.cat((slot_embs, tgt_embs[:,1:,:]), dim=1)
+        decoder_outputs = self.decoder(inputs_embeds=tgt_embs, 
+                                       attention_mask=mask_tgt,
+                                       encoder_hidden_states=top_vec,
+                                       encoder_attention_mask=sentence_mask)
+
+        return decoder_outputs.last_hidden_state, tgt, mask_tgt, entropy_map

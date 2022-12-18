@@ -1,3 +1,4 @@
+import json
 import torch
 from torch import nn
 from torch.nn import init
@@ -200,33 +201,37 @@ class SoftKMeans(nn.Module):
         self.slots_logsigma = nn.Parameter(torch.zeros(1, 1, dim))
         init.xavier_uniform_(self.slots_logsigma)
 
-        self.max_function = nn.Softmax(dim=1)
         #self.max_function = Sparsemax(dim=1)
+        #self.max_function = Sparsemax(dim=-1)
+        self.max_function = nn.Softmax(dim=-1)
 
     def forward(self, inputs, num_slots = None):
         b, n, d, device = *inputs.shape, inputs.device
         n_s = num_slots if num_slots is not None else self.num_slots
         
-        #mu = self.slots_mu.expand(b, n_s, -1)
-        mu = torch.mean(inputs, dim=1).unsqueeze(1).repeat(1, n_s, 1)
+        mu = self.slots_mu.expand(b, n_s, -1)
+        #mu = torch.mean(inputs, dim=1).unsqueeze(1).repeat(1, n_s, 1)
         sigma = self.slots_logsigma.exp().expand(b, n_s, -1)
         slots = mu + sigma * torch.randn(mu.shape, device = device)
+
+        debug_obj = {'inputs':inputs.tolist(), 'slots':slots.tolist()}
+        print (json.dumps(debug_obj))
 
         for _ in range(self.iters):
             #dots = torch.einsum('bid,bjd->bij', slots, inputs) * self.scale
             slots = slots.contiguous()
             dist = torch.cdist(slots, inputs, p=2)
-            scores = -dist ** 0.5
-            #attn = self.max_function(scores) + self.eps
+            scores = -dist ** 2
+            attn = self.max_function(scores) + self.eps
             #attn = attn / attn.sum(dim=-1, keepdim=True)
-            attn = self.max_function(scores)
-            print (attn)
 
             updates = torch.einsum('bjd,bij->bid', inputs, attn)
             slots = updates
-        print ('\n\n')
+
+            debug_obj = {'inputs':inputs.tolist(), 'slots':slots.tolist()}
+            print (json.dumps(debug_obj))
 
         dots = torch.einsum('bid,bjd->bij', slots, inputs) * self.scale
-        attn = self.max_function(dots)
+        #attn = self.max_function(dots)
 
         return slots, attn, dots
