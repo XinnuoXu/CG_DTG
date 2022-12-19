@@ -187,13 +187,10 @@ def _process_sentence_level(params):
         eid = d['example_id']
 
         src = d['document_segs']
-        shuffle_src = False
-        if corpus_type == 'train' and args.shuffle_src:
-            shuffle_src = True
 
         source_tokens = []
         for s in src:
-            source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, shuffle_src=shuffle_src)
+            source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens)
             source_tokens.append(source_token)
         src_txt = src
 

@@ -913,13 +913,25 @@ class SpectralReinforce(nn.Module):
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
 
-        if args.freeze_encoder_decoder:
+        if args.train_predicate_graph_only:
             for param in self.abs_model.parameters():
                 param.requires_grad = False
-        if args.freeze_predicate_graph:
+        if args.pretrain_encoder_decoder:
             self.predicate_graph.requires_grad = False
 
         self.to(device)
+
+
+    def _log_stats(self, scores, target, src):
+        pred = scores.max(1)[1]
+        non_padding = target.ne(self.pad_id)
+        num_correct = pred.eq(target) \
+                          .masked_select(non_padding) \
+                          .sum() \
+                          .item()
+        num_non_padding = non_padding.sum().item()
+        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
+        return log_info
 
 
     def _pad(self, data, width=-1):
@@ -962,25 +974,6 @@ class SpectralReinforce(nn.Module):
         return labels
 
 
-    def calculate_graph_prob(self, pred_groups):
-        # TODO: carefully design is required
-        probs = []
-        for group in pred_groups:
-            log_prob = []
-            for i, head_1 in enumerate(group):
-                for j, head_2 in enumerate(group):
-                    if head_1 < head_2:
-                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
-                        log_likelihood = torch.log(likelihood)
-                    else:
-                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
-                        log_likelihood = torch.log(likelihood)
-                    log_prob.append(log_likelihood)
-            log_prob = sum(log_prob)/len(log_prob)
-            probs.append(log_prob)
-        return probs
-
-
     def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral'):
         # run clustering
         if mode == 'gold':
@@ -1010,9 +1003,28 @@ class SpectralReinforce(nn.Module):
         return src_groups, pred_groups, graph_prob
 
 
-    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, p2s, n_clusters):
+    def calculate_graph_prob(self, pred_groups):
+        # TODO: carefully design is required
+        probs = []
+        for group in pred_groups:
+            log_prob = []
+            for i, head_1 in enumerate(group):
+                for j, head_2 in enumerate(group):
+                    if head_1 < head_2:
+                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
+                        log_likelihood = torch.log(likelihood)
+                    else:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        log_likelihood = torch.log(likelihood)
+                    log_prob.append(log_likelihood)
+            log_prob = sum(log_prob)/len(log_prob)
+            probs.append(log_prob)
+        return probs
+
+
+    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, p2s, n_clusters):
         # Hungrian alignment
-        print (pred_groups, p2s)
+        #print (pred_groups, p2s)
         predicate_to_slot = pred_groups
         predicate_to_sentence = p2s
         slot_to_sentence_costs = np.zeros((n_clusters, n_clusters)) # slot to sentence alignments
@@ -1023,57 +1035,52 @@ class SpectralReinforce(nn.Module):
 
         slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
         row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+
         new_tgt = torch.stack([tgt[idx] for idx in col_ind])
         new_tgt_mask = torch.stack([mask_tgt[idx] for idx in col_ind])
 
-        return new_tgt, new_tgt_mask
+        new_ctgt = torch.stack([ctgt[idx] for idx in col_ind])
+        new_ctgt_mask = torch.stack([mask_ctgt[idx] for idx in col_ind])
+
+        return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask
 
 
-    def _log_stats(self, scores, target, src):
-        pred = scores.max(1)[1]
-        non_padding = target.ne(self.pad_id)
-        num_correct = pred.eq(target) \
-                          .masked_select(non_padding) \
-                          .sum() \
-                          .item()
-        num_non_padding = non_padding.sum().item()
-        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
-        return log_info
-
+    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, run_decoder=True, mode='spectral'):
 
         parallel_src = []
         parallel_tgt = []
         parallel_tgt_mask = []
+        parallel_ctgt = []
+        parallel_ctgt_mask = []
         parallel_graph_probs = []
         ngroups = []
 
         for i in range(len(preds)):
-            s = src[i]
-            t = tgt[i]
-            m_t = mask_tgt[i]
+            s = src[i] # src sentences
+            t = tgt[i] # tgt sentences
+            m_t = mask_tgt[i] # mask for tgt sentences
+            ct = ctgt[i] # tgt sentences with previous tokens as conditions
+            m_ct = mask_ctgt[i] # mask for tgt sentences with previous tokens as conditions
             p = preds[i]
             p_s = p2s[i]
-
             n_clusters = t.size(0)
+
             # run clustering
-            if mode == 'spectral' and step < self.warmup_steps_reinforce:
-                src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode='random')
-            else:
-                src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+            src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+
             # run cluster-to-output_sentence alignment
-            new_tgt, new_tgt_mask = self.hungrian_alignment(pred_groups, t, m_t, p_s, n_clusters)
+            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, p_s, n_clusters)
 
             parallel_src.extend(src_groups)
             parallel_tgt.append(new_tgt)
             parallel_tgt_mask.append(new_tgt_mask)
+            parallel_ctgt.append(new_ctgt)
+            parallel_ctgt_mask.append(new_ctgt_mask)
             parallel_graph_probs.extend(graph_probs)
             ngroups.append(t.size(0))
 
         src = torch.tensor(self._pad(parallel_src), device=self.device)
         mask_src = ~(src == self.pad_id)
-        tgt = torch.cat(parallel_tgt)
-        mask_tgt = torch.cat(parallel_tgt_mask)
-
         encoder_outputs = self.abs_model.encoder(input_ids=src, attention_mask=mask_src) 
         top_vec = encoder_outputs.last_hidden_state
 
@@ -1081,16 +1088,32 @@ class SpectralReinforce(nn.Module):
             return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
 
         # Decoding
+        tgt = torch.cat(parallel_tgt)
+        mask_tgt = torch.cat(parallel_tgt_mask)
+        ctgt = torch.cat(parallel_ctgt)
+        mask_ctgt = torch.cat(parallel_ctgt_mask)
+        gtruth = tgt.contiguous().view(-1)
+
+        if self.args.conditional_decoder:
+            tgt = ctgt
+            mask_tgt = mask_ctgt
+            gtruth = tgt * mask_ctgt + self.pad_id * (~ mask_ctgt)
+            gtruth = gtruth.contiguous().view(-1)
+
         decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
                                                 attention_mask=mask_tgt,
                                                 encoder_hidden_states=top_vec,
                                                 encoder_attention_mask=mask_src)
+
         output = decoder_outputs.last_hidden_state
         bottled_output = output.reshape(-1, output.size(2))
         scores = self.abs_model.generator(bottled_output)
-        gtruth = tgt.contiguous().view(-1)
         log_likelihood = (-1) * self.nll(scores, gtruth)
         logging_info = self._log_stats(scores, gtruth, src) # log_info
+
+        if self.args.pretrain_encoder_decoder:
+            return log_likelihood, None, logging_info
+
 
         log_likelihood = log_likelihood.view(tgt.size(0),-1)
         log_likelihood = torch.mean(log_likelihood, dim=1)

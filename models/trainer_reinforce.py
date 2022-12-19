@@ -128,17 +128,33 @@ class Trainer(object):
             src = batch.src
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
+            ctgt = batch.ctgt
+            mask_ctgt = batch.mask_ctgt
             preds = batch.pred
             p2s = batch.p2s
             nsent = batch.nsent
 
-            cll, weights, logging_info = self.model(src, tgt, mask_tgt, preds, p2s, nsent, step, mode='spectral') # conditional log likelihood
-            baseline_cll, _, _ = self.model(src, tgt, mask_tgt, preds, p2s, nsent, step, mode='random')
+            if self.args.train_predicate_graph_only:
 
-            rec = (weights * (cll - baseline_cll))
-            loss = -rec
-            loss = loss.sum()
-            loss.backward()
+                # conditional log likelihood
+                if step < self.args.warmup_steps_reinforce:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='random')
+                else:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='spectral')
+
+                # baseline
+                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='random') # baseline
+
+                # calculte loss
+                rec = (weights * (cll - baseline_cll))
+                loss = -rec
+                loss = loss.sum()
+                loss.backward()
+
+            elif self.args.pretrain_encoder_decoder:
+                cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='gold')
+                loss = -cll.sum()
+                loss.backward()
 
             parameter_reporter(self.model.abs_model)
 

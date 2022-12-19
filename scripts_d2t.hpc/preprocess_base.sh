@@ -1,6 +1,9 @@
 #!/bin/bash
 
+###############################################
 # Shard split
+###############################################
+
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 #RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
 #JSON_PATH=${BASE_PATH}/jsons/
@@ -23,7 +26,10 @@ python preprocess.py \
 
 
 
+###############################################
 # Prepare for base encoder-decoder training
+###############################################
+
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 #BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 #JSON_PATH=${BASE_PATH}/jsons/

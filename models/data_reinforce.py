@@ -14,6 +14,59 @@ class Batch(object):
         rtn_data = [d + [pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
+    def _process_tgt(self, pre_tgt, pad_id, device):
+
+        def get_conditioned_str(tgt, width):
+            conditions = []
+            ctgt = []
+            mask_ctgt = torch.full((len(tgt), width), False)
+            for i, t in enumerate(tgt):
+                if i == 0:
+                    tgt_toks = t
+                else:
+                    tgt_toks = conditions + t[1:]
+                mask_ctgt[i][len(conditions):len(tgt_toks)] = True
+                ctgt.append(tgt_toks)
+                conditions = tgt_toks
+            ctgt = torch.tensor(self._pad(ctgt, pad_id, width=width))
+            pad_mask = ~(ctgt == pad_id)
+            mask_ctgt = mask_ctgt & pad_mask
+
+            return ctgt, mask_ctgt
+
+        # Pure tgt sentences
+        widths = []
+        for ex in pre_tgt:
+            widths.append(max([len(sent) for sent in ex]))
+        width = max(widths)
+
+        tgt = []; mask_tgt = []
+        for i, t in enumerate(pre_tgt):
+            # raw_t is tgt sentences of one example
+            t = torch.tensor(self._pad(t, pad_id, width=width)).to(device)
+            tgt.append(t)
+
+            m_t = ~(t == pad_id).to(device)
+            mask_tgt.append(m_t)
+
+        # tgt with conditions
+        widths = []
+        for ex in pre_tgt:
+            widths.append(sum([len(sent) for sent in ex]))
+        width = max(widths)
+
+        ctgt = []; mask_ctgt = []
+        for i, t in enumerate(pre_tgt):
+            ct, m_ct = get_conditioned_str(t, width)
+            ct = ct.to(device)
+            m_ct = m_ct.to(device)
+            ctgt.append(ct)
+            mask_ctgt.append(m_ct)
+
+        return tgt, mask_tgt, ctgt, mask_ctgt
+
+
+
     def __init__(self, data=None, device=None, is_test=False, 
                  pad_id=None, slot_sample_mode=''):
 
@@ -32,22 +85,15 @@ class Batch(object):
             if is_test:
                 tgt = None
                 mask_tgt = None
+                ctgt = None
+                mask_ctgt = None
             else:
-                widths = []
-                for ex in pre_tgt:
-                    widths.append(max([len(sent) for sent in ex]))
-                width = max(widths)
-
-                tgt = []; mask_tgt = []
-                for i, t in enumerate(pre_tgt):
-                    t = torch.tensor(self._pad(t, pad_id, width=width)).to(device)
-                    tgt.append(t)
-
-                    m_t = ~(t == pad_id).to(device)
-                    mask_tgt.append(m_t)
+                tgt, mask_tgt, ctgt, mask_ctgt = self._process_tgt(pre_tgt, pad_id, device)
 
             setattr(self, 'tgt', tgt)
             setattr(self, 'mask_tgt', mask_tgt)
+            setattr(self, 'ctgt', ctgt)
+            setattr(self, 'mask_ctgt', mask_ctgt)
 
             # process preds
             setattr(self, 'pred', pre_pred)
