@@ -55,7 +55,6 @@ def build_optim(args, model, checkpoint, lr=None, warmup_steps=None):
     for name, para in model.named_parameters():
         if para.requires_grad:
             params.append((name, para))
-            print ('Grad parameters:', name)
     optim.set_parameters(params)
     return optim
 
@@ -961,7 +960,7 @@ class SpectralReinforce(nn.Module):
         ajacency_matrix = ajacency_matrix_sample.cpu().detach().numpy()
         '''
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
-        print (ajacency_matrix)
+        #print (ajacency_matrix)
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',

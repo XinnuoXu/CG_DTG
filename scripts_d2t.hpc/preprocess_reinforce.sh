@@ -5,12 +5,9 @@
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
-#JSON_PATH=${BASE_PATH}/jsons/
-#LOG_PATH=${BASE_PATH}/logs/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_test/
-JSON_PATH=${BASE_PATH}/test.jsons/
-LOG_PATH=${BASE_PATH}/test.logs/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
+JSON_PATH=${BASE_PATH}/jsons.re/
+LOG_PATH=${BASE_PATH}/logs.re/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${JSON_PATH}
@@ -32,12 +29,9 @@ python preprocess.py \
 
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-#JSON_PATH=${BASE_PATH}/jsons/
-#DATA_PATH=${BASE_PATH}/data.base/
-#LOG_PATH=${BASE_PATH}/logs.base/
-JSON_PATH=${BASE_PATH}/test.jsons/
-DATA_PATH=${BASE_PATH}/test.data/
-LOG_PATH=${BASE_PATH}/test.logs/
+JSON_PATH=${BASE_PATH}/jsons.re/
+DATA_PATH=${BASE_PATH}/data.re/
+LOG_PATH=${BASE_PATH}/logs.re/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
@@ -49,6 +43,7 @@ python preprocess.py \
 	-save_path ${DATA_PATH} \
 	-additional_token_path ${ADD_TOKEN_PATH} \
         -saved_tokenizer_path ${DATA_PATH}/tokenizer.pt \
+	-remove_noise_datapoints True \
 	-n_cpus 32 \
 	-tokenizer t5-base \
         -max_src_ntokens 1024 \

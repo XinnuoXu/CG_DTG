@@ -188,6 +188,12 @@ def _process_sentence_level(params):
 
         src = d['document_segs']
 
+        if args.remove_noise_datapoints and corpus_type != 'test':
+            if sum([len(group) for group in d['oracles_selection']]) < len(src):
+                continue
+            if min([len(group) for group in d['oracles_selection']]) == 0:
+                continue
+
         source_tokens = []
         for s in src:
             source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens)

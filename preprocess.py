@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument("-spectral_use_ratio", type=str2bool, default=False)
     parser.add_argument("-spectral_filter_with_entities", type=str2bool, default=True)
     parser.add_argument("-spectral_train_file", default='../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl', type=str)
+    parser.add_argument("-remove_noise_datapoints", type=str2bool, default=False)
 
     parser.add_argument("-amasum_verdict_cluster_topk", default=3, type=int)
     parser.add_argument("-amasum_pros_cluster_topk", default=6, type=int)
