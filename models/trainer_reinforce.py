@@ -146,6 +146,8 @@ class Trainer(object):
                 baseline_cll, _, _ = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='random') # baseline
 
                 # calculte loss
+                #cll = (-1) * (cll ** 2) * 100
+                #baseline_cll = (-1) * (baseline_cll ** 2) * 100
                 rec = (weights * (cll - baseline_cll))
                 loss = -rec
                 loss = loss.sum()
@@ -156,7 +158,7 @@ class Trainer(object):
                 loss = -cll.sum()
                 loss.backward()
 
-            parameter_reporter(self.model.abs_model)
+            #parameter_reporter(self.model.abs_model)
 
             batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
             batch_stats.n_docs = logging_info['n_docs']
@@ -200,21 +202,25 @@ class Trainer(object):
 
                 src = batch.src
                 tgt = batch.tgt
-                mask_src = batch.mask_src
                 mask_tgt = batch.mask_tgt
+                ctgt = batch.ctgt
+                mask_ctgt = batch.mask_ctgt
+                preds = batch.pred
+                p2s = batch.p2s
+                nsent = batch.nsent
 
-                outputs = self.model(src, tgt, mask_src, mask_tgt)
+                if self.args.pretrain_encoder_decoder:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='gold')
+                else:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='spectral')
+                loss = -cll.sum()
 
-                if self.args.prefix_tgt_training:
-                    mask_tgt_for_loss = batch.mask_tgt_for_loss
-                    tgt = tgt * mask_tgt_for_loss
-                    padding_tensor = (~mask_tgt_for_loss) * self.loss.padding_idx
-                    tgt = tgt + padding_tensor
-                    batch.tgt = tgt
-
-                batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
+                batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                batch_stats.n_docs = logging_info['n_docs']
                 stats.update(batch_stats)
+
             self._report_step(0, step, valid_stats=stats)
+
             return stats
 
 

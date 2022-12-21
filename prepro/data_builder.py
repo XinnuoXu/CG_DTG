@@ -194,6 +194,10 @@ def _process_sentence_level(params):
             if min([len(group) for group in d['oracles_selection']]) == 0:
                 continue
 
+        if args.remove_single_triple_datapoints and corpus_type != 'test':
+            if len(src) < 2:
+                continue
+
         source_tokens = []
         for s in src:
             source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens)

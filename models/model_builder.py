@@ -894,7 +894,7 @@ class SlotAttnAggragatorDiscrete(nn.Module):
 
 
 class SpectralReinforce(nn.Module):
-    def __init__(self, args, device, pad_id, vocab_size, abs_model, checkpoint=None):
+    def __init__(self, args, device, pad_id, vocab_size, abs_model=None, checkpoint=None):
         super(SpectralReinforce, self).__init__()
         self.args = args
         self.device = device
@@ -941,6 +941,8 @@ class SpectralReinforce(nn.Module):
 
 
     def run_spectral(self, predicates, n_clusters):
+        if len(predicates) == 1:
+            return [0]
         ajacency_matrix = torch.zeros(len(predicates),len(predicates), device=self.device)
         for i, head_1 in enumerate(predicates):
             for j, head_2 in enumerate(predicates):
@@ -1091,13 +1093,13 @@ class SpectralReinforce(nn.Module):
         mask_tgt = torch.cat(parallel_tgt_mask)
         ctgt = torch.cat(parallel_ctgt)
         mask_ctgt = torch.cat(parallel_ctgt_mask)
-        gtruth = tgt.contiguous().view(-1)
+        gtruth = tgt[:, 1:].contiguous().view(-1)
 
         if self.args.conditional_decoder:
             tgt = ctgt
             mask_tgt = mask_ctgt
             gtruth = tgt * mask_ctgt + self.pad_id * (~ mask_ctgt)
-            gtruth = gtruth.contiguous().view(-1)
+            gtruth = gtruth[:, 1:].contiguous().view(-1)
 
         decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
                                                 attention_mask=mask_tgt,
@@ -1105,6 +1107,8 @@ class SpectralReinforce(nn.Module):
                                                 encoder_attention_mask=mask_src)
 
         output = decoder_outputs.last_hidden_state
+        output = output[:, :-1, :]
+
         bottled_output = output.reshape(-1, output.size(2))
         scores = self.abs_model.generator(bottled_output)
         log_likelihood = (-1) * self.nll(scores, gtruth)

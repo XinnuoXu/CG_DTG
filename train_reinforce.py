@@ -20,8 +20,7 @@ from models.data_reinforce import load_dataset
 from models.loss import abs_loss 
 from models.model_builder import AbsSummarizer, SpectralReinforce
 from models.trainer_reinforce import build_trainer
-from models.predictor import build_predictor
-from models.predictor_tgt_prefix import build_prefix_predictor
+from models.predictor_reinforce import build_predictor
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 
@@ -209,28 +208,32 @@ def validate(args, device_id, pt, step):
         test_from = pt
     else:
         test_from = args.test_from
+
     logger.info('Loading checkpoint from %s' % test_from)
+
+    valid_iter = data_reinforce.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
+                                           args.batch_size, device,
+                                           shuffle=False, is_test=False)
+
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
     opt = vars(checkpoint['opt'])
     for k in opt.keys():
         if (k in model_flags):
             setattr(args, k, opt[k])
-    print(args)
-
-    valid_iter = data_reinforce.Dataloader(args, load_dataset(args, 'validation', shuffle=False),
-                                        args.batch_size, device,
-                                        shuffle=False, is_test=False)
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
-    symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
+    abs_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), abs_checkpoint)
+
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), abs_model=abs_model, checkpoint=checkpoint)
     model.eval()
 
-    valid_loss = abs_loss(model.generator, model.vocab_size, 
-                          symbols=symbols, train=False, device=device)
+    trainer = build_trainer(args, device_id, model, None, tokenizer.pad_token_id)
 
-    trainer = build_trainer(args, device_id, model, None, valid_loss)
     stats = trainer.validate(valid_iter, step)
 
     return stats.xent()
@@ -244,25 +247,29 @@ def test_re(args, device_id, pt, step):
         test_from = args.test_from
     logger.info('Loading checkpoint from %s' % test_from)
 
+    test_iter = data_reinforce.Dataloader(args, load_dataset(args, 'test', shuffle=False),
+                                          args.test_batch_size, device,
+                                          shuffle=False, is_test=True)
+
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
     opt = vars(checkpoint['opt'])
     for k in opt.keys():
         if (k in model_flags):
             setattr(args, k, opt[k])
-    print(args)
 
-    test_iter = data_reinforce.Dataloader(args, load_dataset(args, 'test', shuffle=False),
-                                       args.test_batch_size, device,
-                                       shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    abs_checkpoint = None
+    if args.load_from_abs != '':
+        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
+        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
+    abs_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), abs_checkpoint)
+
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), abs_model=abs_model, checkpoint=checkpoint)
     model.eval()
 
-    if args.prefix_tgt_training:
-        predictor = build_prefix_predictor(args, tokenizer, model, logger)
-    else:
-        predictor = build_predictor(args, tokenizer, model, logger)
+    predictor = build_predictor(args, tokenizer, model, logger)
+
     predictor.translate(test_iter, step)
 
 
