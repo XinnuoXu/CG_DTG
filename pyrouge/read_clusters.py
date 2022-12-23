@@ -29,7 +29,10 @@ def run_metrics(pred, gt):
     gt_label = []
     for key in pred_dict:
         pred_label.append(pred_dict[key])
-        gt_label.append(gt_dict[key])
+        if key not in gt_dict:
+            gt_label.append(len(gt_dict))
+        else:
+            gt_label.append(gt_dict[key])
 
     ARS = metrics.adjusted_rand_score(gt_label, pred_label)
     NMI = metrics.normalized_mutual_info_score(gt_label, pred_label) 
@@ -54,8 +57,35 @@ def generate_spectual_cluster(predicates, srcs, cls_num):
     return [' '.join(cluster) for cluster in clusters]
 
 
+def load_gold_alignment(gold_path):
+    examples = {}
+    for line in open(gold_path):
+        json_obj = json.loads(line.strip())
+        alignments = json_obj['oracles_selection']
+        preds = json_obj['predicates']
+
+        eid = json_obj['example_id']
+        example_id = eid.split('_')[0]
+        reference_id = eid.split('_')[1]
+
+        if example_id not in examples:
+            examples[example_id] = {}
+        examples[example_id][reference_id] = []
+
+        for group in alignments:
+            pred_group = ' '.join([preds[pid] for pid in group])
+            examples[example_id][reference_id].append(pred_group)
+    return examples
+
+
 if __name__ == '__main__':
-    random_clustering = False; spectual_clustering = True
+    random_clustering = False
+    spectual_clustering = False
+    old_version = False
+    manual_alignment = False
+
+    gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
+    ground_truth_grouping = load_gold_alignment(gold_path)
 
     if spectual_clustering:
         spectual_training_path = '../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl'
@@ -69,36 +99,65 @@ if __name__ == '__main__':
                                      filter_with_entities = True,
                                      train_file = spectual_training_path)
 
-    src_filename = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
-    srcs = {}
-    for line in open(src_filename):
-        json_obj = json.loads(line.strip())
-        ref_id = json_obj['example_id']
-        s = json_obj['document_segs']
-        srcs[ref_id] = s
+        src_filename = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
+        srcs = {}; examples = {}
+        for line in open(src_filename):
+            json_obj = json.loads(line.strip())
 
-    filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.marginal.kmeans/test.res.18000.cluster'
-    #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.marginal.planemb/test.res.20000.cluster'
-    examples = {}
-    for line in open(filename):
-        flist = line.strip('\n').split('\t')
-        eid = flist[0]
-        score = flist[1]
-        pred = flist[2]
-        gt = flist[3]
+            eid = json_obj['example_id']
+            example_id = eid.split('_')[0]
+            reference_id = eid.split('_')[1]
 
-        example_id = eid.split('_')[0]
-        reference_id = eid.split('_')[1]
-        if example_id not in examples:
-            examples[example_id] = {}
-        if reference_id not in examples[example_id]:
-            examples[example_id][reference_id] = {}
-            examples[example_id][reference_id]['scores'] = []
-            examples[example_id][reference_id]['predictions'] = []
-            examples[example_id][reference_id]['ground_truth'] = []
-        examples[example_id][reference_id]['scores'].append(score)
-        examples[example_id][reference_id]['predictions'].append(pred)
-        examples[example_id][reference_id]['ground_truth'].append(gt)
+            preds = json_obj['predicates']
+            if example_id not in examples:
+                examples[example_id] = {}
+            examples[example_id][reference_id] = preds
+
+            s = json_obj['document_segs']
+            if example_id not in srcs:
+                srcs[example_id] = {}
+            srcs[example_id][reference_id] = s
+
+    elif old_version:
+        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.marginal.kmeans/test.res.18000.cluster'
+        examples = {}
+        for line in open(filename):
+            flist = line.strip('\n').split('\t')
+            eid = flist[0]
+            score = flist[1]
+            pred = flist[2]
+            gt = flist[3]
+
+            example_id = eid.split('_')[0]
+            reference_id = eid.split('_')[1]
+            if example_id not in examples:
+                examples[example_id] = {}
+            if reference_id not in examples[example_id]:
+                examples[example_id][reference_id] = []
+            examples[example_id][reference_id].append(pred)
+
+    elif manual_alignment:
+        gold_path = '../Plan_while_Generate/D2T_data/webnlg_data.manual_align/test.jsonl'
+        examples = load_gold_alignment(gold_path)
+
+    else:
+        #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.60000.cluster'
+        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.strong_reward/test.res.60000.cluster'
+        examples = {}
+        for line in open(filename):
+            flist = line.strip('\n').split('\t')
+            eid = flist[0]
+            score = flist[1]
+            pred = flist[2]
+
+            example_id = eid.split('_')[0]
+            reference_id = eid.split('_')[1]
+            if example_id not in examples:
+                examples[example_id] = {}
+            if reference_id not in examples[example_id]:
+                examples[example_id][reference_id] = []
+            examples[example_id][reference_id] = pred.split(' ||| ')
+
 
     ARS = []
     NMI = []
@@ -109,17 +168,19 @@ if __name__ == '__main__':
         example = examples[idx]
         predictions = []
         ground_truthes = []
-        scores = []
         for ref_id in example:
-            ground_truthes.append(example[ref_id]['ground_truth'])
+            ground_truth = ground_truth_grouping[idx][ref_id]
+            if len(ground_truth) < 2:
+                continue
+            ground_truthes.append(ground_truth)
             if random_clustering:
-                predictions.append(generate_random_cluster(example[ref_id]['predictions'], len(example[ref_id]['ground_truth'])))
+                predictions.append(generate_random_cluster(example[ref_id], len(ground_truth)))
             elif spectual_clustering:
-                idx_id = f'{idx}_{ref_id}'
-                predictions.append(generate_spectual_cluster(example[ref_id]['predictions'], srcs[idx_id], len(example[ref_id]['ground_truth'])))
+                #idx_id = f'{idx}_{ref_id}'
+                predictions.append(generate_spectual_cluster(example[ref_id], srcs[idx][ref_id], len(ground_truth)))
             else:
-                predictions.append(example[ref_id]['predictions'])
-            scores.append(example[ref_id]['scores'])
+                predictions.append(example[ref_id])
+
         for pred in predictions:
             best_metrics = None
             for gt in ground_truthes:

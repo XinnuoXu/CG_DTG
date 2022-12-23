@@ -2,10 +2,13 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 ABS_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
-CHECKPOINT_PATH=${BASE_PATH}/model.re/
+
+#CHECKPOINT_PATH=${BASE_PATH}/model.re/
 #MODEL_PATH=${BASE_PATH}/model.re.strong_reward/
 #DATA_PATH=${BASE_PATH}/data.re/
 #LOG_PATH=${BASE_PATH}/logs.re.strong_reward/
+
+CHECKPOINT_PATH=${BASE_PATH}/model.re/
 MODEL_PATH=${BASE_PATH}/model.re/
 DATA_PATH=${BASE_PATH}/data.re/
 LOG_PATH=${BASE_PATH}/logs.re/
@@ -21,7 +24,7 @@ python train.py  \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-load_from_abs ${ABS_MODEL_PATH} \
-	-train_from ${CHECKPOINT_PATH}/model_step_4000.pt \
+	-train_from ${CHECKPOINT_PATH}/model_step_55000.pt \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-ext_or_abs reinforce \

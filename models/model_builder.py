@@ -976,6 +976,7 @@ class SpectralReinforce(nn.Module):
 
 
     def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral'):
+        
         # run clustering
         if mode == 'gold':
             pred_to_group = {}
@@ -1018,8 +1019,9 @@ class SpectralReinforce(nn.Module):
                         likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
                         log_likelihood = torch.log(likelihood)
                     log_prob.append(log_likelihood)
-            log_prob = sum(log_prob)/len(log_prob)
-            probs.append(log_prob)
+            if len(log_prob) > 0:
+            	log_prob = sum(log_prob)/len(log_prob)
+            	probs.append(log_prob)
         return probs
 
 
