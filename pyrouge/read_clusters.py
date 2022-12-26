@@ -89,6 +89,7 @@ if __name__ == '__main__':
 
     if spectual_clustering:
         spectual_training_path = '../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl'
+        #spectual_training_path = '../Plan_while_Generate/D2T_data/webnlg_data.manual_align/train.jsonl'
         cluster_obj = SpectralCluser(method = 'spectral_clustering',
                                      assign_labels = 'discretize',
                                      eigen_solver = 'arpack',
@@ -141,8 +142,8 @@ if __name__ == '__main__':
         examples = load_gold_alignment(gold_path)
 
     else:
-        #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.60000.cluster'
-        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.strong_reward/test.res.60000.cluster'
+        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.60000.cluster'
+        #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.strong_reward/test.res.60000.cluster'
         examples = {}
         for line in open(filename):
             flist = line.strip('\n').split('\t')
@@ -170,7 +171,7 @@ if __name__ == '__main__':
         ground_truthes = []
         for ref_id in example:
             ground_truth = ground_truth_grouping[idx][ref_id]
-            if len(ground_truth) < 2:
+            if len(ground_truth) != 2:
                 continue
             ground_truthes.append(ground_truth)
             if random_clustering:

@@ -24,7 +24,7 @@ python train.py  \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-load_from_abs ${ABS_MODEL_PATH} \
-	-train_from ${CHECKPOINT_PATH}/model_step_55000.pt \
+	-train_from ${CHECKPOINT_PATH}/model_step_6000.pt \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-ext_or_abs reinforce \

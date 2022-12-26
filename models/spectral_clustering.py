@@ -93,6 +93,8 @@ class SpectralCluser():
                     pred_2_freq = 0
                 else:
                     pred_2_freq = sum(edge_weights[pred_2].values())
+                if pred_1_freq+pred_2_freq == 0:
+                    continue
                 ratio_edge_weights[pred_1][pred_2] = ((edge_weights[pred_1][pred_2])*2)/(pred_1_freq+pred_2_freq)
         return ratio_edge_weights
 

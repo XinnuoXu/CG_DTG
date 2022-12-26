@@ -282,9 +282,9 @@ class Translator(object):
             # multiply probs by the beam probability.
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
 
-            #alpha = self.global_scorer.alpha
-            #length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
-            length_penalty = 1.0
+            alpha = self.global_scorer.alpha
+            length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
+            #length_penalty = 1.0
 
             # Flatten probs into a list of possibilities.
             curr_scores = log_probs / length_penalty
@@ -346,11 +346,12 @@ class Translator(object):
             current_group_ids = current_group_ids.view(-1)
             ngroup_for_each_example = ngroup_for_each_example.view(-1)
             current_sent_length = current_sent_length.view(-1)
-            
+
             # If any examples finished
             if step + 1 == max_length:
                 is_finished.fill_(1)
             end_condition = is_finished[:, 0].eq(1) # End condition is top beam is finished.
+
             # Save finished hypotheses.
             if is_finished.any():
                 predictions = alive_seq.view(-1, beam_size, alive_seq.size(-1))
@@ -370,9 +371,10 @@ class Translator(object):
                         results["predictions"][b].append(pred)
 
                 non_finished = end_condition.eq(0).nonzero().view(-1)
-                # If all sentences are translated, no need to go further.
                 if len(non_finished) == 0:
+                    # If all sentences are translated, no need to go further.
                     break
+
                 # Remove finished batches for the next step.
                 topk_log_probs = topk_log_probs.index_select(0, non_finished)
                 batch_index = batch_index.index_select(0, non_finished)
@@ -381,12 +383,18 @@ class Translator(object):
                 src_features_for_each_example = [src_features_for_each_example[non_finished_id] for non_finished_id in non_finished]
                 mask_src_for_each_example = [mask_src_for_each_example[non_finished_id] for non_finished_id in non_finished]
 
-            # Reorder states.
-            select_indices = batch_index.view(-1)
-            current_group_ids = current_group_ids.index_select(0, select_indices)
-            ngroup_for_each_example = ngroup_for_each_example.index_select(0, select_indices)
-            current_sent_length = current_sent_length.index_select(0, select_indices)
- 
+                current_group_ids = current_group_ids.view(-1, beam_size)
+                current_group_ids = current_group_ids.index_select(0, non_finished)
+                current_group_ids = current_group_ids.view(-1)
+
+                ngroup_for_each_example = ngroup_for_each_example.view(-1, beam_size)
+                ngroup_for_each_example = ngroup_for_each_example.index_select(0, non_finished)
+                ngroup_for_each_example = ngroup_for_each_example.view(-1)
+
+                current_sent_length = current_sent_length.view(-1, beam_size)
+                current_sent_length = current_sent_length.index_select(0, non_finished)
+                current_sent_length = current_sent_length.view(-1)
+
         return results
 
 

@@ -5,7 +5,8 @@
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
+#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
 JSON_PATH=${BASE_PATH}/jsons.re/
 LOG_PATH=${BASE_PATH}/logs.re/
 
@@ -35,7 +36,7 @@ LOG_PATH=${BASE_PATH}/logs.re/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
-#rm -rf ${DATA_PATH}/*
+rm -rf ${DATA_PATH}/
 
 python preprocess.py \
 	-mode format_sentence_level \
@@ -44,7 +45,7 @@ python preprocess.py \
 	-additional_token_path ${ADD_TOKEN_PATH} \
         -saved_tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-remove_single_triple_datapoints True \
-	-remove_noise_datapoints True \
+	-remove_noise_datapoints False \
 	-n_cpus 32 \
 	-tokenizer t5-base \
         -max_src_ntokens 1024 \

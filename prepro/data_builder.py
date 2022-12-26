@@ -188,6 +188,8 @@ def _process_sentence_level(params):
 
         src = d['document_segs']
 
+        d['oracles_selection'] = [sorted(item) for item in d['oracles_selection']]
+
         if args.remove_noise_datapoints and corpus_type != 'test':
             if sum([len(group) for group in d['oracles_selection']]) < len(src):
                 continue

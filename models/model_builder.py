@@ -985,6 +985,8 @@ class SpectralReinforce(nn.Module):
                     pred_to_group[pred] = i
             labels = []
             for pred in preds:
+                if pred not in pred_to_group:
+                    continue
                 labels.append(pred_to_group[pred])
         elif mode == 'random':
             labels = self.run_random(preds, n_clusters)

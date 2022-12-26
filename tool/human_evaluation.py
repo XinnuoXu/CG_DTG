@@ -3,16 +3,19 @@
 import sys
 import random
 
-models_path = {'base': './outputs.webnlg/logs.base/test.res.3000', 
-                'spectral': './outputs.webnlg/logs.partial_src/test.res'}
-output_path_base = './outputs.webnlg/temp.txt'
-sample_num = 20
-min_ntriple = 7
+#models_path = {'base': './outputs.webnlg/logs.base/test.res.3000', 
+#                'spectral': './outputs.webnlg/logs.partial_src/test.res'}
+#output_path_base = './outputs.webnlg/temp.txt'
+models_path = {'base': '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.6000'}
+output_path_base = './temp.txt'
+sample_num = 10
+min_ntriple = 4
 max_ntriple = 7
 
 def one_file(dataset_name):
     data_path = models_path[dataset_name]
-    raw_src = data_path + '.raw_src'
+    #raw_src = data_path + '.raw_src'
+    raw_src = data_path + '.src_cluster'
     raw_gold = data_path + '.gold'
     raw_cand = data_path + '.candidate'
     raw_eid = data_path + '.eid'
