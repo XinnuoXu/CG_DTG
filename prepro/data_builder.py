@@ -30,6 +30,8 @@ class DataCreator():
             special_tokens_dict = {"cls_token": "<s>", "bos_token": "<s>"}
             self.tokenizer.add_special_tokens(special_tokens_dict)
 
+        self.raw_tokenizer = copy.deepcopy(self.tokenizer)
+
         if additional_tokens is not None:
             print ('The vocab size before adding new tokens: %d' % (len(self.tokenizer)))
             self.tokenizer.add_tokens(additional_tokens)
@@ -43,13 +45,13 @@ class DataCreator():
         self.bos_token = self.tokenizer.bos_token
 
 
-    def preprocess_src(self, src, max_src_length):
+    def preprocess_src(self, src, max_src_length, tokenizer):
 
         src_txt = (' '+self.cls_token+' ').join(src)
         # Tokenization using tokenizer
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
-        source_tokens = self.tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_length)['input_ids']
+        source_tokens = tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_length)['input_ids']
 
         return source_tokens, src
 
@@ -127,7 +129,11 @@ def _process_d2t_base(params):
         eid = d['example_id']
 
         src = d['document_segs']
-        source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens)
+
+        if args.tokenize_predicate:
+            source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.raw_tokenizer)
+        else:
+            source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.tokenizer)
 
         tgt = d['gold_segs']
         target_tokens, tgt_txt = data_obj.preprocess_tgt(tgt, args.max_tgt_ntokens)
@@ -188,7 +194,10 @@ def _process_sentence_level(params):
 
         src = d['document_segs']
 
-        d['oracles_selection'] = [sorted(item) for item in d['oracles_selection']]
+        if args.multi_ref_test and corpus_type == 'test':
+            d['oracles_selection'] = [sorted(item) for item in d['oracles_selection'][0]]
+        else:
+            d['oracles_selection'] = [sorted(item) for item in d['oracles_selection']]
 
         if args.remove_noise_datapoints and corpus_type != 'test':
             if sum([len(group) for group in d['oracles_selection']]) < len(src):
@@ -202,7 +211,11 @@ def _process_sentence_level(params):
 
         source_tokens = []
         for s in src:
-            source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens)
+            if args.tokenize_predicate:
+                s = s.replace('<SUB> ', '').replace('<PRED> ', '').replace('<OBJ> ', '').replace('-Pred-', '')
+                source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, data_obj.raw_tokenizer)
+            else:
+                source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, data_obj.tokenizer)
             source_tokens.append(source_token)
         src_txt = src
 

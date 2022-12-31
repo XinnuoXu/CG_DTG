@@ -130,6 +130,7 @@ class Trainer(object):
             mask_tgt = batch.mask_tgt
             ctgt = batch.ctgt
             mask_ctgt = batch.mask_ctgt
+            mask_ctgt_loss = batch.mask_ctgt_loss
             preds = batch.pred
             p2s = batch.p2s
             nsent = batch.nsent
@@ -138,12 +139,12 @@ class Trainer(object):
 
                 # conditional log likelihood
                 if step < self.args.warmup_steps_reinforce:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='random')
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='random')
                 else:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='spectral')
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='spectral')
 
                 # baseline
-                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='random') # baseline
+                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='random') # baseline
 
                 # calculte loss
                 #cll = (-1) * (cll ** 2) * 100
@@ -154,7 +155,7 @@ class Trainer(object):
                 loss.backward()
 
             elif self.args.pretrain_encoder_decoder:
-                cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='gold')
+                cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='gold')
                 loss = -cll.sum()
                 loss.backward()
 
@@ -205,14 +206,15 @@ class Trainer(object):
                 mask_tgt = batch.mask_tgt
                 ctgt = batch.ctgt
                 mask_ctgt = batch.mask_ctgt
+                mask_ctgt_loss = batch.mask_ctgt_loss
                 preds = batch.pred
                 p2s = batch.p2s
                 nsent = batch.nsent
 
                 if self.args.pretrain_encoder_decoder:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='gold')
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='gold')
                 else:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, step, mode='spectral')
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='spectral')
                 loss = -cll.sum()
 
                 batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])

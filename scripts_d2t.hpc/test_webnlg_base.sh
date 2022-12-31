@@ -1,24 +1,23 @@
 #!/bin/bash
 
-BERT_DATA_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/data/
-MODEL_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/models.base/
-LOG_PATH=/home/hpcxu1/Planning/Tree_enc_dec/outputs.webnlg/logs.base/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
+DATA_PATH=${BASE_PATH}/data.base/
+MODEL_PATH=${BASE_PATH}/model.base/
+LOG_PATH=${BASE_PATH}/logs.base/
 
 mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode test \
-	-input_path ${BERT_DATA_PATH} \
-        -tokenizer_path ${BERT_DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_4000.pt \
+	-input_path ${DATA_PATH} \
+        -tokenizer_path ${DATA_PATH}/tokenizer.pt \
+	-test_from ${MODEL_PATH}/model_step_3000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs abs \
-	-content_planning_model none \
 	-block_trigram true \
-	-max_pos 150 \
+	-max_pos 250 \
 	-batch_size 6000 \
         -test_min_length 10 \
         -test_max_length 150 \
 	-visible_gpus 0 \
-	-do_analysis True \

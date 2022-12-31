@@ -164,7 +164,7 @@ def train_abs_single(args, device_id):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     # Load model
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
 
     # Load optimizer
     optim = [model_builder.build_optim(args, model, checkpoint)]
@@ -226,7 +226,7 @@ def validate(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
     symbols = {'PAD': tokenizer.pad_token_id}
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
     model.eval()
 
     valid_loss = abs_loss(model.generator, model.vocab_size, 
@@ -258,7 +258,7 @@ def test_abs(args, device_id, pt, step):
                                        shuffle=False, is_test=True)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), checkpoint)
+    model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
     model.eval()
 
     if args.prefix_tgt_training:

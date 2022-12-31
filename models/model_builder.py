@@ -192,13 +192,12 @@ def get_generator(vocab_size, dec_hidden_size, device):
 
 
 class AbsSummarizer(nn.Module):
-    def __init__(self, args, device, cls_token_id, vocab_size, checkpoint=None):
+    def __init__(self, args, device, vocab_size, checkpoint=None):
         super(AbsSummarizer, self).__init__()
         self.args = args
         self.device = device
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
         self.vocab_size = vocab_size
-        self.cls_token_id = cls_token_id
 
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         print (self.vocab_size, len(self.original_tokenizer))
@@ -894,7 +893,7 @@ class SlotAttnAggragatorDiscrete(nn.Module):
 
 
 class SpectralReinforce(nn.Module):
-    def __init__(self, args, device, pad_id, vocab_size, abs_model=None, checkpoint=None):
+    def __init__(self, args, device, pad_id, vocab_size, tokenizer, abs_model=None, checkpoint=None):
         super(SpectralReinforce, self).__init__()
         self.args = args
         self.device = device
@@ -902,7 +901,13 @@ class SpectralReinforce(nn.Module):
         self.pad_id = pad_id
         self.warmup_steps_reinforce = args.warmup_steps_reinforce
 
-        self.abs_model = abs_model
+        self.tokenizer = tokenizer
+
+        if abs_model is not None:
+            self.abs_model = abs_model
+        else:
+            self.abs_model = AbsSummarizer(args, device, vocab_size)
+
         self.predicate_graph = nn.Parameter(torch.zeros(self.vocab_size, self.vocab_size, device=self.device))
         #self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), 0.5))
         self.sigmoid = torch.nn.Sigmoid()
@@ -997,10 +1002,18 @@ class SpectralReinforce(nn.Module):
 
         # group predicates and src based on the cluster method
         pred_groups = [[] for i in range(n_clusters)]
-        src_groups = [[] for i in range(n_clusters)]
+        tmp_src_groups = [[] for i in range(n_clusters)]
         for i, label in enumerate(labels):
             pred_groups[label].append(preds[i])
-            src_groups[label].extend(src[i])
+            tmp_src_groups[label].append(src[i])
+
+        src_groups = [[] for i in range(n_clusters)]
+        for i in range(n_clusters):
+            sg = tmp_src_groups[i]
+            if self.args.shuffle_src:
+                random.shuffle(sg)
+            for item in sg:
+                src_groups[i].extend(item)
 
         graph_prob = self.calculate_graph_prob(pred_groups)
 
@@ -1027,7 +1040,7 @@ class SpectralReinforce(nn.Module):
         return probs
 
 
-    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, p2s, n_clusters):
+    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
         # Hungrian alignment
         #print (pred_groups, p2s)
         predicate_to_slot = pred_groups
@@ -1046,15 +1059,18 @@ class SpectralReinforce(nn.Module):
 
         new_ctgt = torch.stack([ctgt[idx] for idx in col_ind])
         new_ctgt_mask = torch.stack([mask_ctgt[idx] for idx in col_ind])
+        new_ctgt_mask_loss = torch.stack([mask_ctgt_loss[idx] for idx in col_ind])
 
-        return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask
+        return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_ctgt_mask_loss
 
 
-    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, preds, p2s, nsent, run_decoder=True, mode='spectral'):
+    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, run_decoder=True, mode='spectral'):
+        raw_tgt = tgt
 
         parallel_src = []
         parallel_tgt = []
         parallel_tgt_mask = []
+        parallel_tgt_mask_loss = []
         parallel_ctgt = []
         parallel_ctgt_mask = []
         parallel_graph_probs = []
@@ -1066,6 +1082,7 @@ class SpectralReinforce(nn.Module):
             m_t = mask_tgt[i] # mask for tgt sentences
             ct = ctgt[i] # tgt sentences with previous tokens as conditions
             m_ct = mask_ctgt[i] # mask for tgt sentences with previous tokens as conditions
+            m_ct_l = mask_ctgt_loss[i] # mask for tgt sentences with previous tokens as conditions for loss calculation only
             p = preds[i]
             p_s = p2s[i]
             n_clusters = t.size(0)
@@ -1074,13 +1091,14 @@ class SpectralReinforce(nn.Module):
             src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
 
             # run cluster-to-output_sentence alignment
-            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, p_s, n_clusters)
+            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
 
             parallel_src.extend(src_groups)
             parallel_tgt.append(new_tgt)
             parallel_tgt_mask.append(new_tgt_mask)
             parallel_ctgt.append(new_ctgt)
             parallel_ctgt_mask.append(new_ctgt_mask)
+            parallel_tgt_mask_loss.append(new_mask_ctgt_loss)
             parallel_graph_probs.extend(graph_probs)
             ngroups.append(t.size(0))
 
@@ -1097,13 +1115,24 @@ class SpectralReinforce(nn.Module):
         mask_tgt = torch.cat(parallel_tgt_mask)
         ctgt = torch.cat(parallel_ctgt)
         mask_ctgt = torch.cat(parallel_ctgt_mask)
+        mask_ctgt_loss = torch.cat(parallel_tgt_mask_loss)
         gtruth = tgt[:, 1:].contiguous().view(-1)
 
         if self.args.conditional_decoder:
             tgt = ctgt
             mask_tgt = mask_ctgt
-            gtruth = tgt * mask_ctgt + self.pad_id * (~ mask_ctgt)
+            gtruth = tgt * mask_ctgt_loss + self.pad_id * (~ mask_ctgt_loss)
             gtruth = gtruth[:, 1:].contiguous().view(-1)
+
+        '''
+        for i in range(src.size(0)):
+            print ('[SRC]:'+' '.join(self.tokenizer.convert_ids_to_tokens(src[i])))
+            print ('[TGT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(tgt[i])))
+            gt = gtruth.view(src.size(0), -1)
+            print ('[GT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(gt[i])))
+            print ('\n')
+        print ('=================')
+        '''
 
         decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
                                                 attention_mask=mask_tgt,
@@ -1117,6 +1146,10 @@ class SpectralReinforce(nn.Module):
         scores = self.abs_model.generator(bottled_output)
         log_likelihood = (-1) * self.nll(scores, gtruth)
         logging_info = self._log_stats(scores, gtruth, src) # log_info
+
+        #for i in range(output.size(0)):
+        #    gtruth = gtruth.view(src.size(0), -1)
+        #    print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
 
         if self.args.pretrain_encoder_decoder:
             return log_likelihood, None, logging_info

@@ -162,10 +162,10 @@ def train_abs_single(args, device_id):
     if args.load_from_abs != '':
         logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
         abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), abs_checkpoint)
+    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
 
     # Load model
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), abs_model, checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model, checkpoint)
 
     # Load optimizer
     optim_reinforce = model_builder.build_optim(args, model, checkpoint, lr=args.lr, warmup_steps=args.warmup_steps)
@@ -227,9 +227,9 @@ def validate(args, device_id, pt, step):
     if args.load_from_abs != '':
         logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
         abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), abs_checkpoint)
+    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
 
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), abs_model=abs_model, checkpoint=checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model=abs_model, checkpoint=checkpoint)
     model.eval()
 
     trainer = build_trainer(args, device_id, model, None, tokenizer.pad_token_id)
@@ -263,9 +263,9 @@ def test_re(args, device_id, pt, step):
     if args.load_from_abs != '':
         logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
         abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, tokenizer.cls_token_id, len(tokenizer), abs_checkpoint)
+    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
 
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), abs_model=abs_model, checkpoint=checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model=abs_model, checkpoint=checkpoint)
     model.eval()
 
     predictor = build_predictor(args, tokenizer, model, logger)

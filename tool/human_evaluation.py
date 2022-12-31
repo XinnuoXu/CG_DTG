@@ -6,26 +6,28 @@ import random
 #models_path = {'base': './outputs.webnlg/logs.base/test.res.3000', 
 #                'spectral': './outputs.webnlg/logs.partial_src/test.res'}
 #output_path_base = './outputs.webnlg/temp.txt'
-models_path = {'base': '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.6000'}
+models_path = {'base': '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.pure_merge/test.res.2000'}
+
 output_path_base = './temp.txt'
 sample_num = 10
 min_ntriple = 4
-max_ntriple = 7
+max_ntriple = 8
 
 def one_file(dataset_name):
     data_path = models_path[dataset_name]
-    #raw_src = data_path + '.raw_src'
-    raw_src = data_path + '.src_cluster'
+    raw_src = data_path + '.raw_src'
+    #raw_src = data_path + '.src_cluster'
     raw_gold = data_path + '.gold'
     raw_cand = data_path + '.candidate'
     raw_eid = data_path + '.eid'
     #raw_prompt = data_path + '.prompt_str'
 
-    srcs = [line.strip().replace('<pad>', '').replace('</s>', '').replace('<s>', ' ') for line in open(raw_src)]
+    srcs = [line.strip().replace('<pad>', '').replace('</s>', '').replace('<s>', ' ').replace('\t', ' ') for line in open(raw_src)]
     golds = [line.strip() for line in open(raw_gold)]
     cands = [line.strip() for line in open(raw_cand)]
     #prompts = [line.strip() for line in open(raw_prompt)]
-    eids = [line.strip().split('_')[0] for line in open(raw_eid)]
+    #eids = [line.strip().split('_')[0] for line in open(raw_eid)]
+    eids = [line.strip() for line in open(raw_eid)]
 
     examples = {}
     for i in range(len(srcs)):

@@ -43,7 +43,17 @@ echo "Creating directory to save model weights"
 #mkdir -p ${LOG_DIR}
 
 # This script does not actually do very much. But it does demonstrate the principles of training
-#sh ./scripts_d2t.hpc/train_reinforce_pretrain_encdec.sh
-sh ./scripts_d2t.hpc/train_reinforce_graph.sh
+#sh ./scripts_d2t.hpc/train_webnlg_base.sh
+#sh ./scripts_d2t.hpc/train_reinforce_base_shuffle.sh
+#sh ./scripts_d2t.hpc/train_reinforce_base.sh
+#sh ./scripts_d2t.hpc/train_reinforce_partial.sh
+#sh ./scripts_d2t.hpc/train_reinforce_merge.sh
+#sh ./scripts_d2t.hpc/train_reinforce_pure_merge.sh
+#sh ./scripts_d2t.hpc/train_reinforce_graph.sh
+
+sh ./scripts_d2t.hpc/train_reinforce_base.sh
+sh ./scripts_d2t.hpc/train_reinforce_graph_base.sh
+
+#sh ./scripts_d2t.hpc/train_reinforce_graph_merge.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

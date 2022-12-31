@@ -46,7 +46,6 @@ class Translator(object):
         self.args = args
         self.model = model
         self.tokenizer = tokenizer
-        self.generator = self.model.abs_model.generator
         self.start_token_id = self.tokenizer.bos_token_id
         self.end_token_id = self.tokenizer.eos_token_id
         self.pad_token_id = self.tokenizer.pad_token_id
@@ -167,14 +166,16 @@ class Translator(object):
 
         src_features_for_each_example = []
         mask_src_for_each_example = []
+        src_for_each_example = []
         sid = 0
         for example_group_number in ngroups:
             eid = sid + example_group_number
             src_features_for_each_example.append(src_features[sid:eid])
             mask_src_for_each_example.append(mask_src[sid:eid])
+            src_for_each_example.append(src[sid:eid])
             sid = sid + example_group_number
 
-        return src_features_for_each_example, mask_src_for_each_example
+        return src_features_for_each_example, mask_src_for_each_example, src_for_each_example
 
 
     def _run_clustering(self, src, preds, p2s):
@@ -227,7 +228,7 @@ class Translator(object):
         src, mask_src, src_examples, pred_clusters, cluster_probs, ngroups = self._run_clustering(src, preds, p2s)
 
         # run encoding
-        src_features_for_each_example, mask_src_for_each_example = self._run_encoder(src, mask_src, ngroups)
+        src_features_for_each_example, mask_src_for_each_example, src_for_each_example = self._run_encoder(src, mask_src, ngroups)
         
         # prepare for decoder
         current_group_ids = torch.zeros(beam_size * len(src_features_for_each_example), device=device)
@@ -254,14 +255,33 @@ class Translator(object):
         for step in range(max_length):
 
             # reconstruct src_features
-            src_features = []; mask_src = []
+            src_features = []; mask_src = []; #tmp_src = []
             for i in range(current_group_ids.size(0)):
                 example_id = int(i/beam_size)
                 group_id = int(current_group_ids[i])
                 src_features.append(src_features_for_each_example[example_id][group_id])
+                #tmp_src.append(src_for_each_example[example_id][group_id])
                 mask_src.append(mask_src_for_each_example[example_id][group_id])
             src_features = torch.stack(src_features, 0)
             mask_src = torch.stack(mask_src, 0)
+
+            '''
+            print (current_group_ids)
+            print (src_features[:,1,:3])
+            print (mask_src)
+            print ('\n')
+
+            for i in range(alive_seq.size(0)):
+                print (' '.join(self.tokenizer.convert_ids_to_tokens(tmp_src[i])).replace('<pad> ', ''))
+                #print (tmp_src[i])
+                #print (mask_src[i])
+                print ('***')
+                print (' '.join(self.tokenizer.convert_ids_to_tokens(alive_seq[i])))
+                print ('--------------------------')
+            print (current_group_ids)
+            print (current_sent_length)
+            print ('\n')
+            '''
 
             # run decoder
             decoder_input = alive_seq
@@ -271,7 +291,7 @@ class Translator(object):
             dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
             # generator forward.
-            log_probs = self.generator.forward(dec_out)
+            log_probs = self.model.abs_model.generator.forward(dec_out)
             vocab_size = log_probs.size(-1)
 
             current_sent_length += 1
@@ -283,8 +303,8 @@ class Translator(object):
             log_probs += topk_log_probs.view(-1).unsqueeze(1)
 
             alpha = self.global_scorer.alpha
-            length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
-            #length_penalty = 1.0
+            #length_penalty = ((5.0 + (step + 1)) / 6.0) ** alpha
+            length_penalty = 1.0
 
             # Flatten probs into a list of possibilities.
             curr_scores = log_probs / length_penalty

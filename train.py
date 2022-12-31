@@ -56,9 +56,6 @@ if __name__ == '__main__':
     parser.add_argument("-cls_cons", default='madeupword0002', type=str)
     parser.add_argument("-pred_special_tok", default='<PRED>', type=str)
     parser.add_argument("-obj_special_tok", default='<OBJ>', type=str)
-    parser.add_argument("-pretrain_encoder_decoder", type=str2bool, default=False)
-    parser.add_argument("-train_predicate_graph_only", type=str2bool, default=False)
-    parser.add_argument("-conditional_decoder", type=str2bool, default=False)
     parser.add_argument("-slot_num_slots", default=7, type=int)
     parser.add_argument("-slot_iters", default=3, type=int)
     parser.add_argument("-slot_eps", default=1e-8, type=float)
@@ -66,6 +63,10 @@ if __name__ == '__main__':
     parser.add_argument("-slot_sample_schedule", type=str2bool, default=False)
     parser.add_argument("-cluster_algorithm", type=str, default='slot_attn', choices=['slot_attn', 'soft_kmeans'])
     parser.add_argument("-slotsumm_train_stage", type=str, default='pre-train', choices=['pre-train', 'gold_align', 'slot_attn'])
+    parser.add_argument("-pretrain_encoder_decoder", type=str2bool, default=False)
+    parser.add_argument("-train_predicate_graph_only", type=str2bool, default=False)
+    parser.add_argument("-conditional_decoder", type=str2bool, default=False)
+    parser.add_argument("-shuffle_src", type=str2bool, default=False)
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

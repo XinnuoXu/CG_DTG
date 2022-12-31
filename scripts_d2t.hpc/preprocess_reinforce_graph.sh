@@ -5,9 +5,8 @@
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
 RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
-JSON_PATH=${BASE_PATH}/jsons.re/
+JSON_PATH=${BASE_PATH}/jsons.re.graph_gt/
 LOG_PATH=${BASE_PATH}/logs.re/
 
 mkdir -p ${LOG_PATH}
@@ -30,8 +29,8 @@ python preprocess.py \
 
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-JSON_PATH=${BASE_PATH}/jsons.re/
-DATA_PATH=${BASE_PATH}/data.re/
+JSON_PATH=${BASE_PATH}/jsons.re.graph_gt/
+DATA_PATH=${BASE_PATH}/data.re.graph_gt/
 LOG_PATH=${BASE_PATH}/logs.re/
 
 mkdir -p ${LOG_PATH}
@@ -46,8 +45,10 @@ python preprocess.py \
         -saved_tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-remove_single_triple_datapoints True \
 	-remove_noise_datapoints False \
+	-multi_ref_test False \
+	-tokenize_predicate True \
 	-n_cpus 32 \
-	-tokenizer t5-base \
+	-tokenizer t5-small \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log
