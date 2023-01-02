@@ -8,6 +8,7 @@ conda activate Plan
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 pip install -U sentence-transformers
 conda install -c conda-forge hdbscan
+pip install neuralcoref --no-binary neuralcoref
 ```
 
 Install transformers and [GEM dataset](https://gem-benchmark.com/tutorials/modeling)
