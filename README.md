@@ -10,6 +10,19 @@ pip install -U sentence-transformers
 conda install -c conda-forge hdbscan
 ```
 
+```
+git clone https://github.com/huggingface/neuralcoref.git
+cd neuralcoref
+pip install -r requirements.txt
+pip install -e .
+```
+
+```
+git clone https://github.com/google-research/bleurt.git
+cd bleurt
+pip install .
+```
+
 Install transformers and [GEM dataset](https://gem-benchmark.com/tutorials/modeling)
 
 ```
