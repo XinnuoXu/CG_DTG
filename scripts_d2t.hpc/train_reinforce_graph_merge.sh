@@ -20,8 +20,8 @@ python train.py  \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-ext_or_abs reinforce \
-	-train_steps 60000 \
-	-warmup_steps_reinforce 55000 \
+	-train_steps 40000 \
+	-warmup_steps_reinforce 35000 \
 	-warmup_steps 2000 \
 	-save_checkpoint_steps 5000 \
 	-lr 3e-2 \

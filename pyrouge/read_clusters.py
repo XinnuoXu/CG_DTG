@@ -53,7 +53,8 @@ def generate_random_cluster(predicates, cls_num):
 
 def generate_spectual_cluster(predicates, srcs, cls_num):
     predicates = ' '.join(predicates).split()
-    clusters = cluster_obj.run(predicates, srcs, gt_ncluster=cls_num)
+    #clusters = cluster_obj.run(predicates, srcs, gt_ncluster=cls_num)
+    clusters = cluster_obj.run(predicates, srcs)
     return [' '.join(cluster) for cluster in clusters]
 
 
@@ -80,7 +81,7 @@ def load_gold_alignment(gold_path):
 
 if __name__ == '__main__':
     random_clustering = False
-    spectual_clustering = False
+    spectual_clustering = True
     old_version = False
     manual_alignment = False
 
@@ -142,8 +143,8 @@ if __name__ == '__main__':
         examples = load_gold_alignment(gold_path)
 
     else:
-        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re/test.res.60000.cluster'
-        #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.strong_reward/test.res.60000.cluster'
+        #filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.pure_merge/test.res.35000.cluster'
+        filename = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.35000.cluster'
         examples = {}
         for line in open(filename):
             flist = line.strip('\n').split('\t')

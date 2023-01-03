@@ -86,7 +86,7 @@ def build_optim_encdec(args, model, checkpoint):
             decay_method='noam',
             warmup_steps=args.warmup_steps_encdec)
 
-    params = [(n, p) for n, p in list(model.named_parameters()) if not n.startswith('planner')]
+    params = [(n, p) for n, p in list(model.named_parameters()) if n.startswith('abs_model')]
     optim.set_parameters(params)
 
     return optim
@@ -119,7 +119,7 @@ def build_optim_planner(args, model, checkpoint):
             decay_method='noam',
             warmup_steps=args.warmup_steps_planner)
 
-    params = [(n, p) for n, p in list(model.named_parameters()) if n.startswith('planner')]
+    params = [(n, p) for n, p in list(model.named_parameters()) if not n.startswith('abs_model')]
     optim.set_parameters(params)
 
     return optim

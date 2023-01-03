@@ -166,11 +166,16 @@ def train_abs_single(args, device_id):
 
     # Load model
     model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model, checkpoint)
+    logger.info(model)
 
     # Load optimizer
-    optim_reinforce = model_builder.build_optim(args, model, checkpoint, lr=args.lr, warmup_steps=args.warmup_steps)
-    optim = [optim_reinforce]
-    logger.info(model)
+    if args.lr_encdec == -1 and args.lr_planner == -1:
+        optim_reinforce = model_builder.build_optim(args, model, checkpoint, lr=args.lr, warmup_steps=args.warmup_steps)
+        optim = [optim_reinforce]
+    else:
+        optim_encdec = model_builder.build_optim_encdec(args, model, checkpoint=None)
+        optim_graph = model_builder.build_optim_planner(args, model, checkpoint=None)
+        optim = [optim_encdec, optim_graph]
 
     # Load trainer
     trainer = build_trainer(args, device_id, model, optim, tokenizer.pad_token_id)

@@ -69,6 +69,8 @@ class SpectralCluser():
         for line in open(train_file):
             json_obj = json.loads(line.strip())
             alignments = json_obj['oracles_selection']
+            if len(alignments) == 1:
+                continue
             predicates = json_obj['predicates']
             groups = []
             for idx_group in alignments:

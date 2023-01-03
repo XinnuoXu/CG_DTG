@@ -1,8 +1,10 @@
 #!/bin/bash
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
-DATA_PATH=${BASE_PATH}/data.re.merge/
+#MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
+#DATA_PATH=${BASE_PATH}/data.re.merge/
+MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
+DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.re.pure_merge/
 
 mkdir -p ${MODEL_PATH}
