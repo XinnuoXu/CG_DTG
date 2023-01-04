@@ -2,13 +2,16 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.base/
+#MODEL_PATH=${BASE_PATH}/model.re.base/
 #DATA_PATH=${BASE_PATH}/data.re.base/
-DATA_PATH=${BASE_PATH}/data.re.graph_gt/
+#DATA_PATH=${BASE_PATH}/data.re.graph_gt/
 
 #MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
 #DATA_PATH=${BASE_PATH}/data.re.merge/
 #DATA_PATH=${BASE_PATH}/data.re.graph_gt/
+
+MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
+DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 
 LOG_PATH=${BASE_PATH}/logs.re/
 
@@ -23,8 +26,8 @@ python train.py \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
 	-ext_or_abs reinforce \
-	-pretrain_encoder_decoder False \
-	-train_predicate_graph_only True \
+	-pretrain_encoder_decoder True \
+	-train_predicate_graph_only False \
 	-conditional_decoder True \
 	-shuffle_src False \
         -max_pos 250 \

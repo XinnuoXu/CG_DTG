@@ -16,6 +16,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSeque
 from transformers import LongformerModel, BertModel
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
 from models.slot_attn import SlotAttention, SoftKMeans
+from models.spectral_clustering import SpectralCluser
 from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint, lr=None, warmup_steps=None):
@@ -892,293 +893,6 @@ class SlotAttnAggragatorDiscrete(nn.Module):
         return decoder_outputs.last_hidden_state, tgt, loss_mask, entropy_map
 
 
-class SpectralReinforce(nn.Module):
-    def __init__(self, args, device, pad_id, vocab_size, tokenizer, abs_model=None, checkpoint=None):
-        super(SpectralReinforce, self).__init__()
-        self.args = args
-        self.device = device
-        self.vocab_size = vocab_size
-        self.pad_id = pad_id
-        self.warmup_steps_reinforce = args.warmup_steps_reinforce
-
-        self.tokenizer = tokenizer
-
-        if abs_model is not None:
-            self.abs_model = abs_model
-        else:
-            self.abs_model = AbsSummarizer(args, device, vocab_size)
-
-        self.predicate_graph = nn.Parameter(torch.zeros(self.vocab_size, self.vocab_size, device=self.device))
-        #self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), 0.5))
-        self.sigmoid = torch.nn.Sigmoid()
-        self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
-
-        if checkpoint is not None:
-            print ('Load parameters from checkpoint...')
-            self.load_state_dict(checkpoint['model'], strict=True)
-
-        if args.train_predicate_graph_only:
-            for param in self.abs_model.parameters():
-                param.requires_grad = False
-        if args.pretrain_encoder_decoder:
-            self.predicate_graph.requires_grad = False
-
-        self.to(device)
-
-
-    def _log_stats(self, scores, target, src):
-        pred = scores.max(1)[1]
-        non_padding = target.ne(self.pad_id)
-        num_correct = pred.eq(target) \
-                          .masked_select(non_padding) \
-                          .sum() \
-                          .item()
-        num_non_padding = non_padding.sum().item()
-        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
-        return log_info
-
-
-    def _pad(self, data, width=-1):
-        if (width == -1):
-            width = max(len(d) for d in data)
-        rtn_data = [d + [self.pad_id] * (width - len(d)) for d in data]
-        return rtn_data
-
-
-    def run_spectral(self, predicates, n_clusters):
-        if len(predicates) == 1:
-            return [0]
-        ajacency_matrix = torch.zeros(len(predicates),len(predicates), device=self.device)
-        for i, head_1 in enumerate(predicates):
-            for j, head_2 in enumerate(predicates):
-                if head_1 < head_2:
-                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_1][head_2])
-                else:
-                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_2][head_1])
-
-        '''
-        print (ajacency_matrix)
-        print (predicates)
-        ajacency_matrix_sample = torch.bernoulli(ajacency_matrix)
-        ajacency_matrix_sample_t = torch.transpose(ajacency_matrix_sample, 0, 1)
-        ajacency_matrix_sample = ajacency_matrix_sample + ajacency_matrix_sample_t
-        ajacency_matrix_sample = (ajacency_matrix_sample > 0).int()
-        #ajacency_matrix = (ajacency_matrix * ajacency_matrix_sample).cpu().detach().numpy()
-        ajacency_matrix = ajacency_matrix_sample.cpu().detach().numpy()
-        '''
-        ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
-        #print (ajacency_matrix)
-        clustering = SpectralClustering(n_clusters=n_clusters,
-                                        assign_labels='discretize',
-                                        eigen_solver='arpack',
-                                        affinity='precomputed').fit(ajacency_matrix)
-        return clustering.labels_
-
-
-    def run_random(self, predicates, n_clusters):
-        labels = [random.sample(range(n_clusters), 1)[0] for item in predicates]
-        return labels
-
-
-    def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral'):
-        
-        # run clustering
-        if mode == 'gold':
-            pred_to_group = {}
-            for i, group in enumerate(p2s):
-                for pred in group:
-                    pred_to_group[pred] = i
-            labels = []
-            for pred in preds:
-                if pred not in pred_to_group:
-                    continue
-                labels.append(pred_to_group[pred])
-        elif mode == 'random':
-            labels = self.run_random(preds, n_clusters)
-            while len(set(labels)) < n_clusters:
-                labels = self.run_random(preds, n_clusters)
-        else:
-            labels = self.run_spectral(preds, n_clusters)
-
-        # group predicates and src based on the cluster method
-        pred_groups = [[] for i in range(n_clusters)]
-        tmp_src_groups = [[] for i in range(n_clusters)]
-        for i, label in enumerate(labels):
-            pred_groups[label].append(preds[i])
-            tmp_src_groups[label].append(src[i])
-
-        src_groups = [[] for i in range(n_clusters)]
-        for i in range(n_clusters):
-            sg = tmp_src_groups[i]
-            if self.args.shuffle_src:
-                random.shuffle(sg)
-            for item in sg:
-                src_groups[i].extend(item)
-
-        graph_prob = self.calculate_graph_prob(pred_groups)
-
-        return src_groups, pred_groups, graph_prob
-
-
-    def calculate_graph_prob(self, pred_groups):
-        # TODO: carefully design is required
-        probs = []
-        for group in pred_groups:
-            log_prob = []
-            for i, head_1 in enumerate(group):
-                for j, head_2 in enumerate(group):
-                    if head_1 < head_2:
-                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
-                        log_likelihood = torch.log(likelihood)
-                    else:
-                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
-                        log_likelihood = torch.log(likelihood)
-                    log_prob.append(log_likelihood)
-            if len(log_prob) > 0:
-            	log_prob = sum(log_prob)/len(log_prob)
-            	probs.append(log_prob)
-        return probs
-
-
-    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
-        # Hungrian alignment
-        #print (pred_groups, p2s)
-        predicate_to_slot = pred_groups
-        predicate_to_sentence = p2s
-        slot_to_sentence_costs = np.zeros((n_clusters, n_clusters)) # slot to sentence alignments
-        for j in range(len(predicate_to_slot)):
-            for k in range(len(predicate_to_sentence)):
-                overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
-                slot_to_sentence_costs[j][k] = overlap
-
-        slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
-        row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
-
-        new_tgt = torch.stack([tgt[idx] for idx in col_ind])
-        new_tgt_mask = torch.stack([mask_tgt[idx] for idx in col_ind])
-
-        new_ctgt = torch.stack([ctgt[idx] for idx in col_ind])
-        new_ctgt_mask = torch.stack([mask_ctgt[idx] for idx in col_ind])
-        new_ctgt_mask_loss = torch.stack([mask_ctgt_loss[idx] for idx in col_ind])
-
-        return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_ctgt_mask_loss
-
-
-    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, run_decoder=True, mode='spectral'):
-        raw_tgt = tgt
-
-        parallel_src = []
-        parallel_tgt = []
-        parallel_tgt_mask = []
-        parallel_tgt_mask_loss = []
-        parallel_ctgt = []
-        parallel_ctgt_mask = []
-        parallel_graph_probs = []
-        ngroups = []
-
-        for i in range(len(preds)):
-            s = src[i] # src sentences
-            t = tgt[i] # tgt sentences
-            m_t = mask_tgt[i] # mask for tgt sentences
-            ct = ctgt[i] # tgt sentences with previous tokens as conditions
-            m_ct = mask_ctgt[i] # mask for tgt sentences with previous tokens as conditions
-            m_ct_l = mask_ctgt_loss[i] # mask for tgt sentences with previous tokens as conditions for loss calculation only
-            p = preds[i]
-            p_s = p2s[i]
-            n_clusters = t.size(0)
-
-            # run clustering
-            src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
-
-            # run cluster-to-output_sentence alignment
-            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
-
-            parallel_src.extend(src_groups)
-            parallel_tgt.append(new_tgt)
-            parallel_tgt_mask.append(new_tgt_mask)
-            parallel_ctgt.append(new_ctgt)
-            parallel_ctgt_mask.append(new_ctgt_mask)
-            parallel_tgt_mask_loss.append(new_mask_ctgt_loss)
-            parallel_graph_probs.extend(graph_probs)
-            ngroups.append(t.size(0))
-
-        src = torch.tensor(self._pad(parallel_src), device=self.device)
-        mask_src = ~(src == self.pad_id)
-        encoder_outputs = self.abs_model.encoder(input_ids=src, attention_mask=mask_src) 
-        top_vec = encoder_outputs.last_hidden_state
-
-        if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
-
-        # Decoding
-        tgt = torch.cat(parallel_tgt)
-        mask_tgt = torch.cat(parallel_tgt_mask)
-        ctgt = torch.cat(parallel_ctgt)
-        mask_ctgt = torch.cat(parallel_ctgt_mask)
-        mask_ctgt_loss = torch.cat(parallel_tgt_mask_loss)
-        gtruth = tgt[:, 1:].contiguous().view(-1)
-
-        if self.args.conditional_decoder:
-            tgt = ctgt
-            mask_tgt = mask_ctgt
-            gtruth = tgt * mask_ctgt_loss + self.pad_id * (~ mask_ctgt_loss)
-            gtruth = gtruth[:, 1:].contiguous().view(-1)
-
-        '''
-        for i in range(src.size(0)):
-            print ('[SRC]:'+' '.join(self.tokenizer.convert_ids_to_tokens(src[i])))
-            print ('[TGT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(tgt[i])))
-            gt = gtruth.view(src.size(0), -1)
-            print ('[GT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(gt[i])))
-            print ('\n')
-        print ('=================')
-        '''
-
-        decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
-                                                attention_mask=mask_tgt,
-                                                encoder_hidden_states=top_vec,
-                                                encoder_attention_mask=mask_src)
-
-        output = decoder_outputs.last_hidden_state
-        output = output[:, :-1, :]
-
-        bottled_output = output.reshape(-1, output.size(2))
-        scores = self.abs_model.generator(bottled_output)
-        log_likelihood = (-1) * self.nll(scores, gtruth)
-        logging_info = self._log_stats(scores, gtruth, src) # log_info
-
-        #for i in range(output.size(0)):
-        #    gtruth = gtruth.view(src.size(0), -1)
-        #    print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
-
-        if self.args.pretrain_encoder_decoder:
-            return log_likelihood, None, logging_info
-
-
-        log_likelihood = log_likelihood.view(tgt.size(0),-1)
-        log_likelihood = torch.mean(log_likelihood, dim=1)
-
-        weights = torch.stack(parallel_graph_probs)
-
-        # post process
-        cur_id = 0
-        processed_log_likelihood = []
-        processed_weights = []
-        for nline in nsent:
-            processed_log_likelihood.append(log_likelihood[cur_id:(cur_id+nline)].min())
-            processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
-            cur_id += nline
-
-        log_likelihood = torch.stack(processed_log_likelihood)
-        weights = torch.stack(processed_weights)
-
-        #print (log_likelihood)
-        #print ('\n')
-
-        return log_likelihood, weights, logging_info
-
-
-
 class SlotSumm(nn.Module):
     def __init__(self, args, device, vocab_size, pad_token_id, checkpoint=None):
         super(SlotSumm, self).__init__()
@@ -1383,3 +1097,312 @@ class SlotSumm(nn.Module):
                                        encoder_attention_mask=sentence_mask)
 
         return decoder_outputs.last_hidden_state, tgt, mask_tgt, entropy_map
+
+
+
+class SpectralReinforce(nn.Module):
+    def __init__(self, args, device, pad_id, vocab_size, tokenizer, abs_model=None, checkpoint=None):
+        super(SpectralReinforce, self).__init__()
+        self.args = args
+        self.device = device
+        self.vocab_size = vocab_size
+        self.pad_id = pad_id
+        self.warmup_steps_reinforce = args.warmup_steps_reinforce
+
+        self.tokenizer = tokenizer
+
+        if abs_model is not None:
+            self.abs_model = abs_model
+        else:
+            self.abs_model = AbsSummarizer(args, device, vocab_size)
+
+        self.deterministic_graph = SpectralCluser(method = 'spectral_clustering',
+                                                 assign_labels = 'discretize',
+                                                 eigen_solver = 'arpack',
+                                                 affinity = 'precomputed',
+                                                 max_group_size = 10,
+                                                 min_pair_freq = 15,
+                                                 use_ratio = False,
+                                                 filter_with_entities = True,
+                                                 train_file = args.deterministic_graph_path)
+
+        self.predicate_graph = nn.Parameter(torch.zeros(self.vocab_size, self.vocab_size, device=self.device))
+        #self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), 0.5))
+        self.sigmoid = torch.nn.Sigmoid()
+        self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        if args.train_predicate_graph_only:
+            for param in self.abs_model.parameters():
+                param.requires_grad = False
+        if args.pretrain_encoder_decoder:
+            self.predicate_graph.requires_grad = False
+
+        self.to(device)
+
+
+    def _log_stats(self, scores, target, src):
+        pred = scores.max(1)[1]
+        non_padding = target.ne(self.pad_id)
+        num_correct = pred.eq(target) \
+                          .masked_select(non_padding) \
+                          .sum() \
+                          .item()
+        num_non_padding = non_padding.sum().item()
+        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
+        return log_info
+
+
+    def _pad(self, data, width=-1):
+        if (width == -1):
+            width = max(len(d) for d in data)
+        rtn_data = [d + [self.pad_id] * (width - len(d)) for d in data]
+        return rtn_data
+
+
+    def run_spectral(self, predicates, n_clusters):
+        if len(predicates) == 1:
+            return [0]
+        ajacency_matrix = torch.zeros(len(predicates),len(predicates), device=self.device)
+        for i, head_1 in enumerate(predicates):
+            for j, head_2 in enumerate(predicates):
+                if head_1 < head_2:
+                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_1][head_2])
+                else:
+                    ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_2][head_1])
+
+        '''
+        print (ajacency_matrix)
+        print (predicates)
+        ajacency_matrix_sample = torch.bernoulli(ajacency_matrix)
+        ajacency_matrix_sample_t = torch.transpose(ajacency_matrix_sample, 0, 1)
+        ajacency_matrix_sample = ajacency_matrix_sample + ajacency_matrix_sample_t
+        ajacency_matrix_sample = (ajacency_matrix_sample > 0).int()
+        #ajacency_matrix = (ajacency_matrix * ajacency_matrix_sample).cpu().detach().numpy()
+        ajacency_matrix = ajacency_matrix_sample.cpu().detach().numpy()
+        '''
+        ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
+        #print (ajacency_matrix)
+        clustering = SpectralClustering(n_clusters=n_clusters,
+                                        assign_labels='discretize',
+                                        eigen_solver='arpack',
+                                        affinity='precomputed').fit(ajacency_matrix)
+        return clustering.labels_
+
+
+    def run_random(self, predicates, n_clusters):
+        labels = [random.sample(range(n_clusters), 1)[0] for item in predicates]
+        return labels
+
+
+    def run_discriministic(self, src, preds, n_clusters):
+        labels = self.deterministic_graph.get_aggragation_lable(preds, src, n_clusters)
+        return labels
+
+
+    def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral', src_str=None, pred_str=None):
+        
+        # run clustering
+        if mode == 'gold':
+            pred_to_group = {}
+            for i, group in enumerate(p2s):
+                for pred in group:
+                    pred_to_group[pred] = i
+            labels = []
+            for pred in preds:
+                if pred not in pred_to_group:
+                    continue
+                labels.append(pred_to_group[pred])
+        elif mode == 'random':
+            labels = self.run_random(preds, n_clusters)
+            while len(set(labels)) < n_clusters:
+                labels = self.run_random(preds, n_clusters)
+        elif mode == 'discriministic':
+            labels = self.run_discriministic(src_str, pred_str, n_clusters)
+        else:
+            labels = self.run_spectral(preds, n_clusters)
+
+        # group predicates and src based on the cluster method
+        pred_groups = [[] for i in range(n_clusters)]
+        tmp_src_groups = [[] for i in range(n_clusters)]
+        for i, label in enumerate(labels):
+            pred_groups[label].append(preds[i])
+            tmp_src_groups[label].append(src[i])
+
+        src_groups = [[] for i in range(n_clusters)]
+        for i in range(n_clusters):
+            sg = tmp_src_groups[i]
+            if self.args.shuffle_src:
+                random.shuffle(sg)
+            for item in sg:
+                src_groups[i].extend(item)
+
+        if mode == 'gold' or mode == 'random':
+            graph_prob = [0.0 for i in range(n_clusters)]
+        elif mode == 'discriministic':
+            graph_prob = self.deterministic_graph.calculate_graph_score(labels, pred_str, n_clusters)
+        else:
+            graph_prob = self.calculate_graph_prob(pred_groups)
+
+        return src_groups, pred_groups, graph_prob
+
+
+    def calculate_graph_prob(self, pred_groups):
+        # TODO: carefully design is required
+        probs = []
+        for group in pred_groups:
+            log_prob = []
+            for i, head_1 in enumerate(group):
+                for j, head_2 in enumerate(group):
+                    if head_1 < head_2:
+                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
+                        log_likelihood = torch.log(likelihood)
+                    else:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        log_likelihood = torch.log(likelihood)
+                    log_prob.append(log_likelihood)
+            if len(log_prob) > 0:
+            	log_prob = sum(log_prob)/len(log_prob)
+            	probs.append(log_prob)
+        return probs
+
+
+    def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
+        # Hungrian alignment
+        #print (pred_groups, p2s)
+        predicate_to_slot = pred_groups
+        predicate_to_sentence = p2s
+        slot_to_sentence_costs = np.zeros((n_clusters, n_clusters)) # slot to sentence alignments
+        for j in range(len(predicate_to_slot)):
+            for k in range(len(predicate_to_sentence)):
+                overlap = len(set(predicate_to_slot[j]) & set(predicate_to_sentence[k]))*2+1
+                slot_to_sentence_costs[j][k] = overlap
+
+        slot_to_sentence_costs = slot_to_sentence_costs.max() - slot_to_sentence_costs
+        row_ind, col_ind = linear_sum_assignment(slot_to_sentence_costs)
+
+        new_tgt = torch.stack([tgt[idx] for idx in col_ind])
+        new_tgt_mask = torch.stack([mask_tgt[idx] for idx in col_ind])
+
+        new_ctgt = torch.stack([ctgt[idx] for idx in col_ind])
+        new_ctgt_mask = torch.stack([mask_ctgt[idx] for idx in col_ind])
+        new_ctgt_mask_loss = torch.stack([mask_ctgt_loss[idx] for idx in col_ind])
+
+        return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_ctgt_mask_loss
+
+
+    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, run_decoder=True, mode='spectral'):
+        raw_tgt = tgt
+
+        parallel_src = []
+        parallel_tgt = []
+        parallel_tgt_mask = []
+        parallel_tgt_mask_loss = []
+        parallel_ctgt = []
+        parallel_ctgt_mask = []
+        parallel_graph_probs = []
+        ngroups = []
+
+        for i in range(len(preds)):
+            s = src[i] # src sentences
+            t = tgt[i] # tgt sentences
+            m_t = mask_tgt[i] # mask for tgt sentences
+            ct = ctgt[i] # tgt sentences with previous tokens as conditions
+            m_ct = mask_ctgt[i] # mask for tgt sentences with previous tokens as conditions
+            m_ct_l = mask_ctgt_loss[i] # mask for tgt sentences with previous tokens as conditions for loss calculation only
+            p = preds[i]
+            p_s = p2s[i]
+            n_clusters = t.size(0)
+
+            # run clustering
+            src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+
+            # run cluster-to-output_sentence alignment
+            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
+
+            parallel_src.extend(src_groups)
+            parallel_tgt.append(new_tgt)
+            parallel_tgt_mask.append(new_tgt_mask)
+            parallel_ctgt.append(new_ctgt)
+            parallel_ctgt_mask.append(new_ctgt_mask)
+            parallel_tgt_mask_loss.append(new_mask_ctgt_loss)
+            parallel_graph_probs.extend(graph_probs)
+            ngroups.append(t.size(0))
+
+        src = torch.tensor(self._pad(parallel_src), device=self.device)
+        mask_src = ~(src == self.pad_id)
+        encoder_outputs = self.abs_model.encoder(input_ids=src, attention_mask=mask_src) 
+        top_vec = encoder_outputs.last_hidden_state
+
+        if not run_decoder:
+            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
+
+        # Decoding
+        tgt = torch.cat(parallel_tgt)
+        mask_tgt = torch.cat(parallel_tgt_mask)
+        ctgt = torch.cat(parallel_ctgt)
+        mask_ctgt = torch.cat(parallel_ctgt_mask)
+        mask_ctgt_loss = torch.cat(parallel_tgt_mask_loss)
+        gtruth = tgt[:, 1:].contiguous().view(-1)
+
+        if self.args.conditional_decoder:
+            tgt = ctgt
+            mask_tgt = mask_ctgt
+            gtruth = tgt * mask_ctgt_loss + self.pad_id * (~ mask_ctgt_loss)
+            gtruth = gtruth[:, 1:].contiguous().view(-1)
+
+        '''
+        for i in range(src.size(0)):
+            print ('[SRC]:'+' '.join(self.tokenizer.convert_ids_to_tokens(src[i])))
+            print ('[TGT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(tgt[i])))
+            gt = gtruth.view(src.size(0), -1)
+            print ('[GT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(gt[i])))
+            print ('\n')
+        print ('=================')
+        '''
+
+        decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
+                                                attention_mask=mask_tgt,
+                                                encoder_hidden_states=top_vec,
+                                                encoder_attention_mask=mask_src)
+
+        output = decoder_outputs.last_hidden_state
+        output = output[:, :-1, :]
+
+        bottled_output = output.reshape(-1, output.size(2))
+        scores = self.abs_model.generator(bottled_output)
+        log_likelihood = (-1) * self.nll(scores, gtruth)
+        logging_info = self._log_stats(scores, gtruth, src) # log_info
+
+        #for i in range(output.size(0)):
+        #    gtruth = gtruth.view(src.size(0), -1)
+        #    print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
+
+        if self.args.pretrain_encoder_decoder:
+            return log_likelihood, None, logging_info
+
+
+        log_likelihood = log_likelihood.view(tgt.size(0),-1)
+        log_likelihood = torch.mean(log_likelihood, dim=1)
+
+        weights = torch.stack(parallel_graph_probs)
+
+        # post process
+        cur_id = 0
+        processed_log_likelihood = []
+        processed_weights = []
+        for nline in nsent:
+            processed_log_likelihood.append(log_likelihood[cur_id:(cur_id+nline)].min())
+            processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
+            cur_id += nline
+
+        log_likelihood = torch.stack(processed_log_likelihood)
+        weights = torch.stack(processed_weights)
+
+        #print (log_likelihood)
+        #print ('\n')
+
+        return log_likelihood, weights, logging_info

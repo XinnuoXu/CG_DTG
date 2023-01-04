@@ -50,11 +50,9 @@ python preprocess.py \
 	-remove_single_triple_datapoints False \
 	-remove_noise_datapoints True \
 	-tokenize_predicate True \
+	-multi_ref_test True \
 	-n_cpus 32 \
 	-tokenizer t5-small \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log
-
-	#-multi_ref_test True \
-	#-remove_noise_datapoints False \

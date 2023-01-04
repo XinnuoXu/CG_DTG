@@ -63,10 +63,16 @@ if __name__ == '__main__':
     parser.add_argument("-slot_sample_schedule", type=str2bool, default=False)
     parser.add_argument("-cluster_algorithm", type=str, default='slot_attn', choices=['slot_attn', 'soft_kmeans'])
     parser.add_argument("-slotsumm_train_stage", type=str, default='pre-train', choices=['pre-train', 'gold_align', 'slot_attn'])
+
     parser.add_argument("-pretrain_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-train_predicate_graph_only", type=str2bool, default=False)
     parser.add_argument("-conditional_decoder", type=str2bool, default=False)
     parser.add_argument("-shuffle_src", type=str2bool, default=False)
+    parser.add_argument("-deterministic_graph_path", default='../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl', type=str)
+    parser.add_argument("-test_alignment_type", type=str, default='spectral', choices=['gold', 'spectral', 'discriministic'])
+    parser.add_argument("-test_given_nclusters", type=str2bool, default=True)
+    parser.add_argument("-test_graph_selection_threshold", default=1.0, type=float)
+
 
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)

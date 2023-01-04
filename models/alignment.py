@@ -34,19 +34,6 @@ class InputOutputAlignment():
         self.run_bertscore = run_bertscore
         self.run_bleurt = run_bleurt
 
-    def _run_overlap(self, pair, values_freq):
-        (src, tgt) = pair
-        sum_scores = 0.0
-        for item in src:
-
-            if item not in values_freq:
-                weight = 1.0
-            else:
-                weight = 1.0/values_freq[item]
-            print (item, '|||', tgt, scores, weight)
-            sum_scores += weight * scores
-        return sum_scores
-
     def _run_rouge(self, pair, values_freq):
         (src, tgt) = pair
         sum_scores = 0.0

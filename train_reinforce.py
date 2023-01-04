@@ -20,7 +20,7 @@ from models.data_reinforce import load_dataset
 from models.loss import abs_loss 
 from models.model_builder import AbsSummarizer, SpectralReinforce
 from models.trainer_reinforce import build_trainer
-from models.predictor_reinforce import build_predictor
+from models.predictor_aggragation import build_predictor
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 

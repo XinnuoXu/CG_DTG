@@ -145,7 +145,7 @@ class SpectralCluser():
         return clustering.labels_, ajacency_matrix
 
 
-    def postprocess(self, candidates):
+    def select_best_candidate(self, candidates):
 
         candidate_map = {}
         for candidate in candidates:
@@ -260,6 +260,48 @@ class SpectralCluser():
         return pred_to_subs_objs
 
 
+    def get_aggragation_lable(self, predicates, triples, ncluster):
+        if len(predicates) == 1:
+            return [0]
+        pred_to_subs_objs = self.triples_to_entityes(triples, predicates)
+        labels, ajacency_matrix = self.process(predicates, pred_to_subs_objs, ncluster)
+        return labels
+
+
+    def calculate_graph_score(self, labels, predicates, n_clusters):
+
+        pred_groups = [[] for i in range(n_clusters)]
+        for i, label in enumerate(labels):
+            pred_groups[label].append(predicates[i])
+        candidate = pred_groups
+
+        for group in candidate:
+            if len(group) > self.max_group_size:
+                return [-1 for i in range(n_clusters)]
+            if len(group) == 0:
+                return [-1 for i in range(n_clusters)]
+
+        scores = []
+        for group in candidate:
+            group_min_freq = 100000
+            for i, pred_1 in enumerate(group):
+                for j, pred_2 in enumerate(group):
+                    if i >= j:
+                        continue
+                    if pred_1 not in self.model:
+                        freq = 0
+                    elif pred_2 not in self.model[pred_1]:
+                        freq = 0
+                    else:
+                        freq = self.model[pred_1][pred_2]
+                    #print ('Pair frequence:', pred_1, pred_2, freq)
+                    if freq < group_min_freq:
+                        group_min_freq = freq
+            scores.append(group_min_freq)
+
+        return scores
+
+
     def run_test(self, predicates, triples, gt_ncluster=None):
 
         candidates = []; ajacency_matrix=None
@@ -281,7 +323,7 @@ class SpectralCluser():
         if len(candidates) == 0:
             best_candidate = [predicates]
         else:
-            best_candidate = self.postprocess(candidates)
+            best_candidate = self.select_best_candidate(candidates)
         #sorted_best_candidate = self.sort_the_groups(best_candidate)
         sorted_best_candidate = self.sort_the_groups_v2(best_candidate, pred_to_subs_objs)
 
