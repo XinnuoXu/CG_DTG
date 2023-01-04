@@ -1232,6 +1232,16 @@ class SpectralReinforce(nn.Module):
             pred_groups[label].append(preds[i])
             tmp_src_groups[label].append(src[i])
 
+        # for test start
+        pred_str_groups = None; src_str_groups = None
+        if (src_str is not None) and (pred_str is not None):
+            pred_str_groups = [[] for i in range(n_clusters)]
+            src_str_groups = [[] for i in range(n_clusters)]
+            for i, label in enumerate(labels):
+                pred_str_groups[label].append(pred_str[i])
+                src_str_groups[label].append(src_str[i])
+        # for test end
+
         src_groups = [[] for i in range(n_clusters)]
         for i in range(n_clusters):
             sg = tmp_src_groups[i]
@@ -1247,7 +1257,7 @@ class SpectralReinforce(nn.Module):
         else:
             graph_prob = self.calculate_graph_prob(pred_groups)
 
-        return src_groups, pred_groups, graph_prob
+        return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups
 
 
     def calculate_graph_prob(self, pred_groups):
@@ -1318,7 +1328,7 @@ class SpectralReinforce(nn.Module):
             n_clusters = t.size(0)
 
             # run clustering
-            src_groups, pred_groups, graph_probs = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+            src_groups, pred_groups, graph_probs, _, _ = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
 
             # run cluster-to-output_sentence alignment
             new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)

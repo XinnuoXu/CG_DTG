@@ -29,7 +29,7 @@ python train.py \
 	-conditional_decoder True \
 	-test_alignment_type discriministic \
 	-test_given_nclusters False \
-	-test_graph_selection_threshold 15 \
+	-test_graph_selection_threshold 10 \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \

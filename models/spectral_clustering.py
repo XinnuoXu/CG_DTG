@@ -5,8 +5,6 @@ import json, random
 from sklearn.cluster import SpectralClustering
 import numpy as np
 
-FIRST_SENT_LABEL='<FIRST_SENT>'
-NOT_FIRST_SENT_LABEL='<NOT_FIRST_SENT>'
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -30,6 +28,7 @@ class SpectralCluser():
                        valid_file='',
                        test_file=''):
 
+        self.FIRST_SENT_LABEL = '<FIRST_SENT>'
         self.method = method
         self.assign_labels = assign_labels
         self.eigen_solver = eigen_solver
@@ -63,14 +62,13 @@ class SpectralCluser():
                 edge_weights[pred_1][pred_2] += 1
         return edge_weights
 
-
     def train(self, train_file):
         edge_weights = {}
         for line in open(train_file):
             json_obj = json.loads(line.strip())
             alignments = json_obj['oracles_selection']
-            if len(alignments) == 1:
-                continue
+            #if len(alignments) == 1:
+            #    continue
             predicates = json_obj['predicates']
             groups = []
             for idx_group in alignments:
@@ -78,20 +76,20 @@ class SpectralCluser():
             for i, group in enumerate(groups):
                 #group = group.split(' ')
                 if i == 0 and len(groups) > 1:
-                    group.append(FIRST_SENT_LABEL)
+                    group.append(self.FIRST_SENT_LABEL)
                 edge_weights = self.one_sentence(edge_weights, group)
         return edge_weights
 
     def train_freq_to_ration(self, edge_weights):
         ratio_edge_weights = {}
         for pred_1 in edge_weights:
-            if pred_1 == FIRST_SENT_LABEL:
+            if pred_1 == self.FIRST_SENT_LABEL:
                 pred_1_freq = 0
             else:
                 pred_1_freq = sum(edge_weights[pred_1].values())
             ratio_edge_weights[pred_1] = {}
             for pred_2 in edge_weights[pred_1]:
-                if pred_2 == FIRST_SENT_LABEL:
+                if pred_2 == self.FIRST_SENT_LABEL:
                     pred_2_freq = 0
                 else:
                     pred_2_freq = sum(edge_weights[pred_2].values())
@@ -201,8 +199,8 @@ class SpectralCluser():
                 continue
             freq_sum = 0
             for pred in group:
-                if pred in self.model[FIRST_SENT_LABEL]:
-                    first_freq = self.model[FIRST_SENT_LABEL][pred]
+                if pred in self.model[self.FIRST_SENT_LABEL]:
+                    first_freq = self.model[self.FIRST_SENT_LABEL][pred]
                     freq_sum += first_freq
                 else:
                     freq_sum += 0
@@ -222,8 +220,8 @@ class SpectralCluser():
                 continue
             freq_sum = 0
             for pred in group:
-                if pred in self.model[FIRST_SENT_LABEL]:
-                    first_freq = self.model[FIRST_SENT_LABEL][pred]
+                if pred in self.model[self.FIRST_SENT_LABEL]:
+                    first_freq = self.model[self.FIRST_SENT_LABEL][pred]
                     freq_sum += first_freq
                 else:
                     freq_sum += 0

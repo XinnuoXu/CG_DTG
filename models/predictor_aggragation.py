@@ -159,45 +159,87 @@ class Translator(object):
                 min_length=self.min_length)
 
     
-    def _run_encoder(self, src, mask_src, ngroups):
+    def _order_groups(self, input_args):
+        src_groups, pred_groups, graph_probs, src_str_groups, pred_str_groups = input_args
 
-        encoder_outputs = self.model.abs_model.encoder(input_ids=src, attention_mask=mask_src)
-        src_features = encoder_outputs.last_hidden_state
+        main_subs = []
+        for group in src_str_groups:
+            if len(group) == 0:
+                main_subs.append('')
+                continue
+            sub_freq = {}; obj_freq = {}
+            for triple in group:
+                sub_idx = triple.find('<SUB>')
+                obj_idx = triple.find('<OBJ>')
+                pred_idx = triple.find('<PRED>')
+                sub = triple[sub_idx+5:pred_idx].strip()
+                obj = triple[obj_idx+5:].strip()
+                if sub not in sub_freq:
+                    sub_freq[sub] = 0
+                sub_freq[sub] += 1
+                if obj not in obj_freq:
+                    obj_freq[obj] = 0
+                obj_freq[obj] += 1
+            for key in sub_freq:
+                if key not in obj_freq:
+                    continue
+                sub_freq[key] -= obj_freq[key]
+            main_sub = sorted(sub_freq.items(), key = lambda d:d[1], reverse=True)[0][0]
+            main_subs.append(main_sub)
 
-        src_features_for_each_example = []
-        mask_src_for_each_example = []
-        src_for_each_example = []
-        sid = 0
-        for example_group_number in ngroups:
-            eid = sid + example_group_number
-            src_features_for_each_example.append(src_features[sid:eid])
-            mask_src_for_each_example.append(mask_src[sid:eid])
-            src_for_each_example.append(src[sid:eid])
-            sid = sid + example_group_number
+        deterministic_model = self.model.deterministic_graph.model
+        first_sent_lable = self.model.deterministic_graph.FIRST_SENT_LABEL
+        first_sent_freq = {}
+        for i, group in enumerate(pred_str_groups):
+            if len(group) == 0:
+                continue
+            freq_sum = 0
+            for pred in group:
+                if pred in deterministic_model[first_sent_lable]:
+                    first_freq = deterministic_model[first_sent_lable][pred]
+                    freq_sum += first_freq
+                else:
+                    freq_sum += 0
+            first_sent_freq[i] = freq_sum / float(len(group))
 
-        return src_features_for_each_example, mask_src_for_each_example, src_for_each_example
+        new_best_candidate_same_sub = []; new_best_candidate_not_same_sub = []
+        main_sub = ''
+        for item in sorted(first_sent_freq.items(), key = lambda d:d[1], reverse=True):
+            sentence_idx = item[0]
+            current_group = pred_str_groups[sentence_idx]
+            if main_sub == '':
+                main_sub = main_subs[sentence_idx]
+                new_best_candidate_same_sub.append(sentence_idx)
+            else:
+                max_sub = main_subs[sentence_idx]
+                if max_sub == main_sub:
+                    new_best_candidate_same_sub.append(sentence_idx)
+                else:
+                    new_best_candidate_not_same_sub.append(sentence_idx)
+        sorted_sent = new_best_candidate_same_sub + new_best_candidate_not_same_sub
+
+        src_groups = [src_groups[sentence_idx] for sentence_idx in sorted_sent]
+        pred_groups = [pred_groups[sentence_idx] for sentence_idx in sorted_sent]
+        graph_probs = [graph_probs[sentence_idx] for sentence_idx in sorted_sent]
+
+        return src_groups, pred_groups, graph_probs
 
 
     def _cluster_and_select(self, s, p, n_clusters, p_s, s_str, p_str):
 
         if self.args.test_given_nclusters:
-            if self.args.test_alignment_type == 'discriministic':
-                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode=self.args.test_alignment_type, 
-                                                                                 src_str=s_str, pred_str=p_str)
-            else:
-                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode=self.args.test_alignment_type)
-
+            res = self.model.run_clustering(s, p, n_clusters, p_s, 
+                                            mode=self.args.test_alignment_type, 
+                                            src_str=s_str, pred_str=p_str)
+            src_groups, pred_groups, graph_probs = self._order_groups(res)
             return src_groups, pred_groups, graph_probs
 
         for i in range(1, len(s)+1):
-
             n_clusters = i
-
-            if self.args.test_alignment_type == 'discriministic':
-                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode=self.args.test_alignment_type, 
-                                                                                 src_str=s_str, pred_str=p_str)
-            else:
-                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode=self.args.test_alignment_type)
+            res = self.model.run_clustering(s, p, n_clusters, p_s, 
+                                            mode=self.args.test_alignment_type, 
+                                            src_str=s_str, pred_str=p_str)
+            src_groups, pred_groups, graph_probs = self._order_groups(res)
 
             graph_score = min(graph_probs)
             if graph_score >= self.args.test_graph_selection_threshold:
@@ -236,6 +278,25 @@ class Translator(object):
         mask_src = ~(src == self.pad_token_id)
 
         return src, mask_src, parallel_src_example, parallel_pred, parallel_graph_probs, ngroups
+
+
+    def _run_encoder(self, src, mask_src, ngroups):
+
+        encoder_outputs = self.model.abs_model.encoder(input_ids=src, attention_mask=mask_src)
+        src_features = encoder_outputs.last_hidden_state
+
+        src_features_for_each_example = []
+        mask_src_for_each_example = []
+        src_for_each_example = []
+        sid = 0
+        for example_group_number in ngroups:
+            eid = sid + example_group_number
+            src_features_for_each_example.append(src_features[sid:eid])
+            mask_src_for_each_example.append(mask_src[sid:eid])
+            src_for_each_example.append(src[sid:eid])
+            sid = sid + example_group_number
+
+        return src_features_for_each_example, mask_src_for_each_example, src_for_each_example
 
 
     def _run_conditioned_text_generation(self, src, mask_src, src_examples,

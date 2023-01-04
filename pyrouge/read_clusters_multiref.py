@@ -49,17 +49,15 @@ def load_gold_alignment(gold_path):
         alignments = json_obj['oracles_selection']
         preds = json_obj['predicates']
 
-        eid = json_obj['example_id']
-        example_id = eid.split('_')[0]
-        reference_id = eid.split('_')[1]
+        example_id = json_obj['example_id']
+        examples[example_id] = {}
 
-        if example_id not in examples:
-            examples[example_id] = {}
-        examples[example_id][reference_id] = []
-
-        for group in alignments:
-            pred_group = ' '.join([preds[pid] for pid in group])
-            examples[example_id][reference_id].append(pred_group)
+        for i, alignment in enumerate(alignments):
+            reference_id = i
+            examples[example_id][reference_id] = []
+            for group in alignment:
+                pred_group = ' '.join([preds[pid] for pid in group])
+                examples[example_id][reference_id].append(pred_group)
     return examples
 
 
@@ -67,14 +65,11 @@ def generate_random_cluster(gold_path):
     examples = {}
     for line in open(gold_path):
         json_obj = json.loads(line.strip())
-        alignments = json_obj['oracles_selection']
         preds = json_obj['predicates']
 
-        eid = json_obj['example_id']
-        example_id = eid.split('_')[0]
-        reference_id = eid.split('_')[1]
+        example_id = json_obj['example_id']
+        cls_num = random.randint(1, len(preds))
 
-        cls_num = len(alignments)
         while 1:
             clusters = [[] for i in range(cls_num)]
             for pred in preds:
@@ -84,10 +79,7 @@ def generate_random_cluster(gold_path):
             if min([len(group) for group in clusters]) > 0:
                 break
 
-        if example_id not in examples:
-            examples[example_id] = {}
-        examples[example_id][reference_id] = clusters
-
+        examples[example_id] = clusters
     return examples
 
 
@@ -108,20 +100,16 @@ def generate_spectual_cluster(base_path):
     for line in open(src_filename):
         json_obj = json.loads(line.strip())
 
-        eid = json_obj['example_id']
-        example_id = eid.split('_')[0]
-        reference_id = eid.split('_')[1]
+        example_id = json_obj['example_id']
 
         preds = json_obj['predicates']
         srcs = json_obj['document_segs']
 
         alignments = json_obj['oracles_selection']
-        clusters = cluster_obj.run(preds, srcs, gt_ncluster=len(alignments))
+        clusters = cluster_obj.run(preds, srcs)
         clusters = [' '.join(cluster) for cluster in clusters]
 
-        if example_id not in examples:
-            examples[example_id] = {}
-        examples[example_id][reference_id] = clusters
+        examples[example_id] = clusters
 
     return examples
 
@@ -134,39 +122,29 @@ def get_predicted_cluster(pred_path):
         score = flist[1]
         pred = flist[2]
 
-        example_id = eid.split('_')[0]
-        reference_id = eid.split('_')[1]
-        if example_id not in examples:
-            examples[example_id] = {}
-        if reference_id not in examples[example_id]:
-            examples[example_id][reference_id] = []
-        examples[example_id][reference_id] = pred.split(' ||| ')
+        example_id = eid
+        examples[example_id] = pred.split(' ||| ')
     return examples
 
+
 if __name__ == '__main__':
-    random_clustering = True
+    random_clustering = False
     spectual_clustering = False
-    manual_alignment = False
 
     gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
     ground_truth_grouping = load_gold_alignment(gold_path)
 
     if spectual_clustering:
         #base_path = '../Plan_while_Generate/D2T_data/webnlg_data/'
-        base_path = '../Plan_while_Generate/D2T_data/webnlg_data.manual_align/'
+        base_path = '../Plan_while_Generate/D2T_data/webnlg_data.merge.rule_based/'
         examples = generate_spectual_cluster(base_path)
 
     elif random_clustering:
         examples = generate_random_cluster(gold_path)
 
-    elif manual_alignment:
-        manual_path = '../Plan_while_Generate/D2T_data/webnlg_data.manual_align/test.jsonl'
-        examples = load_gold_alignment(manual_path)
-
     else:
         pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.2000.cluster'
         examples = get_predicted_cluster(pred_path)
-
 
     ARS = []
     NMI = []
@@ -174,34 +152,32 @@ if __name__ == '__main__':
     FMS = []
 
     for idx in examples:
-        example = examples[idx]
-        predictions = []
-        ground_truthes = []
-        for ref_id in example:
-            ground_truth = ground_truth_grouping[idx][ref_id]
-            if len(ground_truth) == 1:
-                continue
-            ground_truthes.append(ground_truth)
-            predictions.append(example[ref_id])
+        pred = examples[idx]
+        if len(' '.join(pred).split(' ')) == 1:
+            continue
 
-        for pred in predictions:
-            best_metrics = None
-            for gt in ground_truthes:
-                current_metrics = run_metrics(pred, gt)
-                if current_metrics is None:
-                    continue
-                if best_metrics is None:
-                    best_metrics = list(current_metrics)
-                else:
-                    for j, metric in enumerate(list(current_metrics)):
-                        if best_metrics[j] < metric:
-                            best_metrics[j] = metric
-            if best_metrics is None:
+        ground_truthes = []
+        for ref_id in ground_truth_grouping[idx]:
+            ground_truth = ground_truth_grouping[idx][ref_id]
+            ground_truthes.append(ground_truth)
+
+        best_metrics = None
+        for gt in ground_truthes:
+            current_metrics = run_metrics(pred, gt)
+            if current_metrics is None:
                 continue
-            ARS.append(best_metrics[0])
-            NMI.append(best_metrics[1])
-            AMI.append(best_metrics[2])
-            FMS.append(best_metrics[3])
+            if best_metrics is None:
+                best_metrics = list(current_metrics)
+            else:
+                for j, metric in enumerate(list(current_metrics)):
+                    if best_metrics[j] < metric:
+                        best_metrics[j] = metric
+        if best_metrics is None:
+            continue
+        ARS.append(best_metrics[0])
+        NMI.append(best_metrics[1])
+        AMI.append(best_metrics[2])
+        FMS.append(best_metrics[3])
 
     print ('ARS:', sum(ARS)/len(ARS))
     print ('NMI:', sum(NMI)/len(NMI))
