@@ -1250,9 +1250,7 @@ class SpectralReinforce(nn.Module):
             for item in sg:
                 src_groups[i].extend(item)
 
-        if mode == 'gold' or mode == 'random':
-            graph_prob = [0.0 for i in range(n_clusters)]
-        elif mode == 'discriministic':
+        if mode == 'discriministic':
             graph_prob = self.deterministic_graph.calculate_graph_score(labels, pred_str, n_clusters)
         else:
             graph_prob = self.calculate_graph_prob(pred_groups)

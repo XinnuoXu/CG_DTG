@@ -13,7 +13,7 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/train.jsonl
 MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
 DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.base/
+LOG_PATH=${BASE_PATH}/logs.re.discriministic/
 
 mkdir -p ${LOG_PATH}
 

@@ -3,12 +3,8 @@
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
 MODEL_PATH=${BASE_PATH}/model.re.base/
-DATA_PATH=${BASE_PATH}/data.re.graph_gt/
+DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.re.base/
-
-#MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
-#DATA_PATH=${BASE_PATH}/data.re.graph_gt/
-#LOG_PATH=${BASE_PATH}/logs.re.pure_merge/
 
 mkdir -p ${LOG_PATH}
 
@@ -22,8 +18,8 @@ python train.py \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
 	-test_alignment_type spectral \
-	-pretrain_encoder_decoder False \
-	-train_predicate_graph_only True \
+	-test_given_nclusters False \
+	-test_graph_selection_threshold 0.5 \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \

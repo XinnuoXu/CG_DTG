@@ -5,9 +5,9 @@
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.many2one_align/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.no_align/
 JSON_PATH=${BASE_PATH}/jsons.re.base/
-LOG_PATH=${BASE_PATH}/logs.re/
+LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${JSON_PATH}
@@ -31,7 +31,7 @@ ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 JSON_PATH=${BASE_PATH}/jsons.re.base/
 DATA_PATH=${BASE_PATH}/data.re.base/
-LOG_PATH=${BASE_PATH}/logs.re/
+LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}

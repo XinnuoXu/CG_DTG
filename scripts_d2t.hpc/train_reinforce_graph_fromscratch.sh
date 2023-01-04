@@ -1,11 +1,11 @@
 #!/bin/bash
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-#MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
-#DATA_PATH=${BASE_PATH}/data.re.merge/
-MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
+
+ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial/
+MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
 DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.pure_merge/
+LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -16,16 +16,17 @@ python train.py  \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
+	-train_from ${ENCDEC_PATH}/model_step_2000.pt \
 	-log_file ${LOG_PATH}/train.log \
-	-pretrain_encoder_decoder True \
+	-train_predicate_graph_only True \
 	-conditional_decoder True \
-	-shuffle_src True \
 	-ext_or_abs reinforce \
-	-train_steps 6000 \
-	-warmup_steps 1000 \
-	-save_checkpoint_steps 1000 \
-	-lr 3e-4 \
-	-batch_size 500 \
+	-train_steps 50000 \
+	-warmup_steps_reinforce 45000 \
+	-warmup_steps 2000 \
+	-save_checkpoint_steps 5000 \
+	-lr 3e-2 \
+	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
@@ -33,6 +34,6 @@ python train.py  \
 	-accum_count 2 \
 	-visible_gpus 0,1,2
 
-#ABS_MODEL_PATH=${BASE_PATH}/model.base/model_step_3000.pt
-#-load_from_abs ${ABS_MODEL_PATH} \
 #-shuffle_src True \
+#-load_from_abs ${ABS_MODEL_PATH} \
+#ABS_MODEL_PATH=${BASE_PATH}/model.base/model_step_4000.pt
