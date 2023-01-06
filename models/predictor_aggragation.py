@@ -241,6 +241,9 @@ class Translator(object):
                                             src_str=s_str, pred_str=p_str)
             src_groups, pred_groups, graph_probs = self._order_groups(res)
 
+            if self.args.test_alignment_type != 'discriministic':
+                graph_probs = [torch.exp(score) for score in graph_probs]
+
             graph_score = min(graph_probs)
             if graph_score >= self.args.test_graph_selection_threshold:
                 return src_groups, pred_groups, graph_probs

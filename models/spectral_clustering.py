@@ -70,6 +70,8 @@ class SpectralCluser():
             #if len(alignments) == 1:
             #    continue
             predicates = json_obj['predicates']
+            if len(predicates) == 1:
+                continue
             groups = []
             for idx_group in alignments:
                 groups.append([predicates[idx] for idx in idx_group])
@@ -78,6 +80,11 @@ class SpectralCluser():
                 if i == 0 and len(groups) > 1:
                     group.append(self.FIRST_SENT_LABEL)
                 edge_weights = self.one_sentence(edge_weights, group)
+
+        for key1 in edge_weights:
+            for key2 in edge_weights[key1]:
+                edge_weights[key1][key2] = edge_weights[key1][key2]
+
         return edge_weights
 
     def train_freq_to_ration(self, edge_weights):

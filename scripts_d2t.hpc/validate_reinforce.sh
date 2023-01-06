@@ -2,18 +2,30 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.base/
-#DATA_PATH=${BASE_PATH}/data.re.base/
-DATA_PATH=${BASE_PATH}/data.re.graph_gt/
-
-#MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
-#DATA_PATH=${BASE_PATH}/data.re.merge/
-#DATA_PATH=${BASE_PATH}/data.re.graph_gt/
-
-#MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
+#MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+#LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
+# 40000
 
-LOG_PATH=${BASE_PATH}/logs.re/
+#MODEL_PATH=${BASE_PATH}/model.re.init_determ/
+#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+#LOG_PATH=${BASE_PATH}/logs.re.init_determ/
+# 50000
+
+#MODEL_PATH=${BASE_PATH}/model.re.gold_random/
+#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+#LOG_PATH=${BASE_PATH}/logs.re.gold_random/
+# 45000
+
+#MODEL_PATH=${BASE_PATH}/model.re.evenly_mix/
+#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+#LOG_PATH=${BASE_PATH}/logs.re.evenly_mix/
+# 45000
+
+MODEL_PATH=${BASE_PATH}/model.re.joint/
+DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+LOG_PATH=${BASE_PATH}/logs.re.joint/
+# 10000
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -26,8 +38,8 @@ python train.py \
 	-result_path ${LOG_PATH}/validation.res \
 	-log_file ${LOG_PATH}/validation.log \
 	-ext_or_abs reinforce \
-	-pretrain_encoder_decoder True \
-	-train_predicate_graph_only False \
+	-pretrain_encoder_decoder False \
+	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-shuffle_src False \
         -max_pos 250 \

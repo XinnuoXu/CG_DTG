@@ -144,7 +144,7 @@ def get_predicted_cluster(pred_path):
     return examples
 
 if __name__ == '__main__':
-    random_clustering = True
+    random_clustering = False
     spectual_clustering = False
     manual_alignment = False
 
@@ -164,7 +164,11 @@ if __name__ == '__main__':
         examples = load_gold_alignment(manual_path)
 
     else:
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.2000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.2000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.45000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.40000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.evenly_mix/test.res.45000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.joint/test.res.45000.cluster'
         examples = get_predicted_cluster(pred_path)
 
 

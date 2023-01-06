@@ -1126,14 +1126,23 @@ class SpectralReinforce(nn.Module):
                                                  filter_with_entities = True,
                                                  train_file = args.deterministic_graph_path)
 
-        self.predicate_graph = nn.Parameter(torch.zeros(self.vocab_size, self.vocab_size, device=self.device))
-        #self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), 0.5))
+        #predicate_graph_values = torch.zeros(self.vocab_size, self.vocab_size, device=self.device)
+        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device)
+        if self.args.init_graph_with_deterministic:
+            predicate_graph_values = self._init_graph(predicate_graph_values)
+        self.predicate_graph = nn.Parameter(predicate_graph_values)
+
         self.sigmoid = torch.nn.Sigmoid()
         self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
+
+            if self.args.init_graph_with_deterministic:
+                predicate_graph_values = self._init_graph(predicate_graph_values)
+                self.predicate_graph = nn.Parameter(predicate_graph_values)
+                #print (self.predicate_graph[32100:,32100:])
 
         if args.train_predicate_graph_only:
             for param in self.abs_model.parameters():
@@ -1142,6 +1151,22 @@ class SpectralReinforce(nn.Module):
             self.predicate_graph.requires_grad = False
 
         self.to(device)
+
+
+    def _init_graph(self, predicate_graph_values):
+        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -10.0, device=self.device)
+        weights = self.deterministic_graph.model
+        max_value = max([max(item.values()) for item in weights.values()])
+        for pred_i in weights:
+            for pred_j in weights[pred_i]:
+                ids = self.tokenizer.convert_tokens_to_ids([pred_i, pred_j])
+                id_i = ids[0]
+                id_j = ids[1]
+                weight = float(weights[pred_i][pred_j])/max_value
+                weight = torch.tensor(weight)
+                weight = torch.logit(weight, eps=1e-6)
+                predicate_graph_values[id_i][id_j] = weight
+        return predicate_graph_values
 
 
     def _log_stats(self, scores, target, src):
@@ -1184,6 +1209,7 @@ class SpectralReinforce(nn.Module):
         #ajacency_matrix = (ajacency_matrix * ajacency_matrix_sample).cpu().detach().numpy()
         ajacency_matrix = ajacency_matrix_sample.cpu().detach().numpy()
         '''
+
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
         #print (ajacency_matrix)
         clustering = SpectralClustering(n_clusters=n_clusters,
@@ -1220,6 +1246,11 @@ class SpectralReinforce(nn.Module):
             labels = self.run_random(preds, n_clusters)
             while len(set(labels)) < n_clusters:
                 labels = self.run_random(preds, n_clusters)
+            if n_clusters == 1:
+                select_pred = random.sample(range(len(preds)), 1)[0]
+                labels = [-1] * len(labels)
+                labels[select_pred] = 0
+
         elif mode == 'discriministic':
             labels = self.run_discriministic(src_str, pred_str, n_clusters)
         else:
@@ -1229,6 +1260,8 @@ class SpectralReinforce(nn.Module):
         pred_groups = [[] for i in range(n_clusters)]
         tmp_src_groups = [[] for i in range(n_clusters)]
         for i, label in enumerate(labels):
+            if label == -1:
+                continue
             pred_groups[label].append(preds[i])
             tmp_src_groups[label].append(src[i])
 
@@ -1238,6 +1271,8 @@ class SpectralReinforce(nn.Module):
             pred_str_groups = [[] for i in range(n_clusters)]
             src_str_groups = [[] for i in range(n_clusters)]
             for i, label in enumerate(labels):
+                if label == -1:
+                    continue
                 pred_str_groups[label].append(pred_str[i])
                 src_str_groups[label].append(src_str[i])
         # for test end
@@ -1268,13 +1303,21 @@ class SpectralReinforce(nn.Module):
                     if head_1 < head_2:
                         likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
                         log_likelihood = torch.log(likelihood)
-                    else:
+                        log_prob.append(log_likelihood)
+                    elif head_2 < head_1:
                         likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
                         log_likelihood = torch.log(likelihood)
-                    log_prob.append(log_likelihood)
+                        log_prob.append(log_likelihood)
+                    elif len(group) == 1:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
             if len(log_prob) > 0:
-            	log_prob = sum(log_prob)/len(log_prob)
-            	probs.append(log_prob)
+                if self.args.calculate_graph_prob_method == 'min':
+                    log_prob = min(log_prob)
+                else:
+                    log_prob = sum(log_prob)/len(log_prob)
+                probs.append(log_prob)
         return probs
 
 
@@ -1385,9 +1428,12 @@ class SpectralReinforce(nn.Module):
         log_likelihood = (-1) * self.nll(scores, gtruth)
         logging_info = self._log_stats(scores, gtruth, src) # log_info
 
-        #for i in range(output.size(0)):
-        #    gtruth = gtruth.view(src.size(0), -1)
-        #    print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
+        '''
+        # log
+        for i in range(output.size(0)):
+            gtruth = gtruth.view(src.size(0), -1)
+            print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
+        '''
 
         if self.args.pretrain_encoder_decoder:
             return log_likelihood, None, logging_info
@@ -1410,7 +1456,10 @@ class SpectralReinforce(nn.Module):
         log_likelihood = torch.stack(processed_log_likelihood)
         weights = torch.stack(processed_weights)
 
-        #print (log_likelihood)
-        #print ('\n')
+        '''
+        # log
+        print (log_likelihood)
+        print ('\n')
+        '''
 
         return log_likelihood, weights, logging_info

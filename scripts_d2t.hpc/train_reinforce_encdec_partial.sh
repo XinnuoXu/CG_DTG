@@ -19,7 +19,7 @@ python train.py  \
 	-conditional_decoder True \
 	-shuffle_src True \
 	-ext_or_abs reinforce \
-	-train_steps 6000 \
+	-train_steps 4000 \
 	-warmup_steps 1000 \
 	-save_checkpoint_steps 1000 \
 	-lr 3e-4 \

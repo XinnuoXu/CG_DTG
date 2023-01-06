@@ -1,4 +1,5 @@
 import os, json
+import random
 
 import numpy as np
 import torch
@@ -136,7 +137,9 @@ class Trainer(object):
             nsent = batch.nsent
 
             if self.args.pretrain_encoder_decoder:
-                cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='gold')
+                cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                        ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                        preds, p2s, nsent, step, mode='gold')
                 loss = -cll.sum()
                 loss.backward()
 
@@ -144,12 +147,28 @@ class Trainer(object):
             else:
                 # conditional log likelihood
                 if step < self.args.warmup_steps_reinforce:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='random')
+                    sampled_num = random.random()
+                    if sampled_num <= self.args.gold_random_ratio:
+                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                                preds, p2s, nsent, step, mode='gold')
+                    elif sampled_num >= 1 - self.args.spectral_ratio:
+                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                                preds, p2s, nsent, step, mode='spectral')
+                    else:
+                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                                preds, p2s, nsent, step, mode='random')
                 else:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='spectral')
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                            ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                            preds, p2s, nsent, step, mode='spectral')
 
                 # baseline
-                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='random') # baseline
+                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
+                                                ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                preds, p2s, nsent, step, mode='random') # baseline
 
                 # calculte loss
                 #cll = (-1) * (cll ** 2) * 100
