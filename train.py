@@ -76,6 +76,8 @@ if __name__ == '__main__':
     parser.add_argument("-test_alignment_type", type=str, default='spectral', choices=['gold', 'spectral', 'discriministic'])
     parser.add_argument("-test_given_nclusters", type=str2bool, default=True)
     parser.add_argument("-test_graph_selection_threshold", default=1.0, type=float)
+    parser.add_argument("-test_entity_link", type=str2bool, default=False)
+    parser.add_argument("-test_no_single_pred_score", type=str2bool, default=False)
 
 
     # generation parameters

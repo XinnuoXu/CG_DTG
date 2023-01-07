@@ -22,14 +22,14 @@ python train.py  \
 	-log_file ${LOG_PATH}/train.log \
 	-conditional_decoder True \
 	-init_graph_with_deterministic True \
-	-gold_random_ratio 0.8 \
+	-gold_random_ratio 0.75 \
 	-ext_or_abs reinforce \
 	-train_steps 50000 \
 	-warmup_steps_reinforce 45000 \
 	-lr_encdec 1e-5 \
-	-warmup_steps_encdec 10000 \
+	-warmup_steps_encdec 25000 \
 	-lr_planner 3e-3 \
-	-warmup_steps_planner 1 \
+	-warmup_steps_planner 2000 \
 	-save_checkpoint_steps 5000 \
 	-batch_size 3 \
 	-report_every 100 \

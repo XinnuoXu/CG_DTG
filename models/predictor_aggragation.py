@@ -251,7 +251,7 @@ class Translator(object):
         return src_groups, pred_groups, graph_probs
 
 
-    def _run_clustering(self, src, preds, p2s, src_str, pred_str):
+    def _run_clustering(self, src, preds, p2s, src_str, pred_str, eids):
 
         # run clustering
         parallel_src = []
@@ -268,6 +268,8 @@ class Translator(object):
             p_str = pred_str[i].split(' ')
             n_clusters = len(p_s)
 
+            print ('\n')
+            print (eids[i])
             src_groups, pred_groups, graph_probs = self._cluster_and_select(s, p, n_clusters, p_s, s_str, p_str)
 
             parallel_src_example.append(src_groups)
@@ -511,12 +513,13 @@ class Translator(object):
         mask_ctgt = batch.mask_ctgt
         preds = batch.pred
         p2s = batch.p2s
+        eids = batch.eid
 
         src_str = batch.src_str
         pred_str = batch.pred_str
 
         # run clustering
-        src, mask_src, src_examples, pred_clusters, cluster_probs, ngroups = self._run_clustering(src, preds, p2s, src_str, pred_str)
+        src, mask_src, src_examples, pred_clusters, cluster_probs, ngroups = self._run_clustering(src, preds, p2s, src_str, pred_str, eids)
 
         # run encoding
         src_features_for_each_example, mask_src_for_each_example, src_for_each_example = self._run_encoder(src, mask_src, ngroups)

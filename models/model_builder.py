@@ -1144,6 +1144,9 @@ class SpectralReinforce(nn.Module):
                 self.predicate_graph = nn.Parameter(predicate_graph_values)
                 #print (self.predicate_graph[32100:,32100:])
 
+        print (self.predicate_graph[32241][32279])
+        print (self.predicate_graph[32302][32216])
+
         if args.train_predicate_graph_only:
             for param in self.abs_model.parameters():
                 param.requires_grad = False
@@ -1154,7 +1157,7 @@ class SpectralReinforce(nn.Module):
 
 
     def _init_graph(self, predicate_graph_values):
-        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -10.0, device=self.device)
+        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device)
         weights = self.deterministic_graph.model
         max_value = max([max(item.values()) for item in weights.values()])
         for pred_i in weights:
@@ -1187,8 +1190,24 @@ class SpectralReinforce(nn.Module):
         rtn_data = [d + [self.pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
+    def _examine_src_pairs(self, triple_i, triple_j):
 
-    def run_spectral(self, predicates, n_clusters):
+        def _extract_entities(triple):
+            sub_idx = triple.find('<SUB>')
+            obj_idx = triple.find('<OBJ>')
+            pred_idx = triple.find('<PRED>')
+            sub = triple[sub_idx+5:pred_idx].strip()
+            obj = triple[obj_idx+5:].strip()
+            return sub, obj
+
+        sub_i, obj_i = _extract_entities(triple_i)
+        sub_j, obj_j = _extract_entities(triple_j)
+        res = (len(set([sub_i, obj_i]) & set([sub_j, obj_j])) > 0)
+
+        return res
+
+
+    def run_spectral(self, predicates, n_clusters, src_str=None, pred_str=None):
         if len(predicates) == 1:
             return [0]
         ajacency_matrix = torch.zeros(len(predicates),len(predicates), device=self.device)
@@ -1198,7 +1217,10 @@ class SpectralReinforce(nn.Module):
                     ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_1][head_2])
                 else:
                     ajacency_matrix[i][j] = self.sigmoid(self.predicate_graph[head_2][head_1])
-
+                if self.args.test_entity_link and \
+                        src_str is not None and \
+                        (not self._examine_src_pairs(src_str[i], src_str[j])):
+                    ajacency_matrix[i][j] = 0
         '''
         print (ajacency_matrix)
         print (predicates)
@@ -1211,11 +1233,14 @@ class SpectralReinforce(nn.Module):
         '''
 
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
-        #print (ajacency_matrix)
+        print (n_clusters)
+        print (pred_str)
+        print (ajacency_matrix)
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
                                         affinity='precomputed').fit(ajacency_matrix)
+        print (clustering.labels_)
         return clustering.labels_
 
 
@@ -1254,7 +1279,7 @@ class SpectralReinforce(nn.Module):
         elif mode == 'discriministic':
             labels = self.run_discriministic(src_str, pred_str, n_clusters)
         else:
-            labels = self.run_spectral(preds, n_clusters)
+            labels = self.run_spectral(preds, n_clusters, src_str, pred_str)
 
         # group predicates and src based on the cluster method
         pred_groups = [[] for i in range(n_clusters)]
@@ -1302,14 +1327,19 @@ class SpectralReinforce(nn.Module):
                 for j, head_2 in enumerate(group):
                     if head_1 < head_2:
                         likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
+                        print (head_1, head_2, likelihood)
                         log_likelihood = torch.log(likelihood)
                         log_prob.append(log_likelihood)
                     elif head_2 < head_1:
                         likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        print (head_1, head_2, likelihood)
                         log_likelihood = torch.log(likelihood)
                         log_prob.append(log_likelihood)
                     elif len(group) == 1:
                         likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        if self.args.test_no_single_pred_score:
+                            likelihood = torch.tensor(1.0, device=self.device)
+                        print (head_1, head_2, likelihood)
                         log_likelihood = torch.log(likelihood)
                         log_prob.append(log_likelihood)
             if len(log_prob) > 0:

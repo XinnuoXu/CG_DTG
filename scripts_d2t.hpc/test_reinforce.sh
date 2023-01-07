@@ -2,14 +2,11 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.test/
+MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
+#MODEL_PATH=${BASE_PATH}/model.test/
 DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.init_determ/
-
-#MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
-#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-#LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
-# 40000
+LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
+# 15000
 
 #MODEL_PATH=${BASE_PATH}/model.re.init_determ/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
@@ -19,7 +16,7 @@ LOG_PATH=${BASE_PATH}/logs.re.init_determ/
 #MODEL_PATH=${BASE_PATH}/model.re.gold_random/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 #LOG_PATH=${BASE_PATH}/logs.re.gold_random/
-# 45000
+# 35000
 
 #MODEL_PATH=${BASE_PATH}/model.re.evenly_mix/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
@@ -37,15 +34,17 @@ python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_2500.pt \
+	-test_from ${MODEL_PATH}/model_step_5000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
 	-test_alignment_type spectral \
 	-test_given_nclusters False \
+	-test_entity_link True \
+	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold 0.2 \
+	-test_graph_selection_threshold 0.1 \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \

@@ -27,8 +27,8 @@ python train.py  \
 	-ext_or_abs reinforce \
 	-train_steps 50000 \
 	-warmup_steps_reinforce 45000 \
-	-warmup_steps 2000 \
 	-save_checkpoint_steps 5000 \
+	-warmup_steps 2000 \
 	-lr 3e-3 \
 	-batch_size 3 \
 	-report_every 100 \

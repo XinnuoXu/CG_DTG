@@ -4,6 +4,7 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
 ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial/
 MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
+#MODEL_PATH=${BASE_PATH}/model.test/
 DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
 
@@ -26,7 +27,7 @@ python train.py  \
 	-save_checkpoint_steps 5000 \
 	-warmup_steps_reinforce 45000 \
 	-warmup_steps 2000 \
-	-lr 5e-2 \
+	-lr 3e-3 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \

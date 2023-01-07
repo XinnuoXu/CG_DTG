@@ -24,7 +24,7 @@ python train.py  \
 	-conditional_decoder True \
 	-init_graph_with_deterministic True \
 	-gold_random_ratio 0.4 \
-	-spectral_ratio 0.3 \
+	-spectral_ratio 0.2 \
 	-ext_or_abs reinforce \
 	-train_steps 50000 \
 	-warmup_steps_reinforce 45000 \

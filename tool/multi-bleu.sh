@@ -3,7 +3,7 @@
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.base/test.res.3000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.2000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.pure_merge/test.res.35000'
-path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.45000'
+path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000'
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 

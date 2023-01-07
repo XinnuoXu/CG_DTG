@@ -129,7 +129,7 @@ def get_predicted_cluster(pred_path):
 
 if __name__ == '__main__':
     random_clustering = False
-    spectual_clustering = True
+    spectual_clustering = False
 
     gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
     ground_truth_grouping = load_gold_alignment(gold_path)
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         examples = generate_random_cluster(gold_path)
 
     else:
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.45000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000.cluster'
         examples = get_predicted_cluster(pred_path)
 
     ARS = []
