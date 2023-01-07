@@ -200,7 +200,8 @@ class Translator(object):
                     freq_sum += first_freq
                 else:
                     freq_sum += 0
-            first_sent_freq[i] = freq_sum / float(len(group))
+            idx = len(first_sent_freq)
+            first_sent_freq[idx] = freq_sum / float(len(group))
 
         new_best_candidate_same_sub = []; new_best_candidate_not_same_sub = []
         main_sub = ''

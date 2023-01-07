@@ -5,27 +5,22 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 #MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 #LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
-# 5000
+# 5000/40000
 
-#MODEL_PATH=${BASE_PATH}/model.re.init_determ/
+#MODEL_PATH=${BASE_PATH}/model.re.gold_random/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-#LOG_PATH=${BASE_PATH}/logs.re.init_determ/
-# 50000
-
-MODEL_PATH=${BASE_PATH}/model.re.gold_random/
-DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.gold_random/
-# 15000
+#LOG_PATH=${BASE_PATH}/logs.re.gold_random/
+# 20000
 
 #MODEL_PATH=${BASE_PATH}/model.re.evenly_mix/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 #LOG_PATH=${BASE_PATH}/logs.re.evenly_mix/
-# 45000
+# 20000
 
 #MODEL_PATH=${BASE_PATH}/model.re.joint/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
 #LOG_PATH=${BASE_PATH}/logs.re.joint/
-# 10000
+# 35000
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

@@ -143,7 +143,10 @@ if __name__ == '__main__':
         examples = generate_random_cluster(gold_path)
 
     else:
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.20000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.evenly_mix/test.res.20000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.joint/test.res.35000.cluster'
         examples = get_predicted_cluster(pred_path)
 
     ARS = []
