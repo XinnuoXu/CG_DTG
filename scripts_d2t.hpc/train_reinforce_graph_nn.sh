@@ -2,11 +2,10 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/train.jsonl
 ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial/
-MODEL_PATH=${BASE_PATH}/model.re.evenly_mix/
-DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.evenly_mix/
+MODEL_PATH=${BASE_PATH}/model.re.nn/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+LOG_PATH=${BASE_PATH}/logs.re.nn/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -16,20 +15,17 @@ python train.py  \
 	-model_name t5-small \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
-	-deterministic_graph_path ${DETERMINISTIC_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-train_from ${ENCDEC_PATH}/model_step_2000.pt \
 	-log_file ${LOG_PATH}/train.log \
+	-nn_graph True \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
-	-init_graph_with_deterministic True \
-	-gold_random_ratio 0.4 \
-	-spectral_ratio 0.2 \
 	-ext_or_abs reinforce \
-	-train_steps 50000 \
-	-warmup_steps_reinforce 45000 \
-	-warmup_steps 2000 \
+	-train_steps 10000 \
 	-save_checkpoint_steps 5000 \
+	-warmup_steps_reinforce 9000 \
+	-warmup_steps 2000 \
 	-lr 3e-3 \
 	-batch_size 3 \
 	-report_every 100 \
@@ -37,7 +33,7 @@ python train.py  \
 	-max_tgt_len 250 \
         -decay_method linear_warmup \
 	-accum_count 2 \
-	-visible_gpus 0,1,2
+	-visible_gpus 0
 
 #-shuffle_src True \
 #-load_from_abs ${ABS_MODEL_PATH} \

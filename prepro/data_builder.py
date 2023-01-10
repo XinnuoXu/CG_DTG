@@ -130,7 +130,7 @@ def _process_d2t_base(params):
 
         src = d['document_segs']
 
-        if args.tokenize_predicate:
+        if args.tokenize_src_predicate:
             source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.raw_tokenizer)
         else:
             source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.tokenizer)
@@ -211,7 +211,7 @@ def _process_sentence_level(params):
 
         source_tokens = []
         for s in src:
-            if args.tokenize_predicate:
+            if args.tokenize_src_predicate:
                 s = s.replace('<SUB> ', '').replace('<PRED> ', '').replace('<OBJ> ', '').replace('-Pred-', '')
                 source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, data_obj.raw_tokenizer)
             else:
@@ -229,6 +229,10 @@ def _process_sentence_level(params):
         # tokenize predicates
         predicates = d['predicates']
         predicates_ids = data_obj.tokenizer.convert_tokens_to_ids(predicates)
+        predicates_tokens = []
+        for p in predicates:
+            p_t, _ = data_obj.preprocess_src([p.replace('-Pred-', '')], args.max_src_ntokens, data_obj.raw_tokenizer)
+            predicates_tokens.append(p_t)
         predicates_txt = ' '.join(predicates)
 
         pred_to_sentence = []
@@ -238,6 +242,7 @@ def _process_sentence_level(params):
         b_data_dict = {"src": source_tokens, 
                        "tgt": target_tokens,
                        "pred": predicates_ids,
+                       "pred_tokens":predicates_tokens,
                        "p2s": pred_to_sentence,
                        "src_txt": src_txt,
                        "tgt_txt": tgt_txt,

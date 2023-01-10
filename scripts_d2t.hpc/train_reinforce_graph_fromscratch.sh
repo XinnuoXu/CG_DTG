@@ -23,11 +23,11 @@ python train.py  \
 	-conditional_decoder True \
 	-ext_or_abs reinforce \
 	-gold_random_ratio 0.75 \
-	-train_steps 50000 \
+	-train_steps 10000 \
 	-save_checkpoint_steps 5000 \
-	-warmup_steps_reinforce 45000 \
+	-warmup_steps_reinforce 9000 \
 	-warmup_steps 2000 \
-	-lr 3e-3 \
+	-lr 5e-2 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \

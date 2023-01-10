@@ -46,7 +46,7 @@ python preprocess.py \
 	-remove_single_triple_datapoints False \
 	-remove_noise_datapoints False \
 	-multi_ref_test True \
-	-tokenize_predicate True \
+	-tokenize_src_predicate True \
 	-n_cpus 32 \
 	-tokenizer t5-small \
         -max_src_ntokens 1024 \

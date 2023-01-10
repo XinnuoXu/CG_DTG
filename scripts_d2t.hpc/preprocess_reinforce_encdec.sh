@@ -45,7 +45,7 @@ python preprocess.py \
         -saved_tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-remove_single_triple_datapoints False \
 	-remove_noise_datapoints True \
-	-tokenize_predicate True \
+	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \
 	-tokenizer t5-small \

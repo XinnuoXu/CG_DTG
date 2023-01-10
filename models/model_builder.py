@@ -14,7 +14,7 @@ from scipy.stats import entropy
 from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
 from transformers import LongformerModel, BertModel
-from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier
+from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier, PairClassification
 from models.slot_attn import SlotAttention, SoftKMeans
 from models.spectral_clustering import SpectralCluser
 from sentence_transformers.models import Pooling
@@ -1126,26 +1126,24 @@ class SpectralReinforce(nn.Module):
                                                  filter_with_entities = True,
                                                  train_file = args.deterministic_graph_path)
 
-        #predicate_graph_values = torch.zeros(self.vocab_size, self.vocab_size, device=self.device)
-        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device)
-        if self.args.init_graph_with_deterministic:
-            predicate_graph_values = self._init_graph(predicate_graph_values)
-        self.predicate_graph = nn.Parameter(predicate_graph_values)
+        if self.args.nn_graph:
+            self.predicate_graph = PairClassification(len(self.tokenizer),
+                                                      pad_id,
+                                                      self.args.nn_graph_d_model,
+                                                      self.args.nn_graph_d_ff,
+                                                      self.args.nn_graph_heads,
+                                                      self.args.nn_graph_dropout,
+                                                      num_inter_layers=self.args.nn_graph_nlayers)
+        else:
+            self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device))
 
         self.sigmoid = torch.nn.Sigmoid()
         self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
+        self.cls_loss = torch.nn.BCELoss(reduction='none')
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
-
-            if self.args.init_graph_with_deterministic:
-                predicate_graph_values = self._init_graph(predicate_graph_values)
-                self.predicate_graph = nn.Parameter(predicate_graph_values)
-                #print (self.predicate_graph[32100:,32100:])
-
-        print (self.predicate_graph[32241][32279])
-        print (self.predicate_graph[32302][32216])
 
         if args.train_predicate_graph_only:
             for param in self.abs_model.parameters():
@@ -1156,23 +1154,7 @@ class SpectralReinforce(nn.Module):
         self.to(device)
 
 
-    def _init_graph(self, predicate_graph_values):
-        predicate_graph_values = torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device)
-        weights = self.deterministic_graph.model
-        max_value = max([max(item.values()) for item in weights.values()])
-        for pred_i in weights:
-            for pred_j in weights[pred_i]:
-                ids = self.tokenizer.convert_tokens_to_ids([pred_i, pred_j])
-                id_i = ids[0]
-                id_j = ids[1]
-                weight = float(weights[pred_i][pred_j])/max_value
-                weight = torch.tensor(weight)
-                weight = torch.logit(weight, eps=1e-6)
-                predicate_graph_values[id_i][id_j] = weight
-        return predicate_graph_values
-
-
-    def _log_stats(self, scores, target, src):
+    def _log_generation_stats(self, scores, target, src):
         pred = scores.max(1)[1]
         non_padding = target.ne(self.pad_id)
         num_correct = pred.eq(target) \
@@ -1184,11 +1166,21 @@ class SpectralReinforce(nn.Module):
         return log_info
 
 
+    def _log_classification_stats(self, scores, target):
+
+        prediction = (scores > 0.5)
+        num_correct = prediction.eq(target).sum().item()
+        log_info = {'num_non_padding':scores.size(0), 'num_correct':num_correct, 'n_docs':scores.size(0)}
+
+        return log_info
+
+
     def _pad(self, data, width=-1):
         if (width == -1):
             width = max(len(d) for d in data)
         rtn_data = [d + [self.pad_id] * (width - len(d)) for d in data]
         return rtn_data
+
 
     def _examine_src_pairs(self, triple_i, triple_j):
 
@@ -1244,6 +1236,33 @@ class SpectralReinforce(nn.Module):
         return clustering.labels_
 
 
+    def run_spectral_nn(self, predicates, pred_token, pred_token_mask, n_clusters, src_str=None, pred_str=None):
+
+        if len(predicates) == 1:
+            return [0]
+
+        ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask).view(len(predicates), -1)
+
+        for i, head_1 in enumerate(predicates):
+            for j, head_2 in enumerate(predicates):
+                if self.args.test_entity_link and \
+                        src_str is not None and \
+                        (not self._examine_src_pairs(src_str[i], src_str[j])):
+                    ajacency_matrix[i][j] = 0
+
+        ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
+
+        print (n_clusters)
+        print (pred_str)
+        print (ajacency_matrix)
+        clustering = SpectralClustering(n_clusters=n_clusters,
+                                        assign_labels='discretize',
+                                        eigen_solver='arpack',
+                                        affinity='precomputed').fit(ajacency_matrix)
+        print (clustering.labels_)
+        return clustering.labels_
+
+
     def run_random(self, predicates, n_clusters):
         labels = [random.sample(range(n_clusters), 1)[0] for item in predicates]
         return labels
@@ -1254,7 +1273,75 @@ class SpectralReinforce(nn.Module):
         return labels
 
 
-    def run_clustering(self, src, preds, n_clusters, p2s, mode='spectral', src_str=None, pred_str=None):
+    def calculate_graph_prob(self, pred_groups):
+        # TODO: carefully design is required
+        probs = []
+        for group in pred_groups:
+            log_prob = []
+            for i, head_1 in enumerate(group):
+                for j, head_2 in enumerate(group):
+                    if head_1 < head_2:
+                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
+                        #print (head_1, head_2, likelihood)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+                    elif head_2 < head_1:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        #print (head_1, head_2, likelihood)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+                    elif len(group) == 1:
+                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
+                        if self.args.test_no_single_pred_score:
+                            likelihood = torch.tensor(1.0, device=self.device)
+                        #print (head_1, head_2, likelihood)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+            if len(log_prob) > 0:
+                if self.args.calculate_graph_prob_method == 'min':
+                    log_prob = min(log_prob)
+                else:
+                    log_prob = sum(log_prob)/len(log_prob)
+                probs.append(log_prob)
+        return probs
+
+
+    def calculate_graph_prob_nn(self, pred_groups, predicates, pred_token, pred_token_mask):
+
+        # TODO: carefully design is required
+        linear_ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask)
+        sub_graph = {}; idx = 0
+        for i, head_i in enumerate(predicates):
+            sub_graph[head_i] = {}
+            for j, head_j in enumerate(predicates):
+                sub_graph[head_i][head_j] = linear_ajacency_matrix[idx]
+                idx += 1
+
+        probs = []
+        for group in pred_groups:
+            log_prob = []
+            for i, head_1 in enumerate(group):
+                for j, head_2 in enumerate(group):
+                    if head_1 != head_2:
+                        likelihood = sub_graph[head_1][head_2]
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+                    elif len(group) == 1:
+                        likelihood = sub_graph[head_1][head_2]
+                        if self.args.test_no_single_pred_score:
+                            likelihood = torch.tensor(1.0, device=self.device)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+            if len(log_prob) > 0:
+                if self.args.calculate_graph_prob_method == 'min':
+                    log_prob = min(log_prob)
+                else:
+                    log_prob = sum(log_prob)/len(log_prob)
+                probs.append(log_prob)
+        return probs
+
+
+    def run_clustering(self, src, preds, n_clusters, p2s, pred_token, pred_token_mask, mode='spectral', src_str=None, pred_str=None):
         
         # run clustering
         if mode == 'gold':
@@ -1267,6 +1354,10 @@ class SpectralReinforce(nn.Module):
                 if pred not in pred_to_group:
                     continue
                 labels.append(pred_to_group[pred])
+
+        elif mode == 'full_src':
+            labels = [0 for s in src]
+           
         elif mode == 'random':
             labels = self.run_random(preds, n_clusters)
             while len(set(labels)) < n_clusters:
@@ -1279,7 +1370,10 @@ class SpectralReinforce(nn.Module):
         elif mode == 'discriministic':
             labels = self.run_discriministic(src_str, pred_str, n_clusters)
         else:
-            labels = self.run_spectral(preds, n_clusters, src_str, pred_str)
+            if self.args.nn_graph:
+                labels = self.run_spectral_nn(preds, pred_token, pred_token_mask, n_clusters, src_str, pred_str)
+            else:
+                labels = self.run_spectral(preds, n_clusters, src_str, pred_str)
 
         # group predicates and src based on the cluster method
         pred_groups = [[] for i in range(n_clusters)]
@@ -1313,42 +1407,12 @@ class SpectralReinforce(nn.Module):
         if mode == 'discriministic':
             graph_prob = self.deterministic_graph.calculate_graph_score(labels, pred_str, n_clusters)
         else:
-            graph_prob = self.calculate_graph_prob(pred_groups)
+            if self.args.nn_graph:
+                graph_prob = self.calculate_graph_prob_nn(pred_groups, preds, pred_token, pred_token_mask)
+            else:
+                graph_prob = self.calculate_graph_prob(pred_groups)
 
         return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups
-
-
-    def calculate_graph_prob(self, pred_groups):
-        # TODO: carefully design is required
-        probs = []
-        for group in pred_groups:
-            log_prob = []
-            for i, head_1 in enumerate(group):
-                for j, head_2 in enumerate(group):
-                    if head_1 < head_2:
-                        likelihood = self.sigmoid(self.predicate_graph[head_1][head_2])
-                        print (head_1, head_2, likelihood)
-                        log_likelihood = torch.log(likelihood)
-                        log_prob.append(log_likelihood)
-                    elif head_2 < head_1:
-                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
-                        print (head_1, head_2, likelihood)
-                        log_likelihood = torch.log(likelihood)
-                        log_prob.append(log_likelihood)
-                    elif len(group) == 1:
-                        likelihood = self.sigmoid(self.predicate_graph[head_2][head_1])
-                        if self.args.test_no_single_pred_score:
-                            likelihood = torch.tensor(1.0, device=self.device)
-                        print (head_1, head_2, likelihood)
-                        log_likelihood = torch.log(likelihood)
-                        log_prob.append(log_likelihood)
-            if len(log_prob) > 0:
-                if self.args.calculate_graph_prob_method == 'min':
-                    log_prob = min(log_prob)
-                else:
-                    log_prob = sum(log_prob)/len(log_prob)
-                probs.append(log_prob)
-        return probs
 
 
     def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
@@ -1375,7 +1439,11 @@ class SpectralReinforce(nn.Module):
         return new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_ctgt_mask_loss
 
 
-    def forward(self, src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, run_decoder=True, mode='spectral'):
+    def forward_generator(self, src, tgt, mask_tgt, ctgt, 
+                          mask_ctgt, mask_ctgt_loss, 
+                          preds, pred_tokens, pred_mask_tokens, 
+                          p2s, nsent, run_decoder=True, mode='spectral'):
+
         raw_tgt = tgt
 
         parallel_src = []
@@ -1394,15 +1462,20 @@ class SpectralReinforce(nn.Module):
             ct = ctgt[i] # tgt sentences with previous tokens as conditions
             m_ct = mask_ctgt[i] # mask for tgt sentences with previous tokens as conditions
             m_ct_l = mask_ctgt_loss[i] # mask for tgt sentences with previous tokens as conditions for loss calculation only
+
             p = preds[i]
             p_s = p2s[i]
+            p_tok = pred_tokens[i]
+            p_tok_m = pred_mask_tokens[i]
+
             n_clusters = t.size(0)
 
             # run clustering
-            src_groups, pred_groups, graph_probs, _, _ = self.run_clustering(s, p, n_clusters, p_s, mode=mode)
+            src_groups, pred_groups, graph_probs, _, _ = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
 
             # run cluster-to-output_sentence alignment
-            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
+            res = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
+            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = res
 
             parallel_src.extend(src_groups)
             parallel_tgt.append(new_tgt)
@@ -1456,7 +1529,7 @@ class SpectralReinforce(nn.Module):
         bottled_output = output.reshape(-1, output.size(2))
         scores = self.abs_model.generator(bottled_output)
         log_likelihood = (-1) * self.nll(scores, gtruth)
-        logging_info = self._log_stats(scores, gtruth, src) # log_info
+        logging_info = self._log_generation_stats(scores, gtruth, src) # log_info
 
         '''
         # log
@@ -1493,3 +1566,34 @@ class SpectralReinforce(nn.Module):
         '''
 
         return log_likelihood, weights, logging_info
+
+
+    def forward_cls(self, pred_tokens, pred_mask_tokens, aggregation_labels, nsents):
+
+        tokens = torch.cat(pred_tokens)
+        masks = torch.cat(pred_mask_tokens)
+        labels = torch.cat([item.unsqueeze(1) for item in aggregation_labels]).squeeze(-1)
+
+        sent_scores = self.predicate_graph(tokens, masks)
+        loss = self.cls_loss(sent_scores, labels.float())
+
+        logging_info = self._log_classification_stats(sent_scores, labels) # log_info
+
+        return loss, logging_info
+
+
+    def forward(self, src, tgt, mask_tgt,
+                ctgt, mask_ctgt, mask_ctgt_loss, 
+                preds, pred_tokens, pred_mask_tokens, 
+                p2s, nsent, aggregation_labels=None,
+                run_decoder=True, mode='spectral'):
+
+        if mode == 'nn':
+            ret = self.forward_cls(pred_tokens, pred_mask_tokens, aggregation_labels, nsent)
+        else:
+            ret = self.forward_generator(src, tgt, mask_tgt, ctgt,
+                                         mask_ctgt, mask_ctgt_loss,
+                                         preds, pred_tokens, pred_mask_tokens,
+                                         p2s, nsent, run_decoder=run_decoder,
+                                         mode=mode)
+        return ret

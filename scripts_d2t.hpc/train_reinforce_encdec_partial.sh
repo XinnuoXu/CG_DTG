@@ -2,7 +2,8 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
-DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
 mkdir -p ${MODEL_PATH}
@@ -15,6 +16,7 @@ python train.py  \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
+	-nn_graph True \
 	-pretrain_encoder_decoder True \
 	-conditional_decoder True \
 	-shuffle_src True \

@@ -289,3 +289,39 @@ class TransformerEncoder(nn.Module):
 
 
 
+class PairClassification(nn.Module):
+    def __init__(self, vocab_size, padding_idx, d_model, d_ff, heads, dropout, num_inter_layers=0):
+        super(PairClassification, self).__init__()
+        self.d_model = d_model
+        self.num_inter_layers = num_inter_layers
+        self.tok_emb = nn.Embedding(vocab_size, d_model, padding_idx)
+        self.pos_emb = PositionalEncoding(dropout, d_model)
+        self.transformer_inter = nn.ModuleList(
+            [TransformerEncoderLayer(d_model, heads, d_ff, dropout)
+             for _ in range(num_inter_layers)])
+        self.dropout = nn.Dropout(dropout)
+        self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+        self.wo = nn.Linear(d_model, 1, bias=True)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, inputs, mask):
+        """ See :obj:`EncoderBase.forward()`"""
+
+        batch_size, n_sents = inputs.size()
+        tok_emb = self.tok_emb(inputs)
+        pos_emb = self.pos_emb.pe[:, :n_sents]
+        x = tok_emb * mask[:, :, None].float()
+        x = x + pos_emb
+
+        for i in range(self.num_inter_layers):
+            x = self.transformer_inter[i](i, x, x, mask)  # all_sents * max_tokens * dim
+
+        x = self.layer_norm(x)
+        top_vec = x[:,0,:]
+        sent_scores = self.sigmoid(self.wo(top_vec))
+        sent_scores = sent_scores.squeeze(-1)
+
+        return sent_scores
+
+
+

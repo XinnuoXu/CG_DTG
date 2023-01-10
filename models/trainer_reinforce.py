@@ -6,7 +6,6 @@ import torch
 
 import distributed
 from models.reporter_abs import ReportMgr, Statistics
-from models.reporter_ext import ReportMgrExt, StatisticsExt
 from models.logging import logger
 from tool.debug_tool import parameter_reporter
 
@@ -49,7 +48,6 @@ class Trainer(object):
         self.pad_id = pad_id
 
         self.report_manager = ReportMgr(args.report_every, start_time=-1)
-        self.report_manager_ext = ReportMgrExt(args.report_every, start_time=-1)
 
         if args.log_gradient == '':
             self.log_gradient = None
@@ -133,16 +131,29 @@ class Trainer(object):
             mask_ctgt = batch.mask_ctgt
             mask_ctgt_loss = batch.mask_ctgt_loss
             preds = batch.pred
+            pred_tokens = batch.pred_tokens
+            pred_mask_tokens = batch.pred_mask_tokens
+            aggregation_labels = batch.aggregation_labels
             p2s = batch.p2s
             nsent = batch.nsent
 
-            if self.args.pretrain_encoder_decoder:
+            if self.args.pretrain_nn_cls:
+                loss, logging_info = self.model(src, tgt, mask_tgt, 
+                                                ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                preds, pred_tokens, pred_mask_tokens, 
+                                                p2s, nsent,
+                                                aggregation_labels=aggregation_labels,
+                                                mode='nn')
+                loss = loss.sum()
+                (loss/loss.numel()).backward()
+
+            elif self.args.pretrain_encoder_decoder:
                 cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                         ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                        preds, p2s, nsent, step, mode='gold')
+                                                        preds, pred_tokens, pred_mask_tokens, 
+                                                        p2s, nsent, mode='gold')
                 loss = -cll.sum()
                 loss.backward()
-
 
             else:
                 # conditional log likelihood
@@ -151,24 +162,29 @@ class Trainer(object):
                     if sampled_num <= self.args.gold_random_ratio:
                         cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                                 ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, p2s, nsent, step, mode='gold')
+                                                                preds, pred_tokens, pred_mask_tokens, 
+                                                                p2s, nsent, mode='gold')
                     elif sampled_num >= 1 - self.args.spectral_ratio:
                         cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                                 ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, p2s, nsent, step, mode='spectral')
+                                                                preds, pred_tokens, pred_mask_tokens, 
+                                                                p2s, nsent, mode='spectral')
                     else:
                         cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                                 ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, p2s, nsent, step, mode='random')
+                                                                preds, pred_tokens, pred_mask_tokens, 
+                                                                p2s, nsent, mode='random')
                 else:
                     cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                            preds, p2s, nsent, step, mode='spectral')
+                                                            preds, pred_tokens, pred_mask_tokens, 
+                                                            p2s, nsent, mode='spectral')
 
                 # baseline
                 baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
                                                 ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                preds, p2s, nsent, step, mode='random') # baseline
+                                                preds, pred_tokens, pred_mask_tokens, 
+                                                p2s, nsent, mode='random') # baseline
 
                 # calculte loss
                 #cll = (-1) * (cll ** 2) * 100
@@ -227,14 +243,35 @@ class Trainer(object):
                 mask_ctgt = batch.mask_ctgt
                 mask_ctgt_loss = batch.mask_ctgt_loss
                 preds = batch.pred
+                pred_tokens = batch.pred_tokens
+                pred_mask_tokens = batch.pred_mask_tokens
+                aggregation_labels = batch.aggregation_labels
                 p2s = batch.p2s
                 nsent = batch.nsent
 
-                if self.args.pretrain_encoder_decoder:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='gold')
+                if self.args.pretrain_nn_cls:
+                    loss, logging_info = self.model(src, tgt, mask_tgt, 
+                                                    ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                    preds, pred_tokens, pred_mask_tokens, 
+                                                    p2s, nsent,
+                                                    aggregation_labels=aggregation_labels,
+                                                    mode='nn')
+                    loss = loss.sum()
+                    loss = loss/loss.numel()
+
+                elif self.args.pretrain_encoder_decoder:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                            ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                            preds, pred_tokens, pred_mask_tokens, 
+                                                            p2s, nsent, mode='gold')
+                    loss = -cll.sum()
+
                 else:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, preds, p2s, nsent, step, mode='spectral')
-                loss = -cll.sum()
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                            ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                            preds, pred_tokens, pred_mask_tokens, 
+                                                            p2s, nsent, mode='spectral')
+                    loss = -cll.sum()
 
                 batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
                 batch_stats.n_docs = logging_info['n_docs']
@@ -276,13 +313,6 @@ class Trainer(object):
                 self.report_manager.start()
             else:
                 self.report_manager.start_time = start_time
-
-        if self.report_manager_ext is not None:
-            if start_time is None:
-                self.report_manager_ext.start()
-            else:
-                self.report_manager_ext.start_time = start_time
-
 
     def _maybe_gather_stats(self, stat):
         """

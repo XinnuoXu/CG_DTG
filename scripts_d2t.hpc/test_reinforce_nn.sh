@@ -2,15 +2,13 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
-DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
-# 5000/40000
+#MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+#LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
-#MODEL_PATH=${BASE_PATH}/model.re.joint/
-#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-#LOG_PATH=${BASE_PATH}/logs.re.joint/
-# 35000
+#MODEL_PATH=${BASE_PATH}/model.re.nn/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+#LOG_PATH=${BASE_PATH}/logs.re.nn/
 
 mkdir -p ${LOG_PATH}
 
@@ -18,7 +16,7 @@ python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_5000.pt \
+	-test_from ${MODEL_PATH}/model_step_2000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
@@ -29,6 +27,7 @@ python train.py \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
 	-test_graph_selection_threshold 0.1 \
+	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \

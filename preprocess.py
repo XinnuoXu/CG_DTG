@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument("-no_bos_for_tgt", type=str2bool, default=False)
     parser.add_argument("-shuffle_src", type=str2bool, default=False)
     parser.add_argument("-multi_ref_test", type=str2bool, default=False)
-    parser.add_argument("-tokenize_predicate", type=str2bool, default=False)
+    parser.add_argument("-tokenize_src_predicate", type=str2bool, default=False)
 
     parser.add_argument("-spectral_method", default='spectral_clustering', type=str, choices=['spectral_clustering', 'random', 'only_entity', 'ground_truth'])
     parser.add_argument("-spectral_assign_labels", default='discretize', type=str)

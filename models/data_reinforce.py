@@ -71,6 +71,61 @@ class Batch(object):
         return tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss
 
 
+    def _process_predicates(self, preds, preds_tokens, p2s, pad_id, device):
+
+        pred_t = []
+        pred_mt = []
+        agg_labels = []
+
+        max_pair_len = []
+        for example_pred_token in preds_tokens:
+            max_len = max([len(item) for item in example_pred_token])
+            max_pair_len.append(max_len*2)
+        max_pair_len = max(max_pair_len)
+
+        for example_id, pred in enumerate(preds):
+            pred_tokens = preds_tokens[example_id]
+
+            agg_info = {}; group_size = {}
+            for i, group in enumerate(p2s[example_id]):
+                for item in group:
+                    agg_info[item] = i
+                    group_size[item] = len(group)
+
+            pairs = []; labels = []
+            for i in range(len(pred)):
+                for j in range(len(pred)):
+                    head_i = pred[i]
+                    head_j = pred[j]
+                    if head_i < head_j:
+                        pair = pred_tokens[i] + pred_tokens[j]
+                    else:
+                        pair = pred_tokens[j] + pred_tokens[i]
+                    pairs.append(pair)
+
+                    if (head_i not in agg_info) or (head_j not in agg_info):
+                        labels.append(0)
+                    else:
+                        if i == j:
+                            if group_size[head_i] == 1:
+                                labels.append(1)
+                            else:
+                                labels.append(0)
+                        else:
+                            if agg_info[head_i] == agg_info[head_j]:
+                                labels.append(1)
+                            else:
+                                labels.append(0)
+
+            p = torch.tensor(self._pad(pairs, pad_id, width=max_pair_len)).to(device)
+            m_p = ~(p == pad_id).to(device)
+            l = torch.tensor(labels).to(device)
+            pred_t.append(p)
+            pred_mt.append(m_p)
+            agg_labels.append(l)
+
+        return pred_t, pred_mt, agg_labels
+
 
     def __init__(self, data=None, device=None, is_test=False, 
                  pad_id=None, slot_sample_mode=''):
@@ -81,7 +136,8 @@ class Batch(object):
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
             pre_pred = [x[2] for x in data]
-            pre_p2s = [x[3] for x in data]
+            pre_pred_tokens = [x[3] for x in data]
+            pre_p2s = [x[4] for x in data]
             pre_nsent = [len(x) for x in pre_tgt]
           
             setattr(self, 'src', pre_src)
@@ -103,7 +159,13 @@ class Batch(object):
             setattr(self, 'mask_ctgt_loss', mask_ctgt_loss)
 
             # process preds
+            res = self._process_predicates(pre_pred, pre_pred_tokens, pre_p2s, pad_id, device)
+            pred_tokens, pred_mask_tokens, agg_labels = res
             setattr(self, 'pred', pre_pred)
+            setattr(self, 'pred_tokens', pred_tokens)
+            setattr(self, 'pred_mask_tokens', pred_mask_tokens)
+            setattr(self, 'aggregation_labels', agg_labels)
+
             setattr(self, 'p2s', pre_p2s)
             setattr(self, 'nsent', pre_nsent)
 
@@ -232,15 +294,16 @@ class DataIterator(object):
         src = ex['src']
         tgt = ex['tgt']
         pred = ex['pred']
+        pred_tokens = ex['pred_tokens']
         p2s = ex['p2s']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
         pred_txt = ex['pred_txt']
 
         if(is_test):
-            return src, tgt, pred, p2s, src_txt, tgt_txt, pred_txt, eid
+            return src, tgt, pred, pred_tokens, p2s, src_txt, tgt_txt, pred_txt, eid
         else:
-            return src, tgt, pred, p2s
+            return src, tgt, pred, pred_tokens, p2s
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0
