@@ -44,10 +44,11 @@ echo "Creating directory to save model weights"
 
 # This script does not actually do very much. But it does demonstrate the principles of training
 #sh ./scripts_d2t.hpc/train_webnlg_base.sh
-sh ./scripts_d2t.hpc/train_reinforce_encdec_partial.sh
+#sh ./scripts_d2t.hpc/train_reinforce_encdec_partial.sh
 #sh ./scripts_d2t.hpc/train_reinforce_graph_fromscratch.sh
 #sh ./scripts_d2t.hpc/train_reinforce_joint.sh
 #sh ./scripts_d2t.hpc/train_reinforce_nn.sh
-
+#sh ./scripts_d2t.hpc/train_reinforce_graph_nn.sh
+sh ./scripts_d2t.hpc/train_reinforce_graph_nn_sample.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"

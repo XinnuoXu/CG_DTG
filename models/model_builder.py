@@ -1148,6 +1148,9 @@ class SpectralReinforce(nn.Module):
         if args.train_predicate_graph_only:
             for param in self.abs_model.parameters():
                 param.requires_grad = False
+            if args.from_scratch:
+                for p in self.predicate_graph.parameters():
+                    nn.init.normal_(p.data, mean=-0.0, std=0.3)
         if args.pretrain_encoder_decoder:
             self.predicate_graph.requires_grad = False
 
@@ -1241,7 +1244,25 @@ class SpectralReinforce(nn.Module):
         if len(predicates) == 1:
             return [0]
 
-        ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask).view(len(predicates), -1)
+        linear_ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask)
+        #print (linear_ajacency_matrix.view(len(predicates), -1))
+        if self.args.spectral_with_sample:
+            linear_ajacency_matrix = torch.bernoulli(linear_ajacency_matrix)
+
+        sub_graph = {}; idx = 0
+        for i, head_i in enumerate(predicates):
+            sub_graph[head_i] = {}
+            for j, head_j in enumerate(predicates):
+                sub_graph[head_i][head_j] = linear_ajacency_matrix[idx]
+                idx += 1
+
+        ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
+        for i, head_i in enumerate(predicates):
+            for j, head_j in enumerate(predicates):
+                if head_i < head_j:
+                    ajacency_matrix[i][j] = sub_graph[head_i][head_j]
+                elif head_i > head_j:
+                    ajacency_matrix[i][j] = sub_graph[head_j][head_i]
 
         for i, head_1 in enumerate(predicates):
             for j, head_2 in enumerate(predicates):
@@ -1252,14 +1273,14 @@ class SpectralReinforce(nn.Module):
 
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
 
-        print (n_clusters)
-        print (pred_str)
-        print (ajacency_matrix)
+        #print ('NN', n_clusters)
+        #print (pred_str)
+        #print (ajacency_matrix)
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
                                         affinity='precomputed').fit(ajacency_matrix)
-        print (clustering.labels_)
+        #print (clustering.labels_)
         return clustering.labels_
 
 
@@ -1322,8 +1343,14 @@ class SpectralReinforce(nn.Module):
             log_prob = []
             for i, head_1 in enumerate(group):
                 for j, head_2 in enumerate(group):
-                    if head_1 != head_2:
+                    if head_1 < head_2:
                         likelihood = sub_graph[head_1][head_2]
+                        #print (head_1, head_2, likelihood)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+                    elif head_1 > head_2:
+                        likelihood = sub_graph[head_2][head_1]
+                        #print (head_1, head_2, likelihood)
                         log_likelihood = torch.log(likelihood)
                         log_prob.append(log_likelihood)
                     elif len(group) == 1:

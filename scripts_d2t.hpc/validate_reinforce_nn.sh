@@ -2,10 +2,10 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
+#MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
 #DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
-LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+#LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
 MODEL_PATH=${BASE_PATH}/model.re.nn/
 DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/

@@ -167,8 +167,9 @@ if __name__ == '__main__':
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.base/test.res.2000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.evenly_mix/test.res.45000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.joint/test.res.45000.cluster'
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.5000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.35000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn/test.res.20000.cluster'
         examples = get_predicted_cluster(pred_path)
 
 

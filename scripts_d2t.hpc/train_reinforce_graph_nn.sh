@@ -2,7 +2,6 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial/
 MODEL_PATH=${BASE_PATH}/model.re.nn/
 DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.nn/
@@ -16,17 +15,19 @@ python train.py  \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-train_from ${ENCDEC_PATH}/model_step_2000.pt \
+	-train_from ${MODEL_PATH}/model_step_10000.pt \
 	-log_file ${LOG_PATH}/train.log \
-	-nn_graph True \
+	-ext_or_abs reinforce \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
-	-ext_or_abs reinforce \
-	-train_steps 10000 \
+	-nn_graph True \
+	-gold_random_ratio 0.2 \
+	-spectral_ratio 0.1 \
+	-train_steps 50000 \
 	-save_checkpoint_steps 5000 \
-	-warmup_steps_reinforce 9000 \
+	-warmup_steps_reinforce 45000 \
 	-warmup_steps 2000 \
-	-lr 3e-3 \
+	-lr 3e-6 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \
