@@ -1228,14 +1228,14 @@ class SpectralReinforce(nn.Module):
         '''
 
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
-        print (n_clusters)
-        print (pred_str)
-        print (ajacency_matrix)
+        #print (n_clusters)
+        #print (pred_str)
+        #print (ajacency_matrix)
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
                                         affinity='precomputed').fit(ajacency_matrix)
-        print (clustering.labels_)
+        #print (clustering.labels_)
         return clustering.labels_
 
 

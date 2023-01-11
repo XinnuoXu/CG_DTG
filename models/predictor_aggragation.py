@@ -273,8 +273,8 @@ class Translator(object):
             p_str = pred_str[i].split(' ')
             n_clusters = len(p_s)
 
-            print ('\n')
-            print (eids[i])
+            #print ('\n')
+            #print (eids[i])
             ret = self._cluster_and_select(s, p, n_clusters, p_s, p_tok, p_tok_m, s_str, p_str)
             src_groups, pred_groups, graph_probs = ret
 

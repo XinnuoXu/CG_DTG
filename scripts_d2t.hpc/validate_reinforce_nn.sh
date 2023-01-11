@@ -7,7 +7,11 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 #DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 #LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
-MODEL_PATH=${BASE_PATH}/model.re.nn/
+#MODEL_PATH=${BASE_PATH}/model.re.nn/ 
+#15000/20000
+#MODEL_PATH=${BASE_PATH}/model.re.nn.spectral_with_sample/
+#15000/20000
+MODEL_PATH=${BASE_PATH}/model.re.nn.spectral_with_sample.big_lr//
 DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.nn/
 

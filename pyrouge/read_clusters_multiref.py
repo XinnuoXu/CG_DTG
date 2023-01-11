@@ -147,7 +147,8 @@ if __name__ == '__main__':
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.20000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.evenly_mix/test.res.20000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.joint/test.res.35000.cluster'
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn/test.res.20000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn/test.res.15000.cluster'
+        pred_path = sys.argv[1]
         examples = get_predicted_cluster(pred_path)
 
     ARS = []
@@ -155,15 +156,21 @@ if __name__ == '__main__':
     AMI = []
     FMS = []
 
+    all_preds = []
+    all_gt = []
+
     for idx in examples:
         pred = examples[idx]
+
         if len(' '.join(pred).split(' ')) == 1:
             continue
+        all_preds.append(pred)
 
         ground_truthes = []
         for ref_id in ground_truth_grouping[idx]:
             ground_truth = ground_truth_grouping[idx][ref_id]
             ground_truthes.append(ground_truth)
+            all_gt.append(ground_truth)
 
         best_metrics = None
         for gt in ground_truthes:
@@ -187,3 +194,31 @@ if __name__ == '__main__':
     print ('NMI:', sum(NMI)/len(NMI))
     print ('AMI:', sum(AMI)/len(AMI))
     print ('FMS:', sum(FMS)/len(FMS))
+
+
+    print ('Model predictions:')
+    ntriple_dict = {}
+    for pred in all_preds:
+        ntriples = len(' '.join(pred).split(' '))
+        if ntriples not in ntriple_dict:
+            ntriple_dict[ntriples] = []
+        ntriple_dict[ntriples].append(len(pred))
+
+    for pair in sorted(ntriple_dict.items(), key = lambda d:d[0]):
+        key = pair[0]
+        value = pair[1]
+        print (f"ntriple={key}, avg_#cluster={sum(value)/len(value)}")
+
+
+    print ('Human references:')
+    ntriple_dict = {}
+    for pred in all_gt:
+        ntriples = len(' '.join(pred).split(' '))
+        if ntriples not in ntriple_dict:
+            ntriple_dict[ntriples] = []
+        ntriple_dict[ntriples].append(len(pred))
+
+    for pair in sorted(ntriple_dict.items(), key = lambda d:d[0]):
+        key = pair[0]
+        value = pair[1]
+        print (f"ntriple={key}, avg_#cluster={sum(value)/len(value)}")

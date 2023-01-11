@@ -16,17 +16,17 @@ python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_20000.pt \
+	-test_from ${MODEL_PATH}/model_step_15000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
 	-test_alignment_type spectral \
-	-test_given_nclusters True \
+	-test_given_nclusters False \
 	-test_entity_link True \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold 0.4 \
+	-test_graph_selection_threshold $1 \
 	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \

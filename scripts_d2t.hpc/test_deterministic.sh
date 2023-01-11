@@ -6,13 +6,10 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 #DATA_PATH=${BASE_PATH}/data.re.graph_gt/
 #LOG_PATH=${BASE_PATH}/logs.re.base/
 
-#MODEL_PATH=${BASE_PATH}/model.re.pure_merge/
-#DATA_PATH=${BASE_PATH}/data.re.graph_gt/
-#LOG_PATH=${BASE_PATH}/logs.re.pure_merge/
-
 DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/train.jsonl
-MODEL_PATH=${BASE_PATH}/model.re.generator.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.numerical/
+#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.discriministic/
 
 mkdir -p ${LOG_PATH}
@@ -29,7 +26,7 @@ python train.py \
 	-conditional_decoder True \
 	-test_alignment_type discriministic \
 	-test_given_nclusters False \
-	-test_graph_selection_threshold 10 \
+	-test_graph_selection_threshold $1 \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \
@@ -39,3 +36,4 @@ python train.py \
 	-visible_gpus 0 \
 
 	#-do_analysis True \
+	#-test_graph_selection_threshold 10 \

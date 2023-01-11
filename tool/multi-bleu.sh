@@ -6,7 +6,9 @@
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.gold_random/test.res.20000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.evenly_mix/test.res.20000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.joint/test.res.35000'
-path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.encdec_partial/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.encdec_partial/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn//test.res.15000'
+path_prefix=$1
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 
