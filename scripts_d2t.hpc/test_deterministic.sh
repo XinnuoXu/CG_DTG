@@ -26,8 +26,8 @@ python train.py \
 	-conditional_decoder True \
 	-test_alignment_type discriministic \
 	-test_given_nclusters False \
-	-test_graph_selection_threshold $1 \
 	-shuffle_src False \
+	-test_graph_selection_threshold 20 \
 	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 3000 \
@@ -36,4 +36,4 @@ python train.py \
 	-visible_gpus 0 \
 
 	#-do_analysis True \
-	#-test_graph_selection_threshold 10 \
+	#-test_graph_selection_threshold $1 \

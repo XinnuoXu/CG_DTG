@@ -13,7 +13,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.stats import entropy
 from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
-from transformers import LongformerModel, BertModel
+from transformers import LongformerModel, BertModel, T5ForConditionalGeneration
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier, PairClassification
 from models.slot_attn import SlotAttention, SoftKMeans
 from models.spectral_clustering import SpectralCluser
@@ -182,32 +182,27 @@ class ExtSummarizer(nn.Module):
 
 
 
-def get_generator(vocab_size, dec_hidden_size, device):
-    gen_func = nn.LogSoftmax(dim=-1)
-    generator = nn.Sequential(
-        nn.Linear(dec_hidden_size, vocab_size),
-        gen_func
-    )
-    generator.to(device)
-    return generator
-
-
-class AbsSummarizer(nn.Module):
+class AbsSummarizerNewVersion(nn.Module):
     def __init__(self, args, device, vocab_size, checkpoint=None):
         super(AbsSummarizer, self).__init__()
         self.args = args
         self.device = device
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
-        self.vocab_size = vocab_size
 
-        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        self.model = T5ForConditionalGeneration.from_pretrained("t5-small")
+
+        self.vocab_size = vocab_size
+        self.original_tokenizer = AutoTokenizer.from_pretrained("t5-small")
         print (self.vocab_size, len(self.original_tokenizer))
         if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
+        self.pad_id = self.original_tokenizer.pad_token_id
 
         self.encoder = self.model.get_encoder()
         self.decoder = self.model.get_decoder()
-        self.generator = get_generator(self.vocab_size, self.model.config.hidden_size, device)
+        self.generator = get_generator(self.vocab_size, 
+                                        self.model.config.hidden_size, 
+                                        device, 
+                                        pre_trained_generator=self.model.lm_head)
 
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
@@ -215,11 +210,98 @@ class AbsSummarizer(nn.Module):
 
         else:
             print ('Initialize parameters for generator...')
+
+        self.to(device)
+
+
+    def _log_generation_stats(self, scores, target, src):
+        pred = scores.max(2)[1]
+        non_padding = target.ne(self.pad_id)
+        num_correct = pred.eq(target) \
+                          .masked_select(non_padding) \
+                          .sum() \
+                          .item()
+        num_non_padding = non_padding.sum().item()
+        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
+        return log_info
+
+
+    def forward(self, src, tgt, mask_src, mask_tgt, run_decoder=True):
+
+        labels = tgt[:,1:].contiguous()
+        labels[labels == self.pad_id] = -100
+
+        if not run_decoder:
+            output_sequences = self.model.generate(input_ids=src, 
+                                                    attention_mask=mask_src, 
+                                                    do_sample=False, 
+                                                    max_length=256, 
+                                                    min_length=5,
+                                                    num_beams=5,
+                                                    no_repeat_ngram_size=5)
+            return output_sequences
+        else:
+            outputs = self.model(src, attention_mask=mask_src, labels=labels)
+
+        loss = outputs[0]; lm_logits = outputs[1]
+        logging_info = self._log_generation_stats(lm_logits, tgt[:,1:], src)
+
+        return loss, logging_info
+
+
+
+def get_generator(vocab_size, dec_hidden_size, device, pre_trained_generator=None):
+    if pre_trained_generator is not None:
+        gen = pre_trained_generator
+    else:
+        gen = nn.Linear(dec_hidden_size, vocab_size)
+
+    gen_func = nn.LogSoftmax(dim=-1)
+    generator = nn.Sequential(
+        gen,
+        gen_func
+    )
+
+    generator.to(device)
+    return generator
+
+
+
+class AbsSummarizer(nn.Module):
+    def __init__(self, args, device, vocab_size, checkpoint=None):
+        super(AbsSummarizer, self).__init__()
+        self.args = args
+        self.device = device
+
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+
+        self.vocab_size = vocab_size
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
+            self.model.resize_token_embeddings(self.vocab_size)
+        self.pad_id = self.original_tokenizer.pad_token_id
+
+        self.encoder = self.model.get_encoder()
+        self.decoder = self.model.get_decoder()
+        self.generator = get_generator(self.vocab_size, 
+                                        self.model.config.hidden_size, 
+                                        device, 
+                                        pre_trained_generator=self.model.lm_head)
+
+        if checkpoint is not None:
+            print ('Load parameters from checkpoint...')
+            self.load_state_dict(checkpoint['model'], strict=True)
+
+        else:
+            print ('Initialize parameters for generator...')
+            '''
             for p in self.generator.parameters():
                 if p.dim() > 1:
                     xavier_uniform_(p)
                 else:
                     p.data.zero_()
+            '''
 
         self.to(device)
 
@@ -239,6 +321,7 @@ class AbsSummarizer(nn.Module):
                                        encoder_attention_mask=mask_src)
 
         return decoder_outputs.last_hidden_state
+
 
 
 class ParagraphMultiClassifier(nn.Module):
@@ -1433,12 +1516,26 @@ class SpectralReinforce(nn.Module):
 
         if mode == 'discriministic':
             graph_prob = self.deterministic_graph.calculate_graph_score(labels, pred_str, n_clusters)
+        if mode == 'full_src':
+            graph_prob = [0.0]
         else:
             if self.args.nn_graph:
                 graph_prob = self.calculate_graph_prob_nn(pred_groups, preds, pred_token, pred_token_mask)
             else:
                 graph_prob = self.calculate_graph_prob(pred_groups)
 
+        '''
+        print (n_clusters)
+        print ( mode)
+        print (src)
+        print (labels)
+        print (src_groups)
+        print (pred_groups)
+        print (graph_prob)
+        print (src_str_groups)
+        print (pred_str_groups)
+        print ('')
+        '''
         return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups
 
 
@@ -1496,6 +1593,8 @@ class SpectralReinforce(nn.Module):
             p_tok_m = pred_mask_tokens[i]
 
             n_clusters = t.size(0)
+            if mode == 'full_src':
+                n_clusters = 1
 
             # run clustering
             src_groups, pred_groups, graph_probs, _, _ = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)

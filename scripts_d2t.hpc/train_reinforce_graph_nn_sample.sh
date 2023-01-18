@@ -4,8 +4,7 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
 PREVIOUS_MODEL_PATH=${BASE_PATH}/model.re.nn/
 MODEL_PATH=${BASE_PATH}/model.re.nn.spectral_with_sample/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
-#DATA_PATH=${BASE_PATH}/data.test/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.nn.spectral_with_sample/
 
 mkdir -p ${MODEL_PATH}
@@ -30,11 +29,12 @@ python train.py  \
 	-save_checkpoint_steps 5000 \
 	-warmup_steps_reinforce 45000 \
 	-warmup_steps 2000 \
-	-lr 5e-5 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
+	-lr 5e-5 \
+	-label_smoothing 0.0 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2

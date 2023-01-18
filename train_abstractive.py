@@ -172,6 +172,7 @@ def train_abs_single(args, device_id):
 
     # Load loss
     symbols = {'PAD': tokenizer.pad_token_id}
+    print (args.label_smoothing)
     train_loss = abs_loss(model.generator, model.vocab_size, device, 
                           symbols=symbols, train=True, 
                           label_smoothing=args.label_smoothing)

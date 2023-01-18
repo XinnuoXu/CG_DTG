@@ -6,6 +6,7 @@ import os
 import json
 import math
 import torch
+import torch.nn as nn
 from models.beam_search.beam import GNMTGlobalScorer
 
 def tile(x, count, dim=0):
@@ -59,6 +60,8 @@ class Translator(object):
         self.min_length = args.test_min_length
         self.max_length = args.test_max_length
         self.dump_beam = dump_beam
+
+        self.log_softmax = nn.LogSoftmax(dim=-1)
 
 
     def translate(self, data_iter, step, attn_debug=False):
@@ -152,12 +155,22 @@ class Translator(object):
         device = src.device
         results = {}
 
-        # Run encoder and tree prediction
-        src_res = self.model(src, tgt, mask_src, mask_tgt,
-                             run_decoder=False)
+        results["predictions"] = [[] for _ in range(batch_size)]
+        results["scores"] = [[] for _ in range(batch_size)]
+        results["batch"] = batch
 
-        src_features = src_res['encoder_outpus']
-        mask_src = src_res['encoder_attention_mask']
+        '''
+        outputs = self.model(src, tgt, mask_src, mask_tgt, run_decoder=False)
+        for i in range(outputs.size(0)):
+            results["predictions"][i].append(outputs[i])
+            results["scores"][i].append(0.0)
+        '''
+
+        # Run encoder and tree prediction
+
+        encoder_outputs = self.model.model.encoder(input_ids=src, attention_mask=mask_src)
+        #src_features = encoder_outputs.last_hidden_state
+        src_features = encoder_outputs[0]
 
         # Tile states and memory beam_size times.
         mask_src = tile(mask_src, beam_size, dim=0)
@@ -181,14 +194,17 @@ class Translator(object):
 
             #decoder_input = alive_seq[:, -1].view(1, -1)
             decoder_input = alive_seq
-            decoder_outputs = self.model.decoder(input_ids=decoder_input,
-                                                 encoder_hidden_states=src_features,
-                                                 encoder_attention_mask=mask_src)
-
-            dec_out = decoder_outputs.last_hidden_state[:, -1, :]
+            decoder_outputs = self.model.model.decoder(input_ids=decoder_input,
+                                                         encoder_hidden_states=src_features,
+                                                         encoder_attention_mask=mask_src)
+            dec_out = decoder_outputs[0]
+            dec_out = dec_out[:, -1, :]
+            #dec_out = decoder_outputs.last_hidden_state[:, -1, :]
 
             # Generator forward.
-            log_probs = self.generator.forward(dec_out)
+            #log_probs = self.generator.forward(dec_out)
+            log_probs = self.model.model.lm_head(dec_out)
+            log_probs = self.log_softmax(log_probs)
             vocab_size = log_probs.size(-1)
 
             if step < min_length:

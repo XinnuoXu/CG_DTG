@@ -1,15 +1,20 @@
 #coding=utf8
 
+import re
 import sys, os
 import nltk.data
 
 path_prefix = sys.argv[1] #'./outputs.webnlg/logs.base/test.res.5000'
 
-def postprocess(string, is_ref):
+def postprocess(string, is_ref=False):
+    '''
     if is_ref:
         string = string.replace(' .', '.').replace(' , ', ', ')
     string = string.replace('.', ' . ').replace(', ', ' , ').replace('\'', ' \' ').replace('/', ' / ')
     string = string.replace('(', ' ( ').replace(')', ' ) ').replace('-', ' - ').replace('\"', ' \" ').replace('  ', ' ')
+    '''
+    string = ' '.join(re.split('(\W)', string))
+    string = ' '.join(string.split())
     return string.strip()
 
 def process(refereces, candidates):
@@ -23,12 +28,16 @@ def process(refereces, candidates):
         references = refereces[i].replace('<q>', ' ')
         candidate = candidates[i].replace('<q>', ' ')
 
+        candidate = postprocess(candidate)
+        ref = [postprocess(item.strip()) for item in references.split('<ref-sep>')][1:]
+
+        '''
         references = postprocess(references, True)
-        candidate = postprocess(candidate, False)
         if not references.startswith('<ref'):
             ref = [references.strip()]
         else:
-            ref = [r.strip() for r in references.split('<ref - sep> ')[1:]]
+            ref = [r.strip() for r in references.split('<ref - sep>')[1:]]
+        '''
 
         fpout_cand.write(candidate+'\n')
         fpout_ref1.write(ref[0].strip()+'\n')

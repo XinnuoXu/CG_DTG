@@ -6,30 +6,27 @@ MODEL_PATH=${BASE_PATH}/model.re.encdec_base/
 DATA_PATH=${BASE_PATH}/data.re.base/
 LOG_PATH=${BASE_PATH}/logs.re.base/
 
+#MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+#LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
+# 5000/40000
+
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
-python train.py  \
-	-mode train \
-	-model_name t5-small \
+python train.py \
+	-mode validate \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-log_file ${LOG_PATH}/train.log \
+	-result_path ${LOG_PATH}/validation.res \
+	-log_file ${LOG_PATH}/validation.log \
 	-ext_or_abs reinforce \
 	-pretrain_encoder_decoder True \
+	-train_predicate_graph_only False \
 	-conditional_decoder True \
-	-shuffle_src True \
-	-train_steps 10000 \
-	-save_checkpoint_steps 1000 \
-	-warmup_steps 1000 \
-	-batch_size 500 \
-	-report_every 100 \
-	-max_pos 250 \
+	-shuffle_src False \
+        -max_pos 250 \
+	-batch_size 200 \
 	-max_tgt_len 250 \
-	-lr 3e-4 \
-	-label_smoothing 0.0 \
-        -decay_method linear_warmup \
-	-accum_count 2 \
-	-visible_gpus 0,1,2
-
+	-visible_gpus 0 \

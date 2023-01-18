@@ -16,14 +16,15 @@ python train.py  \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
-	-train_steps 5000 \
+	-train_steps 10000 \
 	-save_checkpoint_steps 1000 \
 	-warmup_steps 500 \
 	-batch_size 3000 \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 3e-4 \
+	-lr 5e-4 \
+	-label_smoothing 0.0 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0,1,2

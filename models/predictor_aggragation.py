@@ -273,6 +273,9 @@ class Translator(object):
             p_str = pred_str[i].split(' ')
             n_clusters = len(p_s)
 
+            if self.args.test_alignment_type == 'full_src':
+                n_clusters = 1
+
             #print ('\n')
             #print (eids[i])
             ret = self._cluster_and_select(s, p, n_clusters, p_s, p_tok, p_tok_m, s_str, p_str)

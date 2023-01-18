@@ -45,7 +45,32 @@ class DataCreator():
         self.bos_token = self.tokenizer.bos_token
 
 
-    def preprocess_src(self, src, max_src_length, tokenizer):
+    def camel_case_split(self, dentifier):
+        dentifier = dentifier.replace('-Pred-', '')
+        matches = re.finditer('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)', dentifier)
+        d = [m.group(0) for m in matches]
+        new_d = []
+        for token in d:
+            token = token.replace('(', '')
+            token_split = token.split('_')
+            for t in token_split:
+                new_d.append(t.lower())
+                #new_d.append(t)
+        return ' '.join(new_d)
+
+
+    def preprocess_src(self, src, max_src_length, tokenizer, tokenize_src=False):
+
+        if tokenize_src:
+            new_src = []
+            for s in src:
+                tokens = s.split(' ')
+                for i in range(len(tokens)):
+                    if tokens[i].startswith('-Pred-'):
+                        tokens[i] = self.camel_case_split(tokens[i])
+                s = ' '.join(tokens)
+                new_src.append(s)
+            src = new_src
 
         src_txt = (' '+self.cls_token+' ').join(src)
         # Tokenization using tokenizer
@@ -108,7 +133,6 @@ def split_shard(args):
                 dataset = []
 
 
-
 def _process_d2t_base(params):
 
     corpus_type, json_file, args, save_file = params
@@ -130,14 +154,14 @@ def _process_d2t_base(params):
 
         src = d['document_segs']
 
-        if args.tokenize_src_predicate:
-            source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.raw_tokenizer)
-        else:
-            source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, data_obj.tokenizer)
+        source_tokens, src_txt = data_obj.preprocess_src(src, args.max_src_ntokens, 
+                                                         data_obj.tokenizer, 
+                                                         tokenize_src=args.tokenize_src_predicate)
 
         tgt = d['gold_segs']
         target_tokens, tgt_txt = data_obj.preprocess_tgt(tgt, args.max_tgt_ntokens)
 
+        #print (src_txt, tgt_txt)
         b_data_dict = {"src": source_tokens, 
                        "tgt": target_tokens,
                        "src_txt": src_txt,
@@ -211,11 +235,9 @@ def _process_sentence_level(params):
 
         source_tokens = []
         for s in src:
-            if args.tokenize_src_predicate:
-                s = s.replace('<SUB> ', '').replace('<PRED> ', '').replace('<OBJ> ', '').replace('-Pred-', '')
-                source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, data_obj.raw_tokenizer)
-            else:
-                source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, data_obj.tokenizer)
+            source_token, _ = data_obj.preprocess_src([s], args.max_src_ntokens, 
+                                                      data_obj.tokenizer,
+                                                      tokenize_src=args.tokenize_src_predicate)
             source_tokens.append(source_token)
         src_txt = src
 

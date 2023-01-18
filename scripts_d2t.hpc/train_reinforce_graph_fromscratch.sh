@@ -4,9 +4,7 @@ BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
 ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial.numerical/
 MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
-#MODEL_PATH=${BASE_PATH}/model.test/
-#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
 
 mkdir -p ${MODEL_PATH}
