@@ -2,35 +2,33 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.nn/
+DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/train.jsonl
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.numerical/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
-LOG_PATH=${BASE_PATH}/logs.nn/
+LOG_PATH=${BASE_PATH}/logs.re.random/
 
 mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
+	-deterministic_graph_path ${DETERMINISTIC_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_4000.pt \
+	-test_from ${MODEL_PATH}/model_step_7000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
-	-test_alignment_type spectral \
+	-test_alignment_type random_test \
 	-test_given_nclusters False \
-	-test_entity_link True \
-	-test_no_single_pred_score True \
-	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold 0.15 \
-	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 3000 \
-        -test_max_length 150 \
         -test_min_length 5 \
+        -test_max_length 150 \
 	-beam_size 3 \
 	-visible_gpus 1 \
 
+	#-do_analysis True \
 	#-test_graph_selection_threshold $1 \

@@ -170,12 +170,14 @@ class Batch(object):
             setattr(self, 'nsent', pre_nsent)
 
             if (is_test):
-                src_str = [x[-4] for x in data]
+                src_str = [x[-5] for x in data]
                 setattr(self, 'src_str', src_str)
-                tgt_str = [x[-3] for x in data]
+                tgt_str = [x[-4] for x in data]
                 setattr(self, 'tgt_str', tgt_str)
-                pred_str = [x[-2] for x in data]
+                pred_str = [x[-3] for x in data]
                 setattr(self, 'pred_str', pred_str)
+                pred_group_str = [x[-2] for x in data]
+                setattr(self, 'pred_group_str', pred_group_str)
                 eid = [x[-1] for x in data]
                 setattr(self, 'eid', eid)
 
@@ -299,9 +301,10 @@ class DataIterator(object):
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
         pred_txt = ex['pred_txt']
+        pred_group_txt = ex['pred_group_txt']
 
         if(is_test):
-            return src, tgt, pred, pred_tokens, p2s, src_txt, tgt_txt, pred_txt, eid
+            return src, tgt, pred, pred_tokens, p2s, src_txt, tgt_txt, pred_txt, pred_group_txt, eid
         else:
             return src, tgt, pred, pred_tokens, p2s
 

@@ -253,13 +253,18 @@ def _process_sentence_level(params):
         predicates_ids = data_obj.tokenizer.convert_tokens_to_ids(predicates)
         predicates_tokens = []
         for p in predicates:
-            p_t, _ = data_obj.preprocess_src([p.replace('-Pred-', '')], args.max_src_ntokens, data_obj.raw_tokenizer)
+            #p_t, _ = data_obj.preprocess_src([p.replace('-Pred-', '')], args.max_src_ntokens, data_obj.raw_tokenizer)
+            p_t, _ = data_obj.preprocess_src([p], args.max_src_ntokens, data_obj.raw_tokenizer, tokenize_src=True)
             predicates_tokens.append(p_t)
         predicates_txt = ' '.join(predicates)
 
         pred_to_sentence = []
         for sentence_alg in d['oracles_selection']:
             pred_to_sentence.append([predicates_ids[idx] for idx in sentence_alg])
+
+        predicate_groups = []
+        for group in d['oracles_selection']:
+            predicate_groups.append([predicates[idx] for idx in group])
 
         b_data_dict = {"src": source_tokens, 
                        "tgt": target_tokens,
@@ -269,6 +274,7 @@ def _process_sentence_level(params):
                        "src_txt": src_txt,
                        "tgt_txt": tgt_txt,
                        "pred_txt": predicates_txt,
+                       "pred_group_txt": predicate_groups,
                        "eid": eid}
 
         datasets.append(b_data_dict)

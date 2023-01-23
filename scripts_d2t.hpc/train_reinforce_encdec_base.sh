@@ -1,7 +1,6 @@
 #!/bin/bash
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-
 MODEL_PATH=${BASE_PATH}/model.re.encdec_base/
 DATA_PATH=${BASE_PATH}/data.re.base/
 LOG_PATH=${BASE_PATH}/logs.re.base/
@@ -27,7 +26,7 @@ python train.py  \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 3e-4 \
+	-lr 5e-4 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
 	-accum_count 2 \

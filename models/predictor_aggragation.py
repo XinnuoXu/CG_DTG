@@ -5,6 +5,7 @@ import codecs
 import os
 import json
 import math
+import random
 import torch
 from models.beam_search.beam import GNMTGlobalScorer
 
@@ -114,6 +115,7 @@ class Translator(object):
         preds = translation_batch["predictions"]
         pred_score = translation_batch["scores"]
         pred_clusters = translation_batch["pred_clusters"]
+        pred_str_clusters = translation_batch["pred_str_clusters"]
         src_clusters = translation_batch["src_clusters"]
         cluster_probs = translation_batch["cluster_probs"]
         ngroups = translation_batch["ngroups"]
@@ -131,8 +133,10 @@ class Translator(object):
             src_cluster = ' ||| '.join([self.tokenizer.decode(s, skip_special_tokens=True) for s in src_cluster])
 
             # predicted predicate groups
-            pred_group = ' ||| '.join([' '.join(self.tokenizer.convert_ids_to_tokens(group)) for group in pred_clusters[b]])
-            gold_group = ' ||| '.join([' '.join(self.tokenizer.convert_ids_to_tokens(group)) for group in batch.p2s[b]])
+            #pred_group = ' ||| '.join([' '.join(self.tokenizer.convert_ids_to_tokens(group)) for group in pred_clusters[b]])
+            #gold_group = ' ||| '.join([' '.join(self.tokenizer.convert_ids_to_tokens(group)) for group in batch.p2s[b]])
+            pred_group = ' ||| '.join([' '.join(item) for item in pred_str_clusters[b]])
+            gold_group = ' ||| '.join([' '.join(item) for item in batch.pred_group_str[b]])
 
             gold_sent = '<q>'.join(batch.tgt_str[b])
             raw_src =  '\t'.join(batch.src_str[b])
@@ -160,7 +164,15 @@ class Translator(object):
 
     
     def _order_groups(self, input_args):
-        src_groups, pred_groups, graph_probs, src_str_groups, pred_str_groups = input_args
+        src_groups, pred_groups, graph_probs, src_str_groups, pred_str_groups, _ = input_args
+        '''
+        print (src_groups)
+        print (pred_groups)
+        print (graph_probs)
+        print (src_str_groups)
+        print (pred_str_groups)
+        print ('')
+        '''
 
         main_subs = []
         for group in src_str_groups:
@@ -222,19 +234,29 @@ class Translator(object):
         src_groups = [src_groups[sentence_idx] for sentence_idx in sorted_sent]
         pred_groups = [pred_groups[sentence_idx] for sentence_idx in sorted_sent]
         graph_probs = [graph_probs[sentence_idx] for sentence_idx in sorted_sent]
+        pred_str_groups = [pred_str_groups[sentence_idx] for sentence_idx in sorted_sent]
 
-        return src_groups, pred_groups, graph_probs
+        return src_groups, pred_groups, graph_probs, pred_str_groups
 
 
     def _cluster_and_select(self, s, p, n_clusters, p_s, p_tok, p_tok_m, s_str, p_str):
+
+        if self.args.test_alignment_type == 'random_test':
+            n_clusters = random.randint(1, len(s))
+            res = self.model.run_clustering(s, p, n_clusters, p_s, 
+                                            p_tok, p_tok_m,
+                                            mode=self.args.test_alignment_type, 
+                                            src_str=s_str, pred_str=p_str)
+            src_groups, pred_groups, graph_probs, pred_str_groups = self._order_groups(res)
+            return src_groups, pred_groups, graph_probs, pred_str_groups
 
         if self.args.test_given_nclusters:
             res = self.model.run_clustering(s, p, n_clusters, p_s, 
                                             p_tok, p_tok_m,
                                             mode=self.args.test_alignment_type, 
                                             src_str=s_str, pred_str=p_str)
-            src_groups, pred_groups, graph_probs = self._order_groups(res)
-            return src_groups, pred_groups, graph_probs
+            src_groups, pred_groups, graph_probs, pred_str_groups = self._order_groups(res)
+            return src_groups, pred_groups, graph_probs, pred_str_groups
 
         for i in range(1, len(s)+1):
             n_clusters = i
@@ -242,16 +264,16 @@ class Translator(object):
                                             p_tok, p_tok_m,
                                             mode=self.args.test_alignment_type, 
                                             src_str=s_str, pred_str=p_str)
-            src_groups, pred_groups, graph_probs = self._order_groups(res)
+            src_groups, pred_groups, graph_probs, pred_str_groups = self._order_groups(res)
 
             if self.args.test_alignment_type != 'discriministic':
                 graph_probs = [torch.exp(score) for score in graph_probs]
 
             graph_score = min(graph_probs)
             if graph_score >= self.args.test_graph_selection_threshold:
-                return src_groups, pred_groups, graph_probs
+                return src_groups, pred_groups, graph_probs, pred_str_groups
 
-        return src_groups, pred_groups, graph_probs
+        return src_groups, pred_groups, graph_probs, pred_str_groups
 
 
     def _run_clustering(self, src, preds, p2s, pred_tokens, pred_mask_tokens, src_str, pred_str, eids):
@@ -260,6 +282,7 @@ class Translator(object):
         parallel_src = []
         parallel_src_example = []
         parallel_pred = []
+        parallel_pred_str = []
         parallel_graph_probs = []
         ngroups = []
 
@@ -279,19 +302,20 @@ class Translator(object):
             #print ('\n')
             #print (eids[i])
             ret = self._cluster_and_select(s, p, n_clusters, p_s, p_tok, p_tok_m, s_str, p_str)
-            src_groups, pred_groups, graph_probs = ret
+            src_groups, pred_groups, graph_probs, pred_str_groups = ret
 
             parallel_src_example.append(src_groups)
             parallel_src.extend(src_groups)
             parallel_graph_probs.append(graph_probs)
             parallel_pred.append(pred_groups)
+            parallel_pred_str.append(pred_str_groups)
             #ngroups.append(len(p_s))
             ngroups.append(len(pred_groups))
 
         src = torch.tensor(self.model._pad(parallel_src), device=self.device)
         mask_src = ~(src == self.pad_token_id)
 
-        return src, mask_src, parallel_src_example, parallel_pred, parallel_graph_probs, ngroups
+        return src, mask_src, parallel_src_example, parallel_pred, parallel_pred_str, parallel_graph_probs, ngroups
 
 
     def _run_encoder(self, src, mask_src, ngroups):
@@ -314,7 +338,8 @@ class Translator(object):
 
 
     def _run_conditioned_text_generation(self, src, mask_src, src_examples,
-                                         pred_clusters, cluster_probs, ngroups,
+                                         pred_clusters, pred_str_clusters, 
+                                         cluster_probs, ngroups,
                                          src_features_for_each_example,
                                          mask_src_for_each_example,
                                          src_for_each_example,
@@ -342,13 +367,13 @@ class Translator(object):
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
         results["pred_clusters"] = pred_clusters
+        results["pred_str_clusters"] = pred_str_clusters
         results["src_clusters"] = src_examples
         #results["cluster_probs"] = [sum(item).item() for item in cluster_probs]
         results["cluster_probs"] = [sum(item) for item in cluster_probs]
         results["ngroups"] = ngroups
 
         for step in range(max_length):
-
             # reconstruct src_features
             src_features = []; mask_src = []; #tmp_src = []
             for i in range(current_group_ids.size(0)):
@@ -531,14 +556,15 @@ class Translator(object):
 
         # run clustering
         ret = self._run_clustering(src, preds, p2s, pred_tokens, pred_mask_tokens, src_str, pred_str, eids)
-        src, mask_src, src_examples, pred_clusters, cluster_probs, ngroups = ret
+        src, mask_src, src_examples, pred_clusters, pred_str_clusters, cluster_probs, ngroups = ret
 
         # run encoding
         src_features_for_each_example, mask_src_for_each_example, src_for_each_example = self._run_encoder(src, mask_src, ngroups)
         
         # run decoding
         results = self._run_conditioned_text_generation(src, mask_src, src_examples,
-                                                        pred_clusters, cluster_probs, ngroups,
+                                                        pred_clusters, pred_str_clusters, 
+                                                        cluster_probs, ngroups,
                                                         src_features_for_each_example,
                                                         mask_src_for_each_example,
                                                         src_for_each_example,

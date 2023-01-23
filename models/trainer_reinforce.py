@@ -189,7 +189,7 @@ class Trainer(object):
                 # calculte loss
                 #cll = (-1) * (cll ** 2) * 100
                 #baseline_cll = (-1) * (baseline_cll ** 2) * 100
-                rec = (weights * (cll ** 3 - baseline_cll ** 3))
+                rec = (weights * (cll - baseline_cll))
                 loss = -rec
                 loss = loss.sum()
                 loss.backward()

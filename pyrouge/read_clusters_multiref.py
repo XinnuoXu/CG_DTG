@@ -143,11 +143,12 @@ if __name__ == '__main__':
         examples = generate_random_cluster(gold_path)
 
     else:
-        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.discriministic/test.res.2000.cluster'
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.10000.cluster'
-        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.nn/test.res.10000.cluster'
-        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn/test.res.20000.cluster'
-        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.sample/test.res.20000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.random/test.res.7000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.discriministic/test.res.7000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.9000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.nn/test.res.4000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral/test.res.6000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample//test.res.6000.cluster'
         #pred_path = sys.argv[1]
         examples = get_predicted_cluster(pred_path)
 

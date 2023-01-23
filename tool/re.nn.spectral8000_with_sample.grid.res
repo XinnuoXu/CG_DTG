@@ -2,18 +2,18 @@
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.100 ======
-BLEU = 66.74, 91.4/75.3/61.6/50.5 (BP=0.981, ratio=0.981, hyp_len=19466, ref_len=19837)
-ARS: 0.7703871499176277
-NMI: 0.7706260112898456
-AMI: 0.7704882350541119
-FMS: 0.916482568075796
+BLEU = 66.60, 91.4/75.2/61.4/50.3 (BP=0.981, ratio=0.981, hyp_len=19462, ref_len=19830)
+ARS: 0.7775000076935247
+NMI: 0.7821491786138176
+AMI: 0.7785871480101909
+FMS: 0.9160076496799577
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0
-ntriple=6, avg_#cluster=1.0
-ntriple=7, avg_#cluster=1.1363636363636365
+ntriple=5, avg_#cluster=1.0086206896551724
+ntriple=6, avg_#cluster=1.3478260869565217
+ntriple=7, avg_#cluster=1.5
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -27,18 +27,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.105 ======
-BLEU = 66.73, 91.4/75.3/61.6/50.5 (BP=0.981, ratio=0.981, hyp_len=19466, ref_len=19837)
-ARS: 0.7715151589662889
-NMI: 0.7725839803151902
-AMI: 0.7718087649167713
-FMS: 0.9166757662947238
+BLEU = 66.66, 91.4/75.3/61.5/50.3 (BP=0.981, ratio=0.981, hyp_len=19465, ref_len=19834)
+ARS: 0.7852275172332255
+NMI: 0.7936307224224352
+AMI: 0.7877252193619158
+FMS: 0.916812766706856
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0
-ntriple=6, avg_#cluster=1.0
-ntriple=7, avg_#cluster=1.2272727272727273
+ntriple=5, avg_#cluster=1.146551724137931
+ntriple=6, avg_#cluster=1.434782608695652
+ntriple=7, avg_#cluster=1.5
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -52,18 +52,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.110 ======
-BLEU = 66.70, 91.4/75.3/61.5/50.4 (BP=0.982, ratio=0.982, hyp_len=19480, ref_len=19839)
-ARS: 0.7743086551341851
-NMI: 0.7755651009016851
-AMI: 0.7746823841309128
-FMS: 0.91763868662591
+BLEU = 66.72, 91.4/75.4/61.5/50.4 (BP=0.982, ratio=0.982, hyp_len=19472, ref_len=19834)
+ARS: 0.7915600095624231
+NMI: 0.8043995224889164
+AMI: 0.7949604764906751
+FMS: 0.915612909812878
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0172413793103448
-ntriple=6, avg_#cluster=1.0
-ntriple=7, avg_#cluster=1.3181818181818181
+ntriple=5, avg_#cluster=1.353448275862069
+ntriple=6, avg_#cluster=1.434782608695652
+ntriple=7, avg_#cluster=1.5
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -77,18 +77,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.115 ======
-BLEU = 66.66, 91.4/75.2/61.5/50.3 (BP=0.982, ratio=0.982, hyp_len=19484, ref_len=19843)
-ARS: 0.7762164810018533
-NMI: 0.7786064535338777
-AMI: 0.7771061516902086
-FMS: 0.917035484359913
+BLEU = 66.47, 91.3/75.1/61.2/50.0 (BP=0.982, ratio=0.982, hyp_len=19508, ref_len=19861)
+ARS: 0.7897333626043387
+NMI: 0.806374028113203
+AMI: 0.7938628846079708
+FMS: 0.9138419571875013
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0172413793103448
-ntriple=6, avg_#cluster=1.0869565217391304
-ntriple=7, avg_#cluster=1.5454545454545454
+ntriple=5, avg_#cluster=1.4827586206896552
+ntriple=6, avg_#cluster=1.5217391304347827
+ntriple=7, avg_#cluster=1.5909090909090908
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -102,18 +102,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.120 ======
-BLEU = 66.79, 91.4/75.4/61.6/50.5 (BP=0.981, ratio=0.981, hyp_len=19463, ref_len=19833)
-ARS: 0.7762512428193815
-NMI: 0.7810235192724778
-AMI: 0.777740991305512
-FMS: 0.9163191921697911
+BLEU = 66.59, 91.3/75.2/61.3/50.2 (BP=0.982, ratio=0.982, hyp_len=19508, ref_len=19860)
+ARS: 0.7943823582182771
+NMI: 0.8122334362630884
+AMI: 0.7992825877397299
+FMS: 0.9147484317886531
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0086206896551724
-ntriple=6, avg_#cluster=1.2173913043478262
-ntriple=7, avg_#cluster=2.0454545454545454
+ntriple=5, avg_#cluster=1.5689655172413792
+ntriple=6, avg_#cluster=1.4782608695652173
+ntriple=7, avg_#cluster=1.7272727272727273
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -127,18 +127,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.125 ======
-BLEU = 66.73, 91.4/75.3/61.5/50.4 (BP=0.982, ratio=0.982, hyp_len=19480, ref_len=19843)
-ARS: 0.7819814822050806
-NMI: 0.7878501011207505
-AMI: 0.7827472158043429
-FMS: 0.9166085309841866
+BLEU = 66.57, 91.3/75.2/61.2/50.1 (BP=0.983, ratio=0.983, hyp_len=19519, ref_len=19862)
+ARS: 0.7981303725032114
+NMI: 0.819517436622417
+AMI: 0.8037643683555084
+FMS: 0.9151077039547023
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0258620689655173
-ntriple=6, avg_#cluster=1.391304347826087
-ntriple=7, avg_#cluster=2.4545454545454546
+ntriple=5, avg_#cluster=1.6120689655172413
+ntriple=6, avg_#cluster=1.608695652173913
+ntriple=7, avg_#cluster=2.227272727272727
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -152,18 +152,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.130 ======
-BLEU = 66.77, 91.4/75.4/61.6/50.5 (BP=0.981, ratio=0.982, hyp_len=19486, ref_len=19850)
-ARS: 0.7791458270320023
-NMI: 0.7860505887415148
-AMI: 0.7808177458383951
-FMS: 0.915537105354787
+BLEU = 66.42, 91.3/75.1/61.1/50.0 (BP=0.982, ratio=0.982, hyp_len=19506, ref_len=19869)
+ARS: 0.7949356995836188
+NMI: 0.8160094847583221
+AMI: 0.8002079569782587
+FMS: 0.9138006393781504
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0172413793103448
-ntriple=6, avg_#cluster=1.4782608695652173
-ntriple=7, avg_#cluster=2.590909090909091
+ntriple=5, avg_#cluster=1.603448275862069
+ntriple=6, avg_#cluster=1.565217391304348
+ntriple=7, avg_#cluster=2.272727272727273
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -177,18 +177,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.135 ======
-BLEU = 66.71, 91.3/75.3/61.5/50.4 (BP=0.982, ratio=0.982, hyp_len=19501, ref_len=19851)
-ARS: 0.7843519844610797
-NMI: 0.792002002688529
-AMI: 0.786092095375579
-FMS: 0.9163231090904523
+BLEU = 66.44, 91.2/75.0/61.1/49.9 (BP=0.983, ratio=0.983, hyp_len=19558, ref_len=19892)
+ARS: 0.8001170727175281
+NMI: 0.8223131020494558
+AMI: 0.8057106178374848
+FMS: 0.9144797196750387
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
 ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.043103448275862
-ntriple=6, avg_#cluster=1.6521739130434783
-ntriple=7, avg_#cluster=2.772727272727273
+ntriple=5, avg_#cluster=1.646551724137931
+ntriple=6, avg_#cluster=1.608695652173913
+ntriple=7, avg_#cluster=2.4545454545454546
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -202,18 +202,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.140 ======
-BLEU = 66.70, 91.3/75.3/61.4/50.3 (BP=0.982, ratio=0.982, hyp_len=19518, ref_len=19867)
-ARS: 0.7798679351060931
-NMI: 0.7926341622964871
-AMI: 0.7832967678264572
-FMS: 0.9114870355809762
+BLEU = 66.48, 91.2/75.2/61.2/50.0 (BP=0.982, ratio=0.982, hyp_len=19533, ref_len=19886)
+ARS: 0.7988078447109966
+NMI: 0.8216528081197222
+AMI: 0.8046403392085718
+FMS: 0.9143452830143202
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.0689655172413792
-ntriple=6, avg_#cluster=1.8695652173913044
-ntriple=7, avg_#cluster=3.272727272727273
+ntriple=4, avg_#cluster=1.0185185185185186
+ntriple=5, avg_#cluster=1.6379310344827587
+ntriple=6, avg_#cluster=1.6521739130434783
+ntriple=7, avg_#cluster=2.590909090909091
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -227,16 +227,66 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.145 ======
-BLEU = 66.54, 91.1/75.2/61.4/50.2 (BP=0.982, ratio=0.982, hyp_len=19535, ref_len=19898)
-ARS: 0.7841135465472406
-NMI: 0.8025204416143238
-AMI: 0.7885608457344296
-FMS: 0.9085320812306757
+BLEU = 66.56, 91.2/75.2/61.2/50.0 (BP=0.984, ratio=0.984, hyp_len=19561, ref_len=19882)
+ARS: 0.7984168137224984
+NMI: 0.8239683480480198
+AMI: 0.8038699814546161
+FMS: 0.9121663764608061
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.1637931034482758
+ntriple=4, avg_#cluster=1.0802469135802468
+ntriple=5, avg_#cluster=1.646551724137931
+ntriple=6, avg_#cluster=1.8695652173913044
+ntriple=7, avg_#cluster=2.6818181818181817
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.150 ======
+BLEU = 66.62, 91.2/75.1/61.1/49.9 (BP=0.986, ratio=0.986, hyp_len=19620, ref_len=19906)
+ARS: 0.8038447015490537
+NMI: 0.8337224131543578
+AMI: 0.809855209190267
+FMS: 0.9104036142235634
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.1666666666666667
+ntriple=5, avg_#cluster=1.6724137931034482
+ntriple=6, avg_#cluster=2.0
+ntriple=7, avg_#cluster=3.090909090909091
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.155 ======
+BLEU = 66.65, 91.0/75.0/61.0/49.8 (BP=0.988, ratio=0.988, hyp_len=19675, ref_len=19922)
+ARS: 0.7986934167016125
+NMI: 0.832879449991057
+AMI: 0.8051544322121582
+FMS: 0.9049414037821308
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.2777777777777777
+ntriple=5, avg_#cluster=1.6810344827586208
 ntriple=6, avg_#cluster=2.0869565217391304
 ntriple=7, avg_#cluster=3.9545454545454546
 Human references:
@@ -251,69 +301,19 @@ ntriple=7, avg_#cluster=2.3684210526315788
 32502 32100
 Initialize parameters for generator...
 Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.150 ======
-BLEU = 66.62, 91.1/75.1/61.3/50.2 (BP=0.983, ratio=0.983, hyp_len=19574, ref_len=19904)
-ARS: 0.7879319256579127
-NMI: 0.807717699024352
-AMI: 0.7925452094607938
-FMS: 0.9084501649257862
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.2413793103448276
-ntriple=6, avg_#cluster=2.3043478260869565
-ntriple=7, avg_#cluster=4.318181818181818
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.155 ======
-BLEU = 66.60, 91.0/75.0/61.3/50.1 (BP=0.985, ratio=0.985, hyp_len=19623, ref_len=19926)
-ARS: 0.7946071079955309
-NMI: 0.8199404916853086
-AMI: 0.8011890011943934
-FMS: 0.9072607732847722
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.4396551724137931
-ntriple=6, avg_#cluster=2.4347826086956523
-ntriple=7, avg_#cluster=4.545454545454546
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.160 ======
-BLEU = 66.60, 90.9/74.9/61.2/50.0 (BP=0.986, ratio=0.986, hyp_len=19627, ref_len=19906)
-ARS: 0.7966535704064989
-NMI: 0.8251632744195021
-AMI: 0.8037479736222934
-FMS: 0.9052723207515916
+BLEU = 66.47, 90.9/74.8/60.8/49.5 (BP=0.988, ratio=0.988, hyp_len=19696, ref_len=19934)
+ARS: 0.7981358898546246
+NMI: 0.836051803677114
+AMI: 0.8046195152044113
+FMS: 0.9005332787467237
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.5948275862068966
-ntriple=6, avg_#cluster=2.8260869565217392
-ntriple=7, avg_#cluster=4.636363636363637
+ntriple=4, avg_#cluster=1.308641975308642
+ntriple=5, avg_#cluster=1.7241379310344827
+ntriple=6, avg_#cluster=2.260869565217391
+ntriple=7, avg_#cluster=4.454545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -327,92 +327,17 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.165 ======
-BLEU = 66.69, 90.9/74.9/61.1/49.9 (BP=0.988, ratio=0.988, hyp_len=19670, ref_len=19902)
-ARS: 0.7917747398653491
-NMI: 0.8245403779703816
-AMI: 0.7993955839666171
-FMS: 0.9013053231760676
+BLEU = 66.68, 90.6/74.7/60.7/49.5 (BP=0.993, ratio=0.993, hyp_len=19818, ref_len=19952)
+ARS: 0.7936960374369507
+NMI: 0.8362899389350127
+AMI: 0.8007027521665387
+FMS: 0.8943210630881175
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.6896551724137931
-ntriple=6, avg_#cluster=2.8260869565217392
-ntriple=7, avg_#cluster=5.045454545454546
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.170 ======
-BLEU = 66.54, 90.9/74.8/61.0/49.8 (BP=0.987, ratio=0.987, hyp_len=19643, ref_len=19894)
-ARS: 0.7918291768402734
-NMI: 0.8261850051061803
-AMI: 0.7996181131838496
-FMS: 0.9002484703256928
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0
-ntriple=5, avg_#cluster=1.7844827586206897
-ntriple=6, avg_#cluster=3.0
-ntriple=7, avg_#cluster=5.045454545454546
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.175 ======
-BLEU = 66.52, 90.7/74.6/60.8/49.6 (BP=0.990, ratio=0.990, hyp_len=19707, ref_len=19909)
-ARS: 0.7908227250642674
-NMI: 0.8288736437243664
-AMI: 0.7989201599898157
-FMS: 0.8958392663377601
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0061728395061729
-ntriple=5, avg_#cluster=1.9137931034482758
-ntriple=6, avg_#cluster=3.347826086956522
-ntriple=7, avg_#cluster=5.363636363636363
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.180 ======
-BLEU = 66.59, 90.5/74.6/60.8/49.5 (BP=0.992, ratio=0.992, hyp_len=19795, ref_len=19955)
-ARS: 0.7885237916972795
-NMI: 0.8319968597533598
-AMI: 0.7970143105457632
-FMS: 0.8916742615243827
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0185185185185186
-ntriple=5, avg_#cluster=2.0344827586206895
-ntriple=6, avg_#cluster=3.5652173913043477
+ntriple=4, avg_#cluster=1.3209876543209877
+ntriple=5, avg_#cluster=1.7327586206896552
+ntriple=6, avg_#cluster=2.391304347826087
 ntriple=7, avg_#cluster=5.636363636363637
 Human references:
 ntriple=1, avg_#cluster=1.0
@@ -426,19 +351,19 @@ ntriple=7, avg_#cluster=2.3684210526315788
 32502 32100
 Initialize parameters for generator...
 Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.185 ======
-BLEU = 66.46, 90.2/74.3/60.4/49.1 (BP=0.996, ratio=0.996, hyp_len=19906, ref_len=19992)
-ARS: 0.7831354712392629
-NMI: 0.8311462452357985
-AMI: 0.7914528514838739
-FMS: 0.8855004806278188
+====== test_graph_selection_threshold: 0.170 ======
+BLEU = 66.61, 90.5/74.6/60.6/49.4 (BP=0.994, ratio=0.994, hyp_len=19839, ref_len=19966)
+ARS: 0.792350124487589
+NMI: 0.836704439174082
+AMI: 0.7992641767113651
+FMS: 0.8927349665259212
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0308641975308641
-ntriple=5, avg_#cluster=2.2327586206896552
-ntriple=6, avg_#cluster=3.739130434782609
-ntriple=7, avg_#cluster=5.954545454545454
+ntriple=4, avg_#cluster=1.3333333333333333
+ntriple=5, avg_#cluster=1.7758620689655173
+ntriple=6, avg_#cluster=2.5217391304347827
+ntriple=7, avg_#cluster=6.0
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -451,68 +376,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 32502 32100
 Initialize parameters for generator...
 Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.190 ======
-BLEU = 66.39, 90.1/74.2/60.3/49.0 (BP=0.996, ratio=0.996, hyp_len=19957, ref_len=20038)
-ARS: 0.777686205526745
-NMI: 0.8303669864849247
-AMI: 0.7856420213416639
-FMS: 0.8793865055071008
+====== test_graph_selection_threshold: 0.175 ======
+BLEU = 66.64, 90.5/74.6/60.6/49.4 (BP=0.994, ratio=0.994, hyp_len=19853, ref_len=19973)
+ARS: 0.7889384117769629
+NMI: 0.8365382253417335
+AMI: 0.7964169930925097
+FMS: 0.8888054353536816
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.0802469135802468
-ntriple=5, avg_#cluster=2.2844827586206895
-ntriple=6, avg_#cluster=4.043478260869565
-ntriple=7, avg_#cluster=6.136363636363637
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.195 ======
-BLEU = 66.42, 90.1/74.2/60.2/49.0 (BP=0.996, ratio=0.996, hyp_len=19980, ref_len=20052)
-ARS: 0.7831803923107757
-NMI: 0.8382571892759537
-AMI: 0.7916554398830074
-FMS: 0.8787471225288817
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.1049382716049383
-ntriple=5, avg_#cluster=2.3793103448275863
-ntriple=6, avg_#cluster=4.043478260869565
-ntriple=7, avg_#cluster=6.181818181818182
-Human references:
-ntriple=1, avg_#cluster=1.0
-ntriple=2, avg_#cluster=1.0270880361173815
-ntriple=3, avg_#cluster=1.2323232323232323
-ntriple=4, avg_#cluster=1.6352941176470588
-ntriple=5, avg_#cluster=2.003846153846154
-ntriple=6, avg_#cluster=2.390625
-ntriple=7, avg_#cluster=2.3684210526315788
-
-32502 32100
-Initialize parameters for generator...
-Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.200 ======
-BLEU = 66.41, 89.9/74.0/60.0/48.8 (BP=1.000, ratio=1.001, hyp_len=20078, ref_len=20052)
-ARS: 0.7881530457970727
-NMI: 0.847166628179903
-AMI: 0.7966924050693952
-FMS: 0.8773243071923282
-Model predictions:
-ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.1604938271604939
-ntriple=5, avg_#cluster=2.4913793103448274
-ntriple=6, avg_#cluster=4.260869565217392
+ntriple=4, avg_#cluster=1.3518518518518519
+ntriple=5, avg_#cluster=1.7844827586206897
+ntriple=6, avg_#cluster=2.652173913043478
 ntriple=7, avg_#cluster=6.454545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
@@ -526,19 +401,144 @@ ntriple=7, avg_#cluster=2.3684210526315788
 32502 32100
 Initialize parameters for generator...
 Load parameters from checkpoint...
-====== test_graph_selection_threshold: 0.205 ======
-BLEU = 66.16, 89.5/73.8/59.7/48.6 (BP=1.000, ratio=1.003, hyp_len=20201, ref_len=20144)
-ARS: 0.7820482726509995
-NMI: 0.8483631324396387
-AMI: 0.7906974796294388
-FMS: 0.8698299423930557
+====== test_graph_selection_threshold: 0.180 ======
+BLEU = 66.55, 90.4/74.4/60.5/49.2 (BP=0.995, ratio=0.995, hyp_len=19903, ref_len=20002)
+ARS: 0.7927803541555487
+NMI: 0.839403690761973
+AMI: 0.8003465169838296
+FMS: 0.8898211625983338
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.191358024691358
-ntriple=5, avg_#cluster=2.6982758620689653
-ntriple=6, avg_#cluster=4.391304347826087
-ntriple=7, avg_#cluster=6.7272727272727275
+ntriple=4, avg_#cluster=1.3518518518518519
+ntriple=5, avg_#cluster=1.8103448275862069
+ntriple=6, avg_#cluster=2.9130434782608696
+ntriple=7, avg_#cluster=6.454545454545454
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.185 ======
+BLEU = 66.57, 90.3/74.4/60.5/49.2 (BP=0.995, ratio=0.995, hyp_len=19914, ref_len=20008)
+ARS: 0.7894747397224653
+NMI: 0.8416428629469284
+AMI: 0.7963508160052778
+FMS: 0.8839120995042841
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.3641975308641976
+ntriple=5, avg_#cluster=1.8793103448275863
+ntriple=6, avg_#cluster=3.652173913043478
+ntriple=7, avg_#cluster=6.545454545454546
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.190 ======
+BLEU = 66.49, 89.9/74.1/60.2/49.0 (BP=0.999, ratio=0.999, hyp_len=20037, ref_len=20057)
+ARS: 0.7799926978666369
+NMI: 0.8367922297930133
+AMI: 0.7861967422746123
+FMS: 0.8742006176571911
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.3641975308641976
+ntriple=5, avg_#cluster=2.0086206896551726
+ntriple=6, avg_#cluster=4.304347826086956
+ntriple=7, avg_#cluster=6.636363636363637
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.195 ======
+BLEU = 66.38, 89.6/73.9/60.0/48.8 (BP=1.000, ratio=1.002, hyp_len=20106, ref_len=20068)
+ARS: 0.780582774338377
+NMI: 0.8402214665763298
+AMI: 0.7864362554247036
+FMS: 0.8713467441076512
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.3703703703703705
+ntriple=5, avg_#cluster=2.060344827586207
+ntriple=6, avg_#cluster=5.0
+ntriple=7, avg_#cluster=6.681818181818182
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.200 ======
+BLEU = 66.40, 89.6/73.9/60.1/48.9 (BP=1.000, ratio=1.002, hyp_len=20111, ref_len=20066)
+ARS: 0.7806521869931887
+NMI: 0.8419594298507278
+AMI: 0.7866889966919902
+FMS: 0.8698362138515794
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.4012345679012346
+ntriple=5, avg_#cluster=2.0775862068965516
+ntriple=6, avg_#cluster=5.086956521739131
+ntriple=7, avg_#cluster=6.681818181818182
+Human references:
+ntriple=1, avg_#cluster=1.0
+ntriple=2, avg_#cluster=1.0270880361173815
+ntriple=3, avg_#cluster=1.2323232323232323
+ntriple=4, avg_#cluster=1.6352941176470588
+ntriple=5, avg_#cluster=2.003846153846154
+ntriple=6, avg_#cluster=2.390625
+ntriple=7, avg_#cluster=2.3684210526315788
+
+32502 32100
+Initialize parameters for generator...
+Load parameters from checkpoint...
+====== test_graph_selection_threshold: 0.205 ======
+BLEU = 66.19, 89.4/73.7/59.8/48.6 (BP=1.000, ratio=1.002, hyp_len=20149, ref_len=20110)
+ARS: 0.7805105587481573
+NMI: 0.8449703820033452
+AMI: 0.7866603676883008
+FMS: 0.8659250379744055
+Model predictions:
+ntriple=2, avg_#cluster=1.0
+ntriple=3, avg_#cluster=1.0
+ntriple=4, avg_#cluster=1.4074074074074074
+ntriple=5, avg_#cluster=2.206896551724138
+ntriple=6, avg_#cluster=5.304347826086956
+ntriple=7, avg_#cluster=6.681818181818182
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -552,18 +552,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.210 ======
-BLEU = 66.10, 89.4/73.7/59.7/48.5 (BP=1.000, ratio=1.004, hyp_len=20254, ref_len=20175)
-ARS: 0.7765638493034278
-NMI: 0.8477892965052246
-AMI: 0.785451702195209
-FMS: 0.8622036317684783
+BLEU = 65.90, 89.2/73.4/59.5/48.4 (BP=1.000, ratio=1.006, hyp_len=20233, ref_len=20110)
+ARS: 0.7689455395992036
+NMI: 0.8388012954175896
+AMI: 0.7754109095725423
+FMS: 0.858409662351013
 Model predictions:
 ntriple=2, avg_#cluster=1.0
 ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.2530864197530864
-ntriple=5, avg_#cluster=2.8017241379310347
-ntriple=6, avg_#cluster=4.565217391304348
-ntriple=7, avg_#cluster=6.818181818181818
+ntriple=4, avg_#cluster=1.4382716049382716
+ntriple=5, avg_#cluster=2.3448275862068964
+ntriple=6, avg_#cluster=5.3478260869565215
+ntriple=7, avg_#cluster=6.681818181818182
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -577,18 +577,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.215 ======
-BLEU = 65.52, 89.0/73.2/59.1/47.9 (BP=1.000, ratio=1.010, hyp_len=20395, ref_len=20192)
-ARS: 0.7646614074036241
-NMI: 0.8421756986744207
-AMI: 0.7728698589969475
-FMS: 0.8477207991980522
+BLEU = 65.90, 89.1/73.4/59.5/48.4 (BP=1.000, ratio=1.007, hyp_len=20251, ref_len=20116)
+ARS: 0.7734970559338107
+NMI: 0.8438252762799876
+AMI: 0.7786479273334332
+FMS: 0.8594755950117937
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.4197530864197532
-ntriple=5, avg_#cluster=3.0517241379310347
-ntriple=6, avg_#cluster=4.826086956521739
-ntriple=7, avg_#cluster=6.909090909090909
+ntriple=3, avg_#cluster=1.0058479532163742
+ntriple=4, avg_#cluster=1.4444444444444444
+ntriple=5, avg_#cluster=2.353448275862069
+ntriple=6, avg_#cluster=5.521739130434782
+ntriple=7, avg_#cluster=6.7727272727272725
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -602,18 +602,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.220 ======
-BLEU = 65.21, 88.7/72.9/58.8/47.5 (BP=1.000, ratio=1.012, hyp_len=20453, ref_len=20208)
-ARS: 0.7514542602879984
-NMI: 0.835641343504869
-AMI: 0.759303095958555
-FMS: 0.8371865538159721
+BLEU = 65.80, 88.9/73.3/59.5/48.3 (BP=1.000, ratio=1.007, hyp_len=20290, ref_len=20139)
+ARS: 0.7699281468513283
+NMI: 0.8447810513125477
+AMI: 0.7761257672427181
+FMS: 0.8549964290003689
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.5061728395061729
-ntriple=5, avg_#cluster=3.1724137931034484
-ntriple=6, avg_#cluster=5.043478260869565
-ntriple=7, avg_#cluster=6.954545454545454
+ntriple=3, avg_#cluster=1.0116959064327486
+ntriple=4, avg_#cluster=1.4444444444444444
+ntriple=5, avg_#cluster=2.5775862068965516
+ntriple=6, avg_#cluster=5.608695652173913
+ntriple=7, avg_#cluster=6.818181818181818
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -627,18 +627,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.225 ======
-BLEU = 64.96, 88.5/72.6/58.6/47.3 (BP=1.000, ratio=1.014, hyp_len=20545, ref_len=20255)
-ARS: 0.7355925617074301
-NMI: 0.8257335016853796
-AMI: 0.7435211952354711
-FMS: 0.826499527054649
+BLEU = 65.46, 88.7/73.1/59.2/47.9 (BP=1.000, ratio=1.011, hyp_len=20391, ref_len=20164)
+ARS: 0.7599003640667042
+NMI: 0.8429951817794679
+AMI: 0.7658894163848176
+FMS: 0.8440810550505038
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.5925925925925926
-ntriple=5, avg_#cluster=3.3189655172413794
-ntriple=6, avg_#cluster=5.173913043478261
-ntriple=7, avg_#cluster=6.954545454545454
+ntriple=3, avg_#cluster=1.0292397660818713
+ntriple=4, avg_#cluster=1.4444444444444444
+ntriple=5, avg_#cluster=2.7241379310344827
+ntriple=6, avg_#cluster=5.739130434782608
+ntriple=7, avg_#cluster=6.909090909090909
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -652,18 +652,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.230 ======
-BLEU = 64.80, 88.1/72.4/58.5/47.2 (BP=1.000, ratio=1.016, hyp_len=20650, ref_len=20330)
-ARS: 0.7342663816054472
-NMI: 0.8316480690006272
-AMI: 0.7422349933745085
-FMS: 0.8195636890244192
+BLEU = 64.65, 87.9/72.3/58.4/47.1 (BP=1.000, ratio=1.018, hyp_len=20593, ref_len=20233)
+ARS: 0.7341619467909499
+NMI: 0.8319149388700838
+AMI: 0.739978457562457
+FMS: 0.8156677337253329
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.654320987654321
-ntriple=5, avg_#cluster=3.603448275862069
-ntriple=6, avg_#cluster=5.304347826086956
-ntriple=7, avg_#cluster=6.954545454545454
+ntriple=3, avg_#cluster=1.0350877192982457
+ntriple=4, avg_#cluster=1.4938271604938271
+ntriple=5, avg_#cluster=3.2413793103448274
+ntriple=6, avg_#cluster=5.739130434782608
+ntriple=7, avg_#cluster=6.909090909090909
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815
@@ -677,17 +677,17 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.235 ======
-BLEU = 64.77, 88.0/72.5/58.5/47.1 (BP=1.000, ratio=1.017, hyp_len=20684, ref_len=20345)
-ARS: 0.7307076119840747
-NMI: 0.8328093473245366
-AMI: 0.7384761381520142
-FMS: 0.8135147769124248
+BLEU = 64.21, 87.4/71.9/58.0/46.7 (BP=1.000, ratio=1.024, hyp_len=20794, ref_len=20299)
+ARS: 0.7183030589500135
+NMI: 0.8277739121007712
+AMI: 0.7228360845387993
+FMS: 0.7950272308900921
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.7345679012345678
-ntriple=5, avg_#cluster=3.689655172413793
-ntriple=6, avg_#cluster=5.304347826086956
+ntriple=3, avg_#cluster=1.0584795321637428
+ntriple=4, avg_#cluster=1.5185185185185186
+ntriple=5, avg_#cluster=3.560344827586207
+ntriple=6, avg_#cluster=5.826086956521739
 ntriple=7, avg_#cluster=6.954545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
@@ -702,17 +702,17 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.240 ======
-BLEU = 64.45, 87.8/72.1/58.2/46.9 (BP=1.000, ratio=1.018, hyp_len=20751, ref_len=20382)
-ARS: 0.7303748635216953
-NMI: 0.8351056484665887
-AMI: 0.7377543213205784
-FMS: 0.8090903004155763
+BLEU = 63.82, 86.9/71.5/57.6/46.3 (BP=1.000, ratio=1.026, hyp_len=20919, ref_len=20387)
+ARS: 0.712723886943244
+NMI: 0.828252262347862
+AMI: 0.7173883916545014
+FMS: 0.7804576767689012
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.771604938271605
-ntriple=5, avg_#cluster=3.8017241379310347
-ntriple=6, avg_#cluster=5.391304347826087
+ntriple=3, avg_#cluster=1.0584795321637428
+ntriple=4, avg_#cluster=1.5308641975308641
+ntriple=5, avg_#cluster=3.956896551724138
+ntriple=6, avg_#cluster=5.739130434782608
 ntriple=7, avg_#cluster=6.954545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
@@ -727,17 +727,17 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.245 ======
-BLEU = 64.27, 87.6/72.0/58.0/46.7 (BP=1.000, ratio=1.021, hyp_len=20824, ref_len=20389)
-ARS: 0.727105484682799
-NMI: 0.8350347951135317
-AMI: 0.7340047689284565
-FMS: 0.8027296374682538
+BLEU = 63.35, 86.3/71.0/57.2/45.9 (BP=1.000, ratio=1.032, hyp_len=21110, ref_len=20462)
+ARS: 0.6915242211074697
+NMI: 0.8219103810082471
+AMI: 0.6945468700731809
+FMS: 0.7554826271784119
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.8333333333333333
-ntriple=5, avg_#cluster=3.853448275862069
-ntriple=6, avg_#cluster=5.478260869565218
+ntriple=3, avg_#cluster=1.064327485380117
+ntriple=4, avg_#cluster=1.537037037037037
+ntriple=5, avg_#cluster=4.362068965517241
+ntriple=6, avg_#cluster=5.782608695652174
 ntriple=7, avg_#cluster=6.954545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
@@ -752,18 +752,18 @@ ntriple=7, avg_#cluster=2.3684210526315788
 Initialize parameters for generator...
 Load parameters from checkpoint...
 ====== test_graph_selection_threshold: 0.250 ======
-BLEU = 64.10, 87.3/71.7/57.9/46.6 (BP=1.000, ratio=1.023, hyp_len=20909, ref_len=20432)
-ARS: 0.7005738325149127
-NMI: 0.8190764019793653
-AMI: 0.7066994797975389
-FMS: 0.7833383991635757
+BLEU = 63.26, 86.2/70.9/57.1/45.8 (BP=1.000, ratio=1.033, hyp_len=21118, ref_len=20453)
+ARS: 0.6920805017296482
+NMI: 0.8243130371560241
+AMI: 0.694643129256034
+FMS: 0.752256624481965
 Model predictions:
 ntriple=2, avg_#cluster=1.0
-ntriple=3, avg_#cluster=1.0
-ntriple=4, avg_#cluster=1.9567901234567902
-ntriple=5, avg_#cluster=3.9741379310344827
-ntriple=6, avg_#cluster=5.608695652173913
-ntriple=7, avg_#cluster=7.0
+ntriple=3, avg_#cluster=1.0818713450292399
+ntriple=4, avg_#cluster=1.5555555555555556
+ntriple=5, avg_#cluster=4.439655172413793
+ntriple=6, avg_#cluster=5.782608695652174
+ntriple=7, avg_#cluster=6.954545454545454
 Human references:
 ntriple=1, avg_#cluster=1.0
 ntriple=2, avg_#cluster=1.0270880361173815

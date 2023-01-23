@@ -43,11 +43,11 @@ echo "Creating directory to save model weights"
 #mkdir -p ${LOG_DIR}
 
 # This script does not actually do very much. But it does demonstrate the principles of training
-sh ./scripts_d2t.hpc/train_webnlg_base.sh
+#sh ./scripts_d2t.hpc/train_webnlg_base.sh
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_base.sh
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_partial.sh
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_partial_numerical.sh
-#sh ./scripts_d2t.hpc/train_reinforce_graph_fromscratch.sh
+sh ./scripts_d2t.hpc/train_reinforce_graph_fromscratch.sh
 #sh ./scripts_d2t.hpc/train_reinforce_nn.sh
 #sh ./scripts_d2t.hpc/train_reinforce_graph_nn.sh
 #sh ./scripts_d2t.hpc/train_reinforce_graph_nn_sample.sh

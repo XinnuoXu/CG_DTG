@@ -2,9 +2,13 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.nn/
+MODEL_PATH=${BASE_PATH}/model.re.nn.spectral/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
-LOG_PATH=${BASE_PATH}/logs.nn/
+LOG_PATH=${BASE_PATH}/logs.re.nn.spectral/
+
+#MODEL_PATH=${BASE_PATH}/model.re.nn/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+#LOG_PATH=${BASE_PATH}/logs.re.nn/
 
 mkdir -p ${LOG_PATH}
 
@@ -12,7 +16,7 @@ python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_4000.pt \
+	-test_from ${MODEL_PATH}/model_step_6000.pt \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
@@ -31,6 +35,6 @@ python train.py \
         -test_max_length 150 \
         -test_min_length 5 \
 	-beam_size 3 \
-	-visible_gpus 1 \
+	-visible_gpus 0 \
 
 	#-test_graph_selection_threshold $1 \

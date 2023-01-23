@@ -27,7 +27,7 @@ python train.py  \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 1e-4 \
+	-lr 5e-4 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
 	-accum_count 2 \

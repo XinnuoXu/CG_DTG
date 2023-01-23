@@ -3,15 +3,9 @@
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
 MODEL_PATH=${BASE_PATH}/model.re.from_scratch/
-#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
+#DATA_PATH=${BASE_PATH}/data.test/
 LOG_PATH=${BASE_PATH}/logs.re.from_scratch/
-# 5000/40000
-
-#MODEL_PATH=${BASE_PATH}/model.re.joint/
-#DATA_PATH=${BASE_PATH}/data.re.merge.rule_based/
-#LOG_PATH=${BASE_PATH}/logs.re.joint/
-# 35000
 
 mkdir -p ${LOG_PATH}
 

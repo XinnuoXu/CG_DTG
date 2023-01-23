@@ -21,7 +21,7 @@ from sentence_transformers.models import Pooling
 
 def build_optim(args, model, checkpoint, lr=None, warmup_steps=None):
     """ Build optimizer """
-    if checkpoint is not None:
+    if (checkpoint is not None) and (args.reset_optimizer == False):
         for key in checkpoint:
             print (key)
         optim = checkpoint['optims'][0]
@@ -1285,6 +1285,22 @@ class SpectralReinforce(nn.Module):
         return res
 
 
+    def _reframe_labels(self, labels, ntriple):
+        groups = [[] for i in range(ntriple)]
+        for i in range(len(labels)):
+            group_id = labels[i]
+            groups[group_id].append(i)
+
+        groups = [group for group in groups if len(group) > 0]
+
+        new_labels = [0 for i in range(len(labels))]
+        for group_id, group in enumerate(groups):
+            for item in group:
+                new_labels[item] = group_id
+
+        return new_labels, len(groups)
+
+
     def run_spectral(self, predicates, n_clusters, src_str=None, pred_str=None):
         if len(predicates) == 1:
             return [0]
@@ -1311,9 +1327,11 @@ class SpectralReinforce(nn.Module):
         '''
 
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
-        #print (n_clusters)
-        #print (pred_str)
-        #print (ajacency_matrix)
+        '''
+        print (n_clusters)
+        print (pred_str)
+        print (ajacency_matrix)
+        '''
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
@@ -1328,7 +1346,10 @@ class SpectralReinforce(nn.Module):
             return [0]
 
         linear_ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask)
-        #print (linear_ajacency_matrix.view(len(predicates), -1))
+        '''
+        print (pred_str)
+        print (linear_ajacency_matrix.view(len(predicates), -1))
+        '''
         if self.args.spectral_with_sample:
             linear_ajacency_matrix = torch.bernoulli(linear_ajacency_matrix)
 
@@ -1356,9 +1377,12 @@ class SpectralReinforce(nn.Module):
 
         ajacency_matrix = ajacency_matrix.cpu().detach().numpy()
 
-        #print ('NN', n_clusters)
-        #print (pred_str)
-        #print (ajacency_matrix)
+        '''
+        print ('NN', n_clusters)
+        print (pred_str)
+        print (ajacency_matrix)
+        print ('\n')
+        '''
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
@@ -1414,6 +1438,10 @@ class SpectralReinforce(nn.Module):
 
         # TODO: carefully design is required
         linear_ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask)
+        linear_ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
+        linear_ajacency_matrix = F.softmax(linear_ajacency_matrix, dim=1)
+        linear_ajacency_matrix = linear_ajacency_matrix.view(-1)
+
         sub_graph = {}; idx = 0
         for i, head_i in enumerate(predicates):
             sub_graph[head_i] = {}
@@ -1426,6 +1454,7 @@ class SpectralReinforce(nn.Module):
             log_prob = []
             for i, head_1 in enumerate(group):
                 for j, head_2 in enumerate(group):
+                    '''
                     if head_1 < head_2:
                         likelihood = sub_graph[head_1][head_2]
                         #print (head_1, head_2, likelihood)
@@ -1436,6 +1465,13 @@ class SpectralReinforce(nn.Module):
                         #print (head_1, head_2, likelihood)
                         log_likelihood = torch.log(likelihood)
                         log_prob.append(log_likelihood)
+                    '''
+                    if head_1 != head_2:
+                        likelihood = sub_graph[head_1][head_2]
+                        #print (head_1, head_2, likelihood)
+                        log_likelihood = torch.log(likelihood)
+                        log_prob.append(log_likelihood)
+
                     elif len(group) == 1:
                         likelihood = sub_graph[head_1][head_2]
                         if self.args.test_no_single_pred_score:
@@ -1473,9 +1509,17 @@ class SpectralReinforce(nn.Module):
             while len(set(labels)) < n_clusters:
                 labels = self.run_random(preds, n_clusters)
             if n_clusters == 1:
-                select_pred = random.sample(range(len(preds)), 1)[0]
-                labels = [-1] * len(labels)
-                labels[select_pred] = 0
+                #select_pred = random.sample(range(len(preds)), 1)[0]
+                #labels = [-1] * len(labels)
+                #labels[select_pred] = 0
+                labels = [random.sample([0, -1], 1)[0] for i in range(len(labels))]
+                while sum(labels) * (-1) == len(labels) or sum(labels) == 0:
+                    labels = [random.sample([0, -1], 1)[0] for i in range(len(labels))]
+
+        elif mode == 'random_test':
+            labels = self.run_random(preds, n_clusters)
+            while len(set(labels)) < n_clusters:
+                labels = self.run_random(preds, n_clusters)
 
         elif mode == 'discriministic':
             labels = self.run_discriministic(src_str, pred_str, n_clusters)
@@ -1484,6 +1528,8 @@ class SpectralReinforce(nn.Module):
                 labels = self.run_spectral_nn(preds, pred_token, pred_token_mask, n_clusters, src_str, pred_str)
             else:
                 labels = self.run_spectral(preds, n_clusters, src_str, pred_str)
+
+        #labels, n_clusters = self._reframe_labels(labels, n_clusters)
 
         # group predicates and src based on the cluster method
         pred_groups = [[] for i in range(n_clusters)]
@@ -1516,8 +1562,10 @@ class SpectralReinforce(nn.Module):
 
         if mode == 'discriministic':
             graph_prob = self.deterministic_graph.calculate_graph_score(labels, pred_str, n_clusters)
-        if mode == 'full_src':
+        elif mode == 'full_src':
             graph_prob = [0.0]
+        elif mode == 'random_test':
+            graph_prob = [0.0 for i in range(n_clusters)]
         else:
             if self.args.nn_graph:
                 graph_prob = self.calculate_graph_prob_nn(pred_groups, preds, pred_token, pred_token_mask)
@@ -1536,7 +1584,7 @@ class SpectralReinforce(nn.Module):
         print (pred_str_groups)
         print ('')
         '''
-        return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups
+        return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups, n_clusters
 
 
     def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
@@ -1597,7 +1645,7 @@ class SpectralReinforce(nn.Module):
                 n_clusters = 1
 
             # run clustering
-            src_groups, pred_groups, graph_probs, _, _ = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
+            src_groups, pred_groups, graph_probs, _, _, n_clusters = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
 
             # run cluster-to-output_sentence alignment
             res = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
@@ -1657,11 +1705,13 @@ class SpectralReinforce(nn.Module):
         log_likelihood = (-1) * self.nll(scores, gtruth)
         logging_info = self._log_generation_stats(scores, gtruth, src) # log_info
 
-        '''
         # log
+        '''
+        print ('mode:', mode)
         for i in range(output.size(0)):
             gtruth = gtruth.view(src.size(0), -1)
-            print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
+            #print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
+            print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  self.tokenizer.decode(gtruth[i], skip_special_tokens=True))
         '''
 
         if self.args.pretrain_encoder_decoder:
@@ -1687,7 +1737,7 @@ class SpectralReinforce(nn.Module):
 
         '''
         # log
-        print (log_likelihood)
+        print (log_likelihood, weights)
         print ('\n')
         '''
 
