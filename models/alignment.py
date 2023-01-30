@@ -139,6 +139,7 @@ class InputOutputAlignment():
         align_scores = self._run_batch(pairs, values_freq)
         score_idx = 0
         alignments = [[] for tgt in tgts]
+        alignment_scores = []
         for i, src in enumerate(srcs):
             max_score = -1; max_idx = -1
             for j, tgt in enumerate(tgts):
@@ -148,5 +149,6 @@ class InputOutputAlignment():
                     max_idx = j
                 score_idx += 1
             alignments[max_idx].append(i)
-        return alignments
+            alignment_scores.append(max_score)
+        return alignments, alignment_scores
 

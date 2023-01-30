@@ -2,6 +2,7 @@ import gc
 import glob
 import bisect
 import random
+import json
 import torch
 from models.logging import logger
 from transformers import AutoTokenizer
@@ -11,6 +12,8 @@ class Batch(object):
     def _pad(self, data, pad_id, width=-1):
         if (width == -1):
             width = max(len(d) for d in data)
+
+        data = [d[:width] for d in data]
         rtn_data = [d + [pad_id] * (width - len(d)) for d in data]
         return rtn_data
 
@@ -71,7 +74,24 @@ class Batch(object):
         return tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss
 
 
-    def _process_predicates(self, preds, preds_tokens, p2s, pad_id, device):
+    def _process_predicates(self, preds, preds_tokens, p2s, pad_id, device,
+                            all_predicates=None, nn_cls_add_negative_samples=False):
+
+
+        def negative_sample_for_pred(all_predicates, pred):
+            neg_pairs = []; neg_labels = []
+            for pid in pred:
+                sampled_id = random.sample(all_predicates.keys(), 1)[0]
+                while sampled_id in pred:
+                    sampled_id = random.sample(all_predicates.keys(), 1)[0]
+                if pid < int(sampled_id):
+                    pair = all_predicates[str(pid)] + all_predicates[sampled_id]
+                else:
+                    pair = all_predicates[sampled_id] + all_predicates[str(pid)]
+                neg_pairs.append(pair)
+                neg_labels.append(0)
+
+            return neg_pairs, neg_labels
 
         pred_t = []
         pred_mt = []
@@ -117,6 +137,11 @@ class Batch(object):
                             else:
                                 labels.append(0)
 
+            if nn_cls_add_negative_samples and (all_predicates is not None):
+                neg_pairs, neg_labels = negative_sample_for_pred(all_predicates, pred)
+                pairs = pairs + neg_pairs
+                labels = labels + neg_labels
+
             p = torch.tensor(self._pad(pairs, pad_id, width=max_pair_len)).to(device)
             m_p = ~(p == pad_id).to(device)
             l = torch.tensor(labels).to(device)
@@ -127,8 +152,10 @@ class Batch(object):
         return pred_t, pred_mt, agg_labels
 
 
-    def __init__(self, data=None, device=None, is_test=False, 
-                 pad_id=None, slot_sample_mode=''):
+    def __init__(self, data=None, device=None, 
+                 is_test=False, pad_id=None, 
+                 all_predicates=None,
+                 nn_cls_add_negative_samples=False):
 
         """Create a Batch from a list of examples."""
         if data is not None:
@@ -159,7 +186,9 @@ class Batch(object):
             setattr(self, 'mask_ctgt_loss', mask_ctgt_loss)
 
             # process preds
-            res = self._process_predicates(pre_pred, pre_pred_tokens, pre_p2s, pad_id, device)
+            res = self._process_predicates(pre_pred, pre_pred_tokens, pre_p2s, pad_id, device, 
+                                           all_predicates=all_predicates,
+                                           nn_cls_add_negative_samples=nn_cls_add_negative_samples)
             pred_tokens, pred_mask_tokens, agg_labels = res
             setattr(self, 'pred', pre_pred)
             setattr(self, 'pred_tokens', pred_tokens)
@@ -195,7 +224,7 @@ def load_dataset(args, corpus_type, shuffle):
     Returns:
         A list of dataset, the dataset(s) are lazily loaded.
     """
-    assert corpus_type in ["train", "validation", "test"]
+    assert corpus_type in ["train", "validation", "test", "test_unseen"]
 
     def _lazy_dataset_loader(pt_file, corpus_type):
         dataset = torch.load(pt_file)
@@ -282,6 +311,11 @@ class DataIterator(object):
         self.pred_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.pred_special_tok])[0]
         self.obj_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.obj_special_tok])[0]
 
+        self.all_predicates = None
+        if args.nn_cls_add_negative_samples and args.seen_predicate_tokenized_paths != '':
+            with open(args.seen_predicate_tokenized_paths) as fpout:
+                self.all_predicates = json.loads(fpout.readline().strip())
+
         self._iterations_this_epoch = 0
         self.batch_size_fn = ext_batch_size_fn
 
@@ -363,8 +397,9 @@ class DataIterator(object):
                     continue
                 self.iterations += 1
                 self._iterations_this_epoch += 1
-                batch = Batch(minibatch, self.device, self.is_test, 
-                              self.pad_token_id, slot_sample_mode=self.args.slot_sample_mode)
+                batch = Batch(minibatch, self.device, self.is_test, self.pad_token_id, 
+                              all_predicates=self.all_predicates,
+                              nn_cls_add_negative_samples=self.args.nn_cls_add_negative_samples)
                 yield batch
             return
 

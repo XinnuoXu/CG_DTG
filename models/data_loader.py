@@ -22,8 +22,6 @@ class Batch(object):
             self.batch_size = len(data)
             pre_src = [x[0] for x in data]
             pre_tgt = [x[1] for x in data]
-            nsent_src = [x[2] for x in data]
-            nsent_tgt = [x[3] for x in data]
           
             src = torch.tensor(self._pad(pre_src, pad_id))
             mask_src = ~(src == pad_id)
@@ -35,8 +33,6 @@ class Batch(object):
 
             setattr(self, 'tgt', tgt.to(device))
             setattr(self, 'mask_tgt', mask_tgt.to(device))
-            setattr(self, 'nsent_tgt', nsent_tgt)
-            setattr(self, 'nsent_src', nsent_src)
 
             if (is_test):
                 src_str = [x[-3] for x in data]
@@ -84,7 +80,7 @@ def load_dataset(args, corpus_type, shuffle):
 def ext_batch_size_fn(new, count):
     if (len(new) == 4):
         pass
-    src, labels = new[0], new[3]
+    src = new[0]
     global max_n_sents, max_n_tokens, max_size
     if count == 1:
         max_size = 0
@@ -164,16 +160,14 @@ class DataIterator(object):
         tgt = ex['tgt']
         src_txt = ex['src_txt']
         tgt_txt = ex['tgt_txt']
-        nsent_tgt = ex['nsent_tgt']
-        nsent_src = ex['nsent_src']
 
         src = src[:-1][:self.args.max_pos-1]+[src[-1]]
         tgt = tgt[:-1][:self.args.max_tgt_len]+[tgt[-1]]
 
         if(is_test):
-            return src, tgt, nsent_src, nsent_tgt, src_txt, tgt_txt, eid
+            return src, tgt, src_txt, tgt_txt, eid
         else:
-            return src, tgt, nsent_src, nsent_tgt
+            return src, tgt
 
     def batch_buffer(self, data, batch_size):
         minibatch, size_so_far = [], 0

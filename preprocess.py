@@ -26,6 +26,8 @@ if __name__ == '__main__':
     parser.add_argument("-save_path", default='')
     parser.add_argument("-additional_token_path", default='')
     parser.add_argument("-saved_tokenizer_path", default='')
+    parser.add_argument("-seen_predicate_paths", default='../Plan_while_Generate/D2T_data/webnlg_data/predicates_seen.txt', type=str)
+    parser.add_argument("-seen_predicate_tokenized_paths", default='', type=str)
     parser.add_argument("-predicted_plan_path", default='')
     parser.add_argument("-predicted_plan_id_path", default='')
     parser.add_argument('-log_file', default='./logs/cnndm.log')

@@ -252,9 +252,14 @@ def test_re(args, device_id, pt, step):
         test_from = args.test_from
     logger.info('Loading checkpoint from %s' % test_from)
 
-    test_iter = data_reinforce.Dataloader(args, load_dataset(args, 'test', shuffle=False),
-                                          args.test_batch_size, device,
-                                          shuffle=False, is_test=True)
+    if args.test_unseen:
+        test_iter = data_reinforce.Dataloader(args, load_dataset(args, 'test_unseen', shuffle=False),
+                                              args.test_batch_size, device,
+                                              shuffle=False, is_test=True)
+    else:
+        test_iter = data_reinforce.Dataloader(args, load_dataset(args, 'test', shuffle=False),
+                                              args.test_batch_size, device,
+                                              shuffle=False, is_test=True)
 
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
     opt = vars(checkpoint['opt'])

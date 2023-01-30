@@ -67,12 +67,14 @@ if __name__ == '__main__':
     parser.add_argument("-shuffle_src", type=str2bool, default=False)
     parser.add_argument("-conditional_decoder", type=str2bool, default=False)
     parser.add_argument("-pretrain_nn_cls", type=str2bool, default=False)
+    parser.add_argument("-nn_cls_add_negative_samples", type=str2bool, default=False)
     parser.add_argument("-pretrain_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-train_predicate_graph_only", type=str2bool, default=False)
     parser.add_argument("-gold_random_ratio", default=0.0, type=float)
     parser.add_argument("-spectral_ratio", default=0.0, type=float)
     parser.add_argument("-calculate_graph_prob_method", type=str, default='avg', choices=['avg', 'min'])
     parser.add_argument("-deterministic_graph_path", default='../Plan_while_Generate/D2T_data/webnlg_data/train.jsonl', type=str)
+    parser.add_argument("-seen_predicate_tokenized_paths", default='', type=str)
     parser.add_argument("-from_scratch", type=str2bool, default=False)
     parser.add_argument("-spectral_with_sample", type=str2bool, default=False)
     parser.add_argument("-nn_graph", type=str2bool, default=False)
@@ -86,6 +88,7 @@ if __name__ == '__main__':
     parser.add_argument("-test_graph_selection_threshold", default=1.0, type=float)
     parser.add_argument("-test_entity_link", type=str2bool, default=False)
     parser.add_argument("-test_no_single_pred_score", type=str2bool, default=False)
+    parser.add_argument("-test_unseen", type=str2bool, default=False)
 
 
     # generation parameters

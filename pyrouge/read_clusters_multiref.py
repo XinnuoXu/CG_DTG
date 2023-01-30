@@ -131,7 +131,9 @@ if __name__ == '__main__':
     random_clustering = False
     spectual_clustering = False
 
-    gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test.jsonl'
+    #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_seen.jsonl'
+    gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_unseen.jsonl'
+    #gold_path = '../Plan_while_Generate/D2T_data/webnlg.3triple_max/webnlg_data/test.jsonl'
     ground_truth_grouping = load_gold_alignment(gold_path)
 
     if spectual_clustering:
@@ -145,10 +147,22 @@ if __name__ == '__main__':
     else:
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.random/test.res.7000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.discriministic/test.res.7000.cluster'
-        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.9000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.nn/test.res.4000.cluster'
         #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral/test.res.6000.cluster'
-        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample//test.res.6000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample/test.res.6000.cluster'
+
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.random/test_unseen.res.7000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.discriministic/test_unseen.res.7000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.nn/test_unseen.res.4000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral/test_unseen.res.6000.cluster'
+        pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample/test_unseen.res.6000.cluster'
+
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.random/test.res.5000.cluster'
+        #pred_path='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.discriministic/test.res.5000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn/test.res.4000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn.spectral/test.res.5000.cluster'
+        #pred_path = '/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn.spectral_with_sample//test.res.6000.cluster'
+
         #pred_path = sys.argv[1]
         examples = get_predicted_cluster(pred_path)
 

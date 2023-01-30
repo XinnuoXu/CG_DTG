@@ -101,7 +101,7 @@ def split_shard(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
     else:
-        datasets = ['train', 'test', 'validation']
+        datasets = ['train', 'test', 'validation', 'test_unseen']
 
     for corpus_type in datasets:
 
@@ -183,7 +183,7 @@ def format_for_d2t_base(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
     else:
-        datasets = ['validation', 'train', 'test']
+        datasets = ['validation', 'train', 'test', 'test_unseen']
 
     for corpus_type in datasets:
         a_lst = []
@@ -218,18 +218,18 @@ def _process_sentence_level(params):
 
         src = d['document_segs']
 
-        if args.multi_ref_test and corpus_type == 'test':
+        if args.multi_ref_test and corpus_type.startswith('test'):
             d['oracles_selection'] = [sorted(item) for item in d['oracles_selection'][0]]
         else:
             d['oracles_selection'] = [sorted(item) for item in d['oracles_selection']]
 
-        if args.remove_noise_datapoints and corpus_type != 'test':
+        if args.remove_noise_datapoints and (not corpus_type.startswith('test')):
             if sum([len(group) for group in d['oracles_selection']]) < len(src):
                 continue
             if min([len(group) for group in d['oracles_selection']]) == 0:
                 continue
 
-        if args.remove_single_triple_datapoints and corpus_type != 'test':
+        if args.remove_single_triple_datapoints and (not corpus_type.startswith('test')):
             if len(src) < 2:
                 continue
 
@@ -286,11 +286,30 @@ def _process_sentence_level(params):
     gc.collect()
 
 
+def _tokenize_all_predicates(args):
+
+    additional_tokens = None
+    if args.additional_token_path != '':
+        additional_tokens = [line.strip() for line in open(args.additional_token_path)]
+    data_obj = DataCreator(args, additional_tokens)
+
+    predicates = [line.strip() for line in open(args.seen_predicate_paths) if line.startswith('-Pred-')]
+    new_dict = {}
+    for pred in predicates:
+        p_t, _ = data_obj.preprocess_src([pred], args.max_src_ntokens, data_obj.raw_tokenizer, tokenize_src=True)
+        p_id = data_obj.tokenizer.convert_tokens_to_ids([pred])[0]
+        new_dict[p_id] = p_t
+
+    fpout = open(args.seen_predicate_tokenized_paths, 'w')
+    fpout.write(json.dumps(new_dict))
+    fpout.close()
+
+
 def format_sentence_level(args):
     if (args.dataset != ''):
         datasets = [args.dataset]
     else:
-        datasets = ['validation', 'train', 'test']
+        datasets = ['validation', 'train', 'test', 'test_unseen']
 
     for corpus_type in datasets:
         a_lst = []
@@ -302,4 +321,6 @@ def format_sentence_level(args):
         for d in pool.imap(_process_sentence_level, a_lst):
             pass
         pool.close()
+
+    _tokenize_all_predicates(args)
 

@@ -47,9 +47,12 @@ echo "Creating directory to save model weights"
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_base.sh
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_partial.sh
 #sh ./scripts_d2t.hpc/train_reinforce_encdec_partial_numerical.sh
-sh ./scripts_d2t.hpc/train_reinforce_graph_fromscratch.sh
+#sh ./scripts_d2t.hpc/train_reinforce_graph_fromscratch.sh
 #sh ./scripts_d2t.hpc/train_reinforce_nn.sh
 #sh ./scripts_d2t.hpc/train_reinforce_graph_nn.sh
 #sh ./scripts_d2t.hpc/train_reinforce_graph_nn_sample.sh
+
+#sh ./scripts_d2t.train_less_triple/train_reinforce_encdec_base.sh
+sh ./scripts_d2t.train_less_triple/train_reinforce_encdec_partial_numerical.sh
 
 echo "Job ${SLURM_JOB_ID} is done!"
