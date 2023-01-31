@@ -2,31 +2,36 @@
 
 import json
 import sys
-#sys.path.append('../../')
+sys.path.append('./')
 from models import alignment
 
 align_obj = alignment.InputOutputAlignment(run_rouge=False, run_bleu=True, run_bertscore=False, run_bleurt=False, coreference=True)
 
-def align(filename, output_filename):
+def align(src_path, tgt_path):
 
-    fpout = open(output_filename, 'w')
+    srcs = [line.strip().split('\t') for line in open(src_path)]
+    tgts = [[line.strip()] for line in open(tgt_path)]
 
-    for line in open(filename):
-        json_obj = json.loads(line.strip())
-        srcs = json_obj['document_segs']
+    scores = []; score_dict = {}
+    for i, src in enumerate(srcs):
+        tgt = tgts[i]
+        _, score = align_obj.input_to_output(src, tgt)
+        scores.append(score)
+        if len(src) not in score_dict:
+            score_dict[len(src)] = []
+        score_dict[len(src)].append(score)
 
-        tgts = json_obj['gold_segs']
-        if len(tgts) < 2:
-            alignments = [[i for i in range(0, len(srcs))]]
-        else:
-            alignments = align_obj.input_to_output(srcs, tgts)
+    align_score = sum(scores)/len(scores)
+    for item in sorted(score_dict.items(), key = lambda d:d[0]):
+        score = sum(item[1])/len(item[1])
+        print (f'Alignment scores for #{item[0]} triple: {score}')
 
-        json_obj['oracles_selection'] = alignments
-        fpout.write(json.dumps(json_obj)+'\n')
-
-    fpout.close()
+    print (f'Alignment Scores: {align_score}')
 
 if __name__ == '__main__':
 
-    
+    base_path = sys.argv[1] 
+    src_path = sys.argv[1] + '.raw_src'
+    tgt_path = sys.argv[1] + '.candidate'
+    align(src_path, tgt_path)
 

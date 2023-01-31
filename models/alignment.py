@@ -150,5 +150,5 @@ class InputOutputAlignment():
                 score_idx += 1
             alignments[max_idx].append(i)
             alignment_scores.append(max_score)
-        return alignments, alignment_scores
+        return alignments, sum(alignment_scores)/len(alignment_scores)
 
