@@ -12,7 +12,8 @@ do
 done
 
 log_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test.res.2000
-for i in $(seq 0.0 .005 0.35)
+#for i in $(seq 0.0 .005 0.35)
+for i in $(seq 0.7 .02 1.2)
 do
 	sh ./scripts_d2t.less_triple_single_shot/test_nn.sh $i
 	echo "====== test_graph_selection_threshold: $i ======"
@@ -20,10 +21,10 @@ do
 	python ./pyrouge/read_clusters_multiref.py "$log_path.cluster"
 	echo ""
 done
-'''
 
 log_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test.res.5000
-for i in $(seq 0.0 .005 0.35)
+#for i in $(seq 0.0 .005 0.35)
+for i in $(seq 0.7 .02 1.2)
 do
 	sh ./scripts_d2t.less_triple_single_shot/test_reinforce_graph_nn.sh $i
 	echo "====== test_graph_selection_threshold: $i ======"
@@ -34,7 +35,8 @@ done
 
 '''
 log_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample/test.res.4500
-for i in $(seq 0.0 .005 0.35)
+#for i in $(seq 0.0 .005 0.35)
+for i in $(seq 0.7 .02 1.2)
 do
 	sh ./scripts_d2t.less_triple_single_shot/test_reinforce_graph_nn_sample.sh $i
 	echo "====== test_graph_selection_threshold: $i ======"
@@ -42,4 +44,3 @@ do
 	python ./pyrouge/read_clusters_multiref.py "$log_path.cluster"
 	echo ""
 done
-'''

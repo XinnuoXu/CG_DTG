@@ -2,9 +2,10 @@
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
 
-MODEL_PATH=${BASE_PATH}/model.re.nn/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
-LOG_PATH=${BASE_PATH}/logs.nn/
+MODEL_PATH=${BASE_PATH}/short.model.re.nn/
+DATA_PATH=${BASE_PATH}/short.data.re.align.tokenized_preds/
+LOG_PATH=${BASE_PATH}/short.logs.re.nn/
+
 
 mkdir -p ${LOG_PATH}
 
@@ -23,7 +24,7 @@ python train.py \
 	-test_entity_link True \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold 0.15 \
+	-test_graph_selection_threshold 0.23 \
 	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \
@@ -32,7 +33,7 @@ python train.py \
         -test_max_length 150 \
         -test_min_length 5 \
 	-beam_size 3 \
-	-visible_gpus 0 \
+	-visible_gpus 1 \
 
 	#-test_graph_selection_threshold $1 \
 	#-test_unseen True \

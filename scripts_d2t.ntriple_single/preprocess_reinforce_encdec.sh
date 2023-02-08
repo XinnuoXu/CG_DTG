@@ -1,12 +1,14 @@
 #!/bin/bash
 
+ntriple=$1
+
 ###############################################
 # Shard split
 ###############################################
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
-JSON_PATH=${BASE_PATH}/jsons.re.align.rule_based/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.merge.rule_based/
+JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
@@ -28,9 +30,9 @@ python preprocess.py \
 ###############################################
 
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-JSON_PATH=${BASE_PATH}/jsons.re.align.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
+DATA_PATH=${BASE_PATH}/short_single.data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
@@ -44,8 +46,8 @@ python preprocess.py \
 	-additional_token_path ${ADD_TOKEN_PATH} \
         -saved_tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-seen_predicate_tokenized_paths ${DATA_PATH}/predicate_tokens.txt \
-	-remove_single_triple_datapoints True \
-	-remove_noise_datapoints False \
+	-remove_single_triple_datapoints False \
+	-remove_noise_datapoints True \
 	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \

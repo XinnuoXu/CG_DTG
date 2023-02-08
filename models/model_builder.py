@@ -1438,10 +1438,11 @@ class SpectralReinforce(nn.Module):
 
         # TODO: carefully design is required
         linear_ajacency_matrix = self.predicate_graph(pred_token, pred_token_mask)
-        linear_ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
-        linear_ajacency_matrix = F.softmax(linear_ajacency_matrix, dim=1)
-        #print (linear_ajacency_matrix)
-        linear_ajacency_matrix = linear_ajacency_matrix.view(-1)
+        #print (linear_ajacency_matrix.view(len(predicates), -1))
+        if self.args.mode != 'test':
+            linear_ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
+            linear_ajacency_matrix = F.softmax(linear_ajacency_matrix, dim=1)
+            linear_ajacency_matrix = linear_ajacency_matrix.view(-1)
 
         sub_graph = {}; idx = 0
         for i, head_i in enumerate(predicates):

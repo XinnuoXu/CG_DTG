@@ -14,8 +14,8 @@ python train.py \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_2000.pt \
-	-test_unseen False \
-	-result_path ${LOG_PATH}/test.res \
+	-test_unseen True \
+	-result_path ${LOG_PATH}/test_unseen.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
@@ -24,7 +24,7 @@ python train.py \
 	-test_entity_link True \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold $1 \
+	-test_graph_selection_threshold 0.255 \
 	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \
@@ -33,8 +33,9 @@ python train.py \
         -test_max_length 150 \
         -test_min_length 5 \
 	-beam_size 3 \
-	-visible_gpus 2 \
+	-visible_gpus 0 \
 
-	#-test_unseen True \
-	#-result_path ${LOG_PATH}/test_unseen.res \
-	#-test_graph_selection_threshold 0.23 \
+	#-test_graph_selection_threshold $1 \
+	#-test_graph_selection_threshold 1.12 \
+	#-test_unseen False \
+	#-result_path ${LOG_PATH}/test.res \

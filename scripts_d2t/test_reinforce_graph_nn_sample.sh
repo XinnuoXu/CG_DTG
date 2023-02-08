@@ -13,8 +13,8 @@ python train.py \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_6000.pt \
-	-test_unseen True \
-	-result_path ${LOG_PATH}/test_unseen.res \
+	-test_unseen False \
+	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-conditional_decoder True \
@@ -35,5 +35,5 @@ python train.py \
 	-visible_gpus 0 \
 
 	#-test_graph_selection_threshold $1 \
-	#-test_unseen False \
-	#-result_path ${LOG_PATH}/test.res \
+	#-test_unseen True \
+	#-result_path ${LOG_PATH}/test_unseen.res \

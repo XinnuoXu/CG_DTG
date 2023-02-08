@@ -14,7 +14,7 @@
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.from_scratch/test.res.9000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.nn/test.res.4000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral/test.res.6000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample//test.res.6000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/logs.re.nn.spectral_with_sample/test.res.6000'
 
 ################
 #Out-of-domain
@@ -58,7 +58,7 @@
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.discriministic/test.res.5000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn/test.res.4000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn.spectral/test.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn.spectral_with_sample//test.res.6000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short.logs.re.nn.spectral_with_sample/test.res.6000'
 
 ################
 #3-triple In-domain train OOD test
@@ -83,24 +83,60 @@
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial/test.res.2000'
 
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.random/test.res.2000'
-path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test.res.2000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test.res.4000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test.res.2000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample//test.res.6000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample//test.res.4500'
 
 ################
 #3-triple single-shot In-domain train OOD test
 ################
 
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.base/test_unseen.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial_numerical/test_unseen.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial/test_unseen.res.5000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.base/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial_numerical/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial/test_unseen.res.2000'
 
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.random/test_unseen.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test_unseen.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test_unseen.res.4000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.random/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test_unseen.res.2000'
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test_unseen.res.5000'
-#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample//test_unseen.res.6000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample//test_unseen.res.4500'
+
+################
+#n-triple single-shot In-domain train In-domain test
+################
+# Partial encoder-decoder
+# ntriple=2; test_from=1000
+# ntriple=4; test_from=2000
+# ntriple=5; test_from=3000
+# ntriple=6; test_from=3000
+# ntriple=7; test_from=3000
+################
+
+ntriple=$1
+test_from=$2
+base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+
+path_prefix=${base_path}/short_single.logs.re.encdec_partial/test.res.${test_from}
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.random/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test.res.5000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral_with_sample//test.res.4500'
+
+################
+#n-triple single-shot In-domain train OOD test
+################
+
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.base/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial_numerical/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.encdec_partial/test_unseen.res.2000'
+
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.random/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.discriministic/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn/test_unseen.res.2000'
+#path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test_unseen.res.5000'
+
 
 #path_prefix=$1
 

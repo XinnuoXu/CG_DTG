@@ -1,11 +1,13 @@
 #!/bin/bash
 
+ntriple=$1
+
 ###############################################
 # Shard split
 ###############################################
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data.manual_align/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.manual_align/
 JSON_PATH=${BASE_PATH}/jsons.re.align.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 
@@ -28,9 +30,9 @@ python preprocess.py \
 ###############################################
 
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/webnlg_data/predicates.txt
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
 JSON_PATH=${BASE_PATH}/jsons.re.align.rule_based/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
+DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}

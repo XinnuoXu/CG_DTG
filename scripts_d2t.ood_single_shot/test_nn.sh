@@ -22,7 +22,7 @@ python train.py \
 	-test_entity_link True \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_graph_selection_threshold 0.15 \
+	-test_graph_selection_threshold 0.85 \
 	-nn_graph True \
 	-shuffle_src False \
 	-block_trigram true \
