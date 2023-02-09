@@ -106,12 +106,12 @@
 #n-triple single-shot In-domain train In-domain test
 ################
 
-ntriple=$1
-test_from=$2
-base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+#ntriple=$1
+#test_from=$2
+#base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
 
 #path_prefix=${base_path}/short_single.logs.re.encdec_partial/test.res.${test_from}
-path_prefix=${base_path}/short_single.logs.re.random/test.res.${test_from}
+#path_prefix=${base_path}/short_single.logs.re.random/test.res.${test_from}
 #path_prefix=${base_path}/short_single.logs.re.discriministic/test.res.${test_from}
 #path_prefix=${base_path}/short_single.logs.re.nn/test.res.${test_from}
 #path_prefix=${base_path}/short_single.logs.re.nn.spectral/test.res.${test_from}
@@ -131,7 +131,7 @@ path_prefix=${base_path}/short_single.logs.re.random/test.res.${test_from}
 #path_prefix='/rds/user/hpcxu1/hpc-work/outputs.webnlg/short_single.logs.re.nn.spectral/test_unseen.res.5000'
 
 
-#path_prefix=$1
+path_prefix=$1
 
 python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 

@@ -19,14 +19,18 @@ do
 		path_prefix=${base_path}/short_single.logs.re.encdec_partial/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' Baseline]; ntriple='${ntriple}
+	echo '['${test_type}' Baseline]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-	echo 'PARENT for ['${test_type}' Baseline]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
+echo ''
 
 ################
 # Random
@@ -45,15 +49,18 @@ do
 		path_prefix=${base_path}/short_single.logs.re.random/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' Random]; ntriple='${ntriple}
+	echo '['${test_type}' Random]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-
-	echo 'PARENT for ['${test_type}' Random]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
+echo ''
 
 ################
 # Numerical
@@ -72,14 +79,18 @@ do
 		path_prefix=${base_path}/short_single.logs.re.discriministic/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' Numerical]; ntriple='${ntriple}
+	echo '['${test_type}' Numerical]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-	echo 'PARENT for ['${test_type}' Numerical]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
+echo ''
 
 ################
 # FFN
@@ -98,14 +109,18 @@ do
 		path_prefix=${base_path}/short_single.logs.re.nn/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' FFN]; ntriple='${ntriple}
+	echo '['${test_type}' FFN]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-	echo 'PARENT for ['${test_type}' FFN]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
+echo ''
 
 ################
 # FFN Reinforce
@@ -124,14 +139,18 @@ do
 		path_prefix=${base_path}/short_single.logs.re.nn.spectral/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' FFN Reinforce]; ntriple='${ntriple}
+	echo '['${test_type}' FFN Reinforce]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-	echo 'PARENT for ['${test_type}' FFN Reinforce]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
+echo ''
 
 ################
 # FFN Reinforce Sample
@@ -150,11 +169,14 @@ do
 		path_prefix=${base_path}/short_single.logs.re.nn.spectral_with_sample/test_unseen.res.${test_from}
 	fi
 
-	echo 'BLEU for ['${test_type}' FFN Reinforce sample]; ntriple='${ntriple}
+	echo '['${test_type}' FFN Reinforce sample]; ntriple='${ntriple}
 	python ./tool/evaluate_d2t_bleu.py ${path_prefix}
 	./tool/multi-bleu.perl ${path_prefix}.bleu_ref1 ${path_prefix}.bleu_ref2 ${path_prefix}.bleu_ref3 < ${path_prefix}.bleu_cand
 
-	echo 'PARENT for ['${test_type}' FFN Reinforce sample]; ntriple='${ntriple}
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
+
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./output.json
+	python tool/nli_postprocess.py
 done
