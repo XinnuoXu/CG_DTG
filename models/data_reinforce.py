@@ -75,22 +75,40 @@ class Batch(object):
 
 
     def _process_predicates(self, preds, preds_tokens, p2s, pad_id, device,
-                            all_predicates=None, nn_cls_add_negative_samples=False):
+                            all_predicates=None, nn_cls_add_negative_samples=0):
 
-
-        def negative_sample_for_pred(all_predicates, pred):
-            neg_pairs = []; neg_labels = []
-            for pid in pred:
+        def negative_sample_for_pred(all_predicates, pred, nn_cls_add_negative_samples):
+            neg_pids = []    
+            for j in range(nn_cls_add_negative_samples):
                 sampled_id = random.sample(all_predicates.keys(), 1)[0]
                 while sampled_id in pred:
                     sampled_id = random.sample(all_predicates.keys(), 1)[0]
-                if pid < int(sampled_id):
-                    pair = all_predicates[str(pid)] + all_predicates[sampled_id]
-                else:
-                    pair = all_predicates[sampled_id] + all_predicates[str(pid)]
-                neg_pairs.append(pair)
-                neg_labels.append(0)
+                neg_pids.append(sampled_id)
 
+            neg_pairs = []; neg_labels = []
+            for pid in pred:
+                for sampled_id in neg_pids:
+                    if pid < int(sampled_id):
+                        pair = all_predicates[str(pid)] + all_predicates[sampled_id]
+                    else:
+                        pair = all_predicates[sampled_id] + all_predicates[str(pid)]
+                    neg_pairs.append(pair)
+                    neg_labels.append(0)
+            return neg_pairs, neg_labels
+
+        def negative_sample_for_pred_v0(all_predicates, pred, nn_cls_add_negative_samples):
+            neg_pairs = []; neg_labels = []
+            for pid in pred:
+                for j in range(nn_cls_add_negative_samples):
+                    sampled_id = random.sample(all_predicates.keys(), 1)[0]
+                    while sampled_id in pred:
+                        sampled_id = random.sample(all_predicates.keys(), 1)[0]
+                    if pid < int(sampled_id):
+                        pair = all_predicates[str(pid)] + all_predicates[sampled_id]
+                    else:
+                        pair = all_predicates[sampled_id] + all_predicates[str(pid)]
+                    neg_pairs.append(pair)
+                    neg_labels.append(0)
             return neg_pairs, neg_labels
 
         pred_t = []
@@ -137,8 +155,8 @@ class Batch(object):
                             else:
                                 labels.append(0)
 
-            if nn_cls_add_negative_samples and (all_predicates is not None):
-                neg_pairs, neg_labels = negative_sample_for_pred(all_predicates, pred)
+            if nn_cls_add_negative_samples > 0 and (all_predicates is not None):
+                neg_pairs, neg_labels = negative_sample_for_pred(all_predicates, pred, nn_cls_add_negative_samples)
                 pairs = pairs + neg_pairs
                 labels = labels + neg_labels
 
@@ -155,7 +173,7 @@ class Batch(object):
     def __init__(self, data=None, device=None, 
                  is_test=False, pad_id=None, 
                  all_predicates=None,
-                 nn_cls_add_negative_samples=False):
+                 nn_cls_add_negative_samples=0):
 
         """Create a Batch from a list of examples."""
         if data is not None:
@@ -312,7 +330,7 @@ class DataIterator(object):
         self.obj_special_tok_id = self.tokenizer.convert_tokens_to_ids([self.args.obj_special_tok])[0]
 
         self.all_predicates = None
-        if args.nn_cls_add_negative_samples and args.seen_predicate_tokenized_paths != '':
+        if args.nn_cls_add_negative_samples > 0 and args.seen_predicate_tokenized_paths != '':
             with open(args.seen_predicate_tokenized_paths) as fpout:
                 self.all_predicates = json.loads(fpout.readline().strip())
 

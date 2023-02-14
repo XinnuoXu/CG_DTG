@@ -3,9 +3,9 @@
 ntriple=$1
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.encdec_partial/
-DATA_PATH=${BASE_PATH}/short_single.data.re.merge.tokenized_preds/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.encdec_partial/
+MODEL_PATH=${BASE_PATH}/short_large.model.re.encdec_partial/
+DATA_PATH=${BASE_PATH}/short_large.data.re.merge.tokenized_preds/
+LOG_PATH=${BASE_PATH}/short_large.logs.re.encdec_partial/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

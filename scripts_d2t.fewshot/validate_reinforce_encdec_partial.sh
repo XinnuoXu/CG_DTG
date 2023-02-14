@@ -1,11 +1,23 @@
 #!/bin/bash
 
-ntriple=$1
+percent=$1
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.encdec_partial/
-DATA_PATH=${BASE_PATH}/short_single.data.re.merge.tokenized_preds/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.encdec_partial/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
+#MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.bbase/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.bbase/
+#LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.bbase/
+
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.blarge/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.blarge/
+LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.blarge/
+
+#MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.t5small/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.t5small/
+#LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.t5small/
+
+#MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.t5large/
+#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.t5large/
+#LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.t5large/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}

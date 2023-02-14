@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument("-shuffle_src", type=str2bool, default=False)
     parser.add_argument("-conditional_decoder", type=str2bool, default=False)
     parser.add_argument("-pretrain_nn_cls", type=str2bool, default=False)
-    parser.add_argument("-nn_cls_add_negative_samples", type=str2bool, default=False)
+    parser.add_argument("-nn_cls_add_negative_samples", type=int, default=0)
     parser.add_argument("-pretrain_encoder_decoder", type=str2bool, default=False)
     parser.add_argument("-train_predicate_graph_only", type=str2bool, default=False)
     parser.add_argument("-gold_random_ratio", default=0.0, type=float)

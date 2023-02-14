@@ -4,15 +4,15 @@ ntriple=$1
 test_from=$2
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.encdec_partial/
-DATA_PATH=${BASE_PATH}/short_single.data.re.merge.tokenized_preds/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.encdec_partial/
+MODEL_PATH=${BASE_PATH}/short_large.model.re.encdec_partial/
+DATA_PATH=${BASE_PATH}/short_large.data.re.merge.tokenized_preds/
+LOG_PATH=${BASE_PATH}/short_large.logs.re.encdec_partial/
 
-# ntriple=2; test_from=1000
-# ntriple=4; test_from=2000
-# ntriple=5; test_from=3000
-# ntriple=6; test_from=3000
-# ntriple=7; test_from=3000
+# ntriple=2; test_from=9000
+# ntriple=4; test_from=10000
+# ntriple=5; test_from=10000
+# ntriple=6; test_from=10000
+# ntriple=7; test_from=9000
 
 mkdir -p ${LOG_PATH}
 

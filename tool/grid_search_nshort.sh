@@ -14,8 +14,8 @@ done
 '''
 
 log_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/short_single.logs.re.nn/test.res.${test_from}
-for i in $(seq 0.05 .01 0.5)
-#for i in $(seq 0.1 .02 1.0)
+#for i in $(seq 0.05 .01 0.5)
+for i in $(seq 0.0 .02 1.0)
 do
 	sh ./scripts_d2t.ntriple_single/test_nn.sh ${ntriple} ${test_from} $i
 	echo "====== test_graph_selection_threshold: $i ======"
