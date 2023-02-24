@@ -9,6 +9,7 @@ DATA_PATH=${BASE_PATH}/short_single.data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/short_single.logs.re.encdec_partial/
 
 # ntriple=2; test_from=1000
+# ntriple=3; test_from=2000
 # ntriple=4; test_from=2000
 # ntriple=5; test_from=3000
 # ntriple=6; test_from=3000
@@ -21,8 +22,8 @@ python train.py \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_${test_from}.pt \
-	-test_unseen False \
-	-result_path ${LOG_PATH}/test.res \
+	-test_unseen True \
+	-result_path ${LOG_PATH}/test_unseen.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-nn_graph True \
@@ -38,5 +39,5 @@ python train.py \
 	-beam_size 3 \
 	-visible_gpus 0 \
 
-	#-test_unseen True \
-	#-result_path ${LOG_PATH}/test_unseen.res \
+	#-test_unseen False \
+	#-result_path ${LOG_PATH}/test.res \

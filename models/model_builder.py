@@ -4,6 +4,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
@@ -184,14 +185,14 @@ class ExtSummarizer(nn.Module):
 
 class AbsSummarizerNewVersion(nn.Module):
     def __init__(self, args, device, vocab_size, checkpoint=None):
-        super(AbsSummarizer, self).__init__()
+        super(AbsSummarizerNewVersion, self).__init__()
         self.args = args
         self.device = device
 
-        self.model = T5ForConditionalGeneration.from_pretrained("t5-small")
+        self.model = T5ForConditionalGeneration.from_pretrained(self.args.model_name)
 
         self.vocab_size = vocab_size
-        self.original_tokenizer = AutoTokenizer.from_pretrained("t5-small")
+        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         print (self.vocab_size, len(self.original_tokenizer))
         if self.vocab_size > len(self.original_tokenizer):
             self.model.resize_token_embeddings(self.vocab_size)
@@ -274,6 +275,7 @@ class AbsSummarizer(nn.Module):
         self.device = device
 
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
+        #self.model = T5ForConditionalGeneration.from_pretrained(self.args.model_name)
 
         self.vocab_size = vocab_size
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
@@ -305,6 +307,16 @@ class AbsSummarizer(nn.Module):
 
         self.to(device)
 
+    def _log_generation_stats(self, scores, target, src):
+        pred = scores.max(2)[1]
+        non_padding = target.ne(self.pad_id)
+        num_correct = pred.eq(target) \
+                          .masked_select(non_padding) \
+                          .sum() \
+                          .item()
+        num_non_padding = non_padding.sum().item()
+        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
+        return log_info
 
     def forward(self, src, tgt, mask_src, mask_tgt, run_decoder=True):
 
@@ -312,15 +324,35 @@ class AbsSummarizer(nn.Module):
         top_vec = encoder_outputs.last_hidden_state
 
         if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
+            #return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
+            output_sequences = self.model.generate(input_ids=src, 
+                                                    attention_mask=mask_src, 
+                                                    do_sample=False, 
+                                                    max_length=256, 
+                                                    min_length=5,
+                                                    num_beams=5,
+                                                    no_repeat_ngram_size=5)
+            return output_sequences
 
         # Decoding
-        decoder_outputs = self.decoder(input_ids=tgt, 
-                                       attention_mask=mask_tgt,
+        decoder_outputs = self.decoder(input_ids=tgt[:,:-1], 
+                                       attention_mask=mask_tgt[:,:-1],
                                        encoder_hidden_states=top_vec,
                                        encoder_attention_mask=mask_src)
 
-        return decoder_outputs.last_hidden_state
+        #return decoder_outputs.last_hidden_state
+
+        sequence_output = decoder_outputs.last_hidden_state
+        sequence_output = sequence_output * (self.model.model_dim ** -0.5)
+        lm_logits = self.model.lm_head(sequence_output)
+
+        labels = tgt[:,1:]
+        logging_info = self._log_generation_stats(lm_logits, labels, src)
+
+        loss_fct = CrossEntropyLoss(ignore_index=self.pad_id)
+        loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.reshape(-1))
+
+        return loss, logging_info
 
 
 

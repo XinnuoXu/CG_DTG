@@ -1,11 +1,11 @@
 #!/bin/bash
 
-percent=$1
+ntriple=$1
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/model.re.nn/
-LOG_PATH=${BASE_PATH}/logs.re.nn/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
+MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.spectral/
+LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.spectral/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -19,7 +19,6 @@ python train.py \
 	-log_file ${LOG_PATH}/validation.log \
 	-ext_or_abs reinforce \
 	-nn_graph True \
-	-pretrain_nn_cls True \
 	-pretrain_encoder_decoder False \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \

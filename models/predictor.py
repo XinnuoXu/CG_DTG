@@ -159,7 +159,6 @@ class Translator(object):
         results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
 
-        '''
         outputs = self.model(src, tgt, mask_src, mask_tgt, run_decoder=False)
         for i in range(outputs.size(0)):
             results["predictions"][i].append(outputs[i])
@@ -292,6 +291,7 @@ class Translator(object):
             select_indices = batch_index.view(-1)
             src_features = src_features.index_select(0, select_indices)
             mask_src = mask_src.index_select(0, select_indices)
+        '''
 
         return results
 

@@ -134,6 +134,8 @@ if __name__ == '__main__':
     gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/validation_multi.jsonl'
     #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_seen.jsonl'
     #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_unseen.jsonl'
+    #gold_path = '../Plan_while_Generate/D2T_data/fewshot_webnlg.manual_align//test.jsonl'
+    #gold_path = '../Plan_while_Generate/D2T_data/fewshot_webnlg.manual_align//validation_multi.jsonl'
     ground_truth_grouping = load_gold_alignment(gold_path)
 
     if spectual_clustering:

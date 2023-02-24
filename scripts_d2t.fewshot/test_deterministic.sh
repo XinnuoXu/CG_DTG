@@ -1,20 +1,18 @@
 #!/bin/bash
 
-ntriple=$1
+percent=$1
 test_from=$2
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.manual_align/train.jsonl
-MODEL_PATH=${BASE_PATH}/short_single.model.re.encdec_partial/
-DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.discriministic/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
+DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/fewshot_webnlg_percent_${percent}/fewshot_webnlg.manual_align/train.jsonl
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.blarge/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.blarge/
+LOG_PATH=${BASE_PATH}/logs.re.discriministic/
 
-# ntriple=2; test_from=1000; test_graph_selection_threshold=1
-# ntriple=3; test_from=2000; test_graph_selection_threshold=2
-# ntriple=4; test_from=2000; test_graph_selection_threshold=5
-# ntriple=5; test_from=3000; test_graph_selection_threshold=5
-# ntriple=6; test_from=3000; test_graph_selection_threshold=5
-# ntriple=7; test_from=3000; test_graph_selection_threshold=7
+# ntriple=0.005; test_from=500; test_graph_selection_threshold=1
+# ntriple=0.01; test_from=1500; test_graph_selection_threshold=1
+# ntriple=0.05; test_from=2500; test_graph_selection_threshold=2
+# ntriple=0.1; test_from=4000; test_graph_selection_threshold=2
 
 mkdir -p ${LOG_PATH}
 
@@ -42,6 +40,5 @@ python train.py \
 	-beam_size 3 \
 	-visible_gpus 0 \
 
-	#-test_graph_selection_threshold 2 \
 	#-test_unseen True \
 	#-result_path ${LOG_PATH}/test_unseen.res \

@@ -196,6 +196,8 @@ class Optimizer(object):
                 self._set_rate(max(self.original_lr * self._step ** (-0.5), self.learning_rate * 0.999993))
             else:
                 self._set_rate(self._step * (self.original_lr/self.warmup_steps))
+        elif self.decay_method == "no_decay":
+            self.learning_rate = self.original_lr
         else:
             if ((self.start_decay_steps is not None) and (
                      self._step >= self.start_decay_steps)):

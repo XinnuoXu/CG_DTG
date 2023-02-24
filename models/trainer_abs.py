@@ -132,16 +132,16 @@ class Trainer(object):
             tgt = batch.tgt
             mask_tgt = batch.mask_tgt
 
+            '''
             outputs = self.model(src, tgt, mask_src, mask_tgt)
             batch_stats = self.loss.sharded_compute_loss(batch, outputs, self.args.generator_shard_size, normalization)
             batch_stats.n_docs = int(src.size(0))
-            
             '''
+
             loss, logging_info = self.model(src, tgt, mask_src, mask_tgt)
             batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
             batch_stats.n_docs = logging_info['n_docs']
             loss.backward()
-            '''
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
@@ -189,16 +189,15 @@ class Trainer(object):
                 mask_src = batch.mask_src
                 mask_tgt = batch.mask_tgt
 
+                '''
                 outputs = self.model(src, tgt, mask_src, mask_tgt)
-
-                if self.args.prefix_tgt_training:
-                    mask_tgt_for_loss = batch.mask_tgt_for_loss
-                    tgt = tgt * mask_tgt_for_loss
-                    padding_tensor = (~mask_tgt_for_loss) * self.loss.padding_idx
-                    tgt = tgt + padding_tensor
-                    batch.tgt = tgt
-
                 batch_stats = self.loss.monolithic_compute_loss(batch, outputs)
+                '''
+
+                loss, logging_info = self.model(src, tgt, mask_src, mask_tgt)
+                batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                batch_stats.n_docs = logging_info['n_docs']
+
                 stats.update(batch_stats)
             self._report_step(0, step, valid_stats=stats)
             return stats

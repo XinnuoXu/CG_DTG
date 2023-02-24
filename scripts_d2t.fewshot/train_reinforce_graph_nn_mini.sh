@@ -6,8 +6,8 @@ train_from=$2
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
 PREVIOUS_MODEL_PATH=${BASE_PATH}/model.re.nn/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/model.re.nn.spectral_with_sample/
-LOG_PATH=${BASE_PATH}/logs.re.nn.spectral_with_sample/
+MODEL_PATH=${BASE_PATH}/model.re.nn.spectral/
+LOG_PATH=${BASE_PATH}/logs.re.nn.spectral/
 
 # percent=0.005; train_from=400;
 # percent=0.01; train_from=1200;
@@ -19,7 +19,7 @@ mkdir -p ${LOG_PATH}
 
 python train.py  \
 	-mode train \
-	-model_name t5-small \
+	-model_name facebook/bart-large \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
@@ -31,26 +31,25 @@ python train.py  \
 	-nn_graph True \
 	-gold_random_ratio 0.4 \
 	-spectral_ratio 0.1 \
-	-spectral_with_sample True \
 	-reset_optimizer True \
-	-train_steps 5000 \
-	-save_checkpoint_steps 500 \
-	-warmup_steps_reinforce 4500 \
+	-train_steps 2000 \
+	-save_checkpoint_steps 200 \
+	-warmup_steps_reinforce 1900 \
 	-warmup_steps 100 \
-	-batch_size 10 \
+	-batch_size 5 \
+	-lr 1e-6 \
 	-report_every 10 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 1e-6 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
 	-accum_count 2 \
 	-visible_gpus 0
 
-	#-gold_random_ratio 0.4 \
-	#-spectral_ratio 0.4 \
-	#-spectral_with_sample True \
 
-	#-gold_random_ratio 0.3 \
-	#-spectral_ratio 0.2 \
-	#-spectral_with_sample True \
+	#-train_steps 5000 \
+	#-save_checkpoint_steps 500 \
+	#-warmup_steps_reinforce 4500 \
+	#-warmup_steps 2000 \
+	#-batch_size 5 \
+	#-lr 3e-6 \

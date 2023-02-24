@@ -15,6 +15,7 @@ python train.py  \
 	-model_name facebook/bart-large \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
+	-train_from ${MODEL_PATH}/model_step_2500.pt \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs reinforce \
@@ -35,3 +36,4 @@ python train.py  \
 	-accum_count 1 \
 	-visible_gpus 0
 
+	#-train_steps 5000 \

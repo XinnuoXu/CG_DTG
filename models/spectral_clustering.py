@@ -113,6 +113,8 @@ class SpectralCluser():
             #groups = json_obj['prompt_str'].split(' ||| ')
             groups = json_obj['oracles_selection']
             npred = len(json_obj['predicates'])
+            if len(groups) > npred:
+                continue
             if npred not in ngroup_dict:
                 ngroup_dict[npred] = [0] * (npred+1)
             ngroup_dict[npred][len(groups)] += 1

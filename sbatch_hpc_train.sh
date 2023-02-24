@@ -2,7 +2,7 @@
 #SBATCH -A BROADSEM-SL2-GPU
 #SBATCH -p ampere
 #SBATCH --nodes=1	  # nodes requested
-#SBATCH --gres=gpu:1  # use 1 GPU
+#SBATCH --gres=gpu:3  # use 1 GPU
 #SBATCH --mem=14000  # memory in Mb
 #SBATCH -t 15:00:00  # time requested in hour:minute:seconds
 #SBATCH --cpus-per-task=1  # number of cpus to use - there are 32 on each node.
@@ -55,7 +55,6 @@ echo "Creating directory to save model weights"
 #sh ./scripts_d2t.less_triple_single_shot/train_reinforce_encdec_base.sh
 #sh ./scripts_d2t.less_triple_single_shot/train_reinforce_encdec_partial.sh
 #sh ./scripts_d2t.less_triple_single_shot/train_reinforce_encdec_partial_numerical.sh 
-
 
 
 # ====================
@@ -112,24 +111,73 @@ echo "Creating directory to save model weights"
 #sh ./tool/grid_search_nshort_sample.sh 7 4000 > tool/grid.res.7.sample
 
 
+# ====================
+# N-triple full
+# ====================
 
-# ====================
-# N-triple fewshot T5-large
-# ====================
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 2
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 3
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 4
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 5
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 6
-#sh ./scripts_d2t.ntriple_large/train_reinforce_encdec_partial.sh 7
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 2 t5-small
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 3 t5-small
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 4 t5-small
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 7 t5-small
 
-# ====================
-# Traditional fewshot Bart-large
-# ====================
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.005
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.01
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.05
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.1
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 2 t5-base
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 3 t5-base
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 4 t5-base
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 7 t5-base
+
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 2 t5-large
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 3 t5-large
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 4 t5-large
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 7 t5-large
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial_test.sh 7 t5-large
+#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial_test2.sh 7 t5-large
+
+#sh ./scripts_d2t.ntriple_full/train_webnlg_base.sh t5-large
+
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 2 t5-small
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 3 t5-small
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 4 t5-small
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 7 t5-small
+
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 2 t5-base
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 3 t5-base
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 4 t5-base
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 7 t5-base
+
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 2 t5-large
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 3 t5-large
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 4 t5-large
+#sh ./scripts_d2t.ntriple_full/validate_reinforce_encdec_partial.sh 7 t5-large
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-small 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-small 10000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-small 10000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-small 15000 false
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-small 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-small 10000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-small 10000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-small 15000 true
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-base 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-base 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-base 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-base 10000 false
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-base 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-base 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-base 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-base 10000 true
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-large 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-large 5000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-large 10000 false
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-large 10000 false
+
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 2 t5-large 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 3 t5-large 5000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 4 t5-large 10000 true
+#./scripts_d2t.ntriple_full/test_reinforce_encdec_partial.sh 7 t5-large 10000 true
 
 # ====================
 # Traditional fewshot Bart-base
@@ -140,19 +188,35 @@ echo "Creating directory to save model weights"
 #sh scripts_d2t.fewshot/train_reinforce_encdec_partial_bbase.sh 0.1
 
 # ====================
-# Traditional fewshot T5-large
+# Traditional fewshot Bart-large
 # ====================
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5large.sh 0.005
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5large.sh 0.01
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5large.sh 0.05
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5large.sh 0.1
+#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.005
+#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.01
+#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.05
+#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_blarge.sh 0.1
 
 # ====================
-# Traditional fewshot T5-small
+# Traditional fewshot nn_rl
 # ====================
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5small.sh 0.005
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5small.sh 0.01
-#sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5small.sh 0.05
-sh scripts_d2t.fewshot/train_reinforce_encdec_partial_t5small.sh 0.1
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn_mini.sh 0.005 400
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn_mini.sh 0.01 1200
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.05 3500
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.1 5000
+
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn_sample.sh 0.05 3500
+#sh scripts_d2t.fewshot/train_reinforce_graph_nn_sample.sh 0.1 5000
+
+
+# Parameters tuning -- determin
+#sh tool/grid_search_fewshot_determin.sh 0.005 500 > tool/grid.res_0.005.determin
+#sh tool/grid_search_fewshot_determin.sh 0.01 1500 > tool/grid.res_0.01.determin
+#sh tool/grid_search_fewshot_determin.sh 0.05 2500 > tool/grid.res_0.05.determin
+#sh tool/grid_search_fewshot_determin.sh 0.1 4000 > tool/grid.res_0.1.determin
+
+# Parameters tuning -- nn
+#sh tool/grid_search_fewshot_nn.sh 0.005 400 > tool/grid.res_0.005.nn
+#sh tool/grid_search_fewshot_nn.sh 0.01 1200 > tool/grid.res_0.01.nn
+#sh tool/grid_search_fewshot_nn.sh 0.05 3500 > tool/grid.res_0.05.nn
+#sh tool/grid_search_fewshot_nn.sh 0.1 5000 > tool/grid.res_0.1.nn
 
 echo "Job ${SLURM_JOB_ID} is done!"
