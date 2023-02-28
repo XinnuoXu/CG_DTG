@@ -6,11 +6,7 @@ from __future__ import division
 import os
 import argparse
 from models.logging import init_logger
-from train_classification import train_cls, validate_cls, test_cls
-from train_extractive import train_ext, validate_ext, test_ext
 from train_abstractive import train_abs, validate_abs, test_abs
-from train_slot import train_slot, validate_slot, test_slot
-from train_slotsumm import train_slotsumm, validate_slotsumm, test_slotsumm
 from train_reinforce import train_re, validate_re, test_re
 
 def str2bool(v):
@@ -77,6 +73,7 @@ if __name__ == '__main__':
     parser.add_argument("-seen_predicate_tokenized_paths", default='', type=str)
     parser.add_argument("-from_scratch", type=str2bool, default=False)
     parser.add_argument("-spectral_with_sample", type=str2bool, default=False)
+    parser.add_argument("-reinforce_strong_baseline", type=str2bool, default=False)
     parser.add_argument("-nn_graph", type=str2bool, default=False)
     parser.add_argument("-nn_graph_d_model", default=128, type=int)
     parser.add_argument("-nn_graph_d_ff", default=256, type=int)
@@ -89,6 +86,8 @@ if __name__ == '__main__':
     parser.add_argument("-test_entity_link", type=str2bool, default=False)
     parser.add_argument("-test_no_single_pred_score", type=str2bool, default=False)
     parser.add_argument("-test_unseen", type=str2bool, default=False)
+    parser.add_argument("-test_run_bernoulli", type=str2bool, default=True)
+    parser.add_argument("-test_adja_threshold", default=-1, type=float)
 
 
     # generation parameters
@@ -146,60 +145,7 @@ if __name__ == '__main__':
     device = "cpu" if args.visible_gpus == '-1' else "cuda"
     device_id = 0 if device == "cuda" else -1
 
-
-    if args.ext_or_abs == 'ext':
-        if (args.mode == 'train'):
-            train_ext(args, device_id)
-        elif (args.mode == 'validate'):
-            validate_ext(args, device_id)
-        if (args.mode == 'test'):
-            cp = args.test_from
-            try:
-                step = int(cp.split('.')[-2].split('_')[-1])
-            except:
-                step = 0
-            test_ext(args, device_id, cp, step)
-
-    elif args.ext_or_abs == 'cls':
-        if (args.mode == 'train'):
-            train_cls(args, device_id)
-        elif (args.mode == 'validate'):
-            validate_cls(args, device_id)
-        if (args.mode == 'test'):
-            cp = args.test_from
-            try:
-                step = int(cp.split('.')[-2].split('_')[-1])
-            except:
-                step = 0
-            test_cls(args, device_id, cp, step)
-
-    elif args.ext_or_abs == 'slot':
-        if (args.mode == 'train'):
-            train_slot(args, device_id)
-        elif (args.mode == 'validate'):
-            validate_slot(args, device_id)
-        if (args.mode == 'test'):
-            cp = args.test_from
-            try:
-                step = int(cp.split('.')[-2].split('_')[-1])
-            except:
-                step = 0
-            test_slot(args, device_id, cp, step)
-
-    elif args.ext_or_abs == 'slotsumm':
-        if (args.mode == 'train'):
-            train_slotsumm(args, device_id)
-        elif (args.mode == 'validate'):
-            validate_slotsumm(args, device_id)
-        if (args.mode == 'test'):
-            cp = args.test_from
-            try:
-                step = int(cp.split('.')[-2].split('_')[-1])
-            except:
-                step = 0
-            test_slotsumm(args, device_id, cp, step)
-
-    elif args.ext_or_abs == 'reinforce':
+    if args.ext_or_abs == 'reinforce':
         if (args.mode == 'train'):
             train_re(args, device_id)
         elif (args.mode == 'validate'):

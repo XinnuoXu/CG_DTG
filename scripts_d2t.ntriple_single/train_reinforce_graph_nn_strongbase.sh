@@ -6,8 +6,8 @@ train_from=$2
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
 PREVIOUS_MODEL_PATH=${BASE_PATH}/short_single.model.re.nn/
 DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.spectral/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.spectral/
+MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.strongbase/
+LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.strongbase/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -24,12 +24,13 @@ python train.py  \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-nn_graph True \
-	-gold_random_ratio 0.4 \
-	-spectral_ratio 0.1 \
+        -reinforce_strong_baseline True \
+	-gold_random_ratio 0.2 \
+	-spectral_ratio 0.8 \
 	-reset_optimizer True \
-	-train_steps 5000 \
-	-save_checkpoint_steps 500 \
-	-warmup_steps_reinforce 4500 \
+	-train_steps 7000 \
+	-save_checkpoint_steps 1000 \
+	-warmup_steps_reinforce 6000 \
 	-warmup_steps 2000 \
 	-batch_size 3 \
 	-report_every 100 \
@@ -38,5 +39,5 @@ python train.py  \
 	-lr 3e-6 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
-	-accum_count 2 \
+	-accum_count 5 \
 	-visible_gpus 0

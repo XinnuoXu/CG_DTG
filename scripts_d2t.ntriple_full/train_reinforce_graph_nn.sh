@@ -1,13 +1,14 @@
 #!/bin/bash
 
-ntriple=$1
-train_from=$2
+ntriple=$1 #[2,3,4,7]
+tokenizer=$2 #[t5-small, t5-base, t5-large]
+train_from=$3
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-PREVIOUS_MODEL_PATH=${BASE_PATH}/short_single.model.re.nn/
-DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.spectral/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.spectral/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
+PREVIOUS_MODEL_PATH=${BASE_PATH}/model.re.nn.${tokenizer}/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
+MODEL_PATH=${BASE_PATH}/model.re.nn.spectral.${tokenizer}/
+LOG_PATH=${BASE_PATH}/logs.re.nn.spectral.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -24,12 +25,12 @@ python train.py  \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-nn_graph True \
-	-gold_random_ratio 0.4 \
-	-spectral_ratio 0.1 \
+	-gold_random_ratio 0.1 \
+	-spectral_ratio 0.9 \
 	-reset_optimizer True \
 	-train_steps 5000 \
-	-save_checkpoint_steps 500 \
-	-warmup_steps_reinforce 4500 \
+	-save_checkpoint_steps 1000 \
+	-warmup_steps_reinforce 4000 \
 	-warmup_steps 2000 \
 	-batch_size 3 \
 	-report_every 100 \

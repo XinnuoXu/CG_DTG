@@ -196,7 +196,7 @@ class Translator(object):
             if self.args.pretrain_encoder_decoder:
                 src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode='gold')
             else:
-                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode='spectral')
+                src_groups, pred_groups, graph_probs = self.model.run_clustering(s, p, n_clusters, p_s, mode='spectral', run_bernoulli=False)
             parallel_src_example.append(src_groups)
             parallel_src.extend(src_groups)
             parallel_graph_probs.append(graph_probs)

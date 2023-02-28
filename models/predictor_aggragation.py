@@ -254,7 +254,9 @@ class Translator(object):
             res = self.model.run_clustering(s, p, n_clusters, p_s, 
                                             p_tok, p_tok_m,
                                             mode=self.args.test_alignment_type, 
-                                            src_str=s_str, pred_str=p_str)
+                                            src_str=s_str, pred_str=p_str,
+                                            run_bernoulli=self.args.test_run_bernoulli,
+                                            adja_threshold=self.args.test_adja_threshold)
             src_groups, pred_groups, graph_probs, pred_str_groups = self._order_groups(res)
             return src_groups, pred_groups, graph_probs, pred_str_groups
 
@@ -263,7 +265,9 @@ class Translator(object):
             res = self.model.run_clustering(s, p, n_clusters, p_s, 
                                             p_tok, p_tok_m,
                                             mode=self.args.test_alignment_type, 
-                                            src_str=s_str, pred_str=p_str)
+                                            src_str=s_str, pred_str=p_str,
+                                            run_bernoulli=self.args.test_run_bernoulli,
+                                            adja_threshold=self.args.test_adja_threshold)
             src_groups, pred_groups, graph_probs, pred_str_groups = self._order_groups(res)
 
             if self.args.test_alignment_type != 'discriministic':
@@ -271,7 +275,8 @@ class Translator(object):
 
             graph_score = min(graph_probs)
             #if graph_score * len(s) >= self.args.test_graph_selection_threshold:
-            if graph_score >= self.args.test_graph_selection_threshold:
+            #if graph_score >= self.args.test_graph_selection_threshold:
+            if graph_score > self.args.test_graph_selection_threshold:
                 return src_groups, pred_groups, graph_probs, pred_str_groups
 
         return src_groups, pred_groups, graph_probs, pred_str_groups

@@ -181,10 +181,16 @@ class Trainer(object):
                                                             p2s, nsent, mode='spectral')
 
                 # baseline
-                baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
-                                                ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                preds, pred_tokens, pred_mask_tokens, 
-                                                p2s, nsent, mode='random') # baseline
+                if self.args.reinforce_strong_baseline:
+                    baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
+                                                    ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                    preds, pred_tokens, pred_mask_tokens, 
+                                                    p2s, nsent, mode='spectral_baseline') # baseline
+                else:
+                    baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
+                                                    ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                    preds, pred_tokens, pred_mask_tokens, 
+                                                    p2s, nsent, mode='random') # baseline
 
                 # calculte loss
                 #cll = (-1) * (cll ** 2) * 100
