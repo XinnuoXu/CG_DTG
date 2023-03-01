@@ -275,8 +275,8 @@ class Translator(object):
 
             graph_score = min(graph_probs)
             #if graph_score * len(s) >= self.args.test_graph_selection_threshold:
-            #if graph_score >= self.args.test_graph_selection_threshold:
-            if graph_score > self.args.test_graph_selection_threshold:
+            if graph_score >= self.args.test_graph_selection_threshold:
+            #if graph_score > self.args.test_graph_selection_threshold:
                 return src_groups, pred_groups, graph_probs, pred_str_groups
 
         return src_groups, pred_groups, graph_probs, pred_str_groups

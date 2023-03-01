@@ -28,9 +28,9 @@ python train.py  \
 	-gold_random_ratio 0.2 \
 	-spectral_ratio 0.8 \
 	-reset_optimizer True \
-	-train_steps 7000 \
+	-train_steps 8000 \
 	-save_checkpoint_steps 1000 \
-	-warmup_steps_reinforce 6000 \
+	-warmup_steps_reinforce 7000 \
 	-warmup_steps 2000 \
 	-batch_size 3 \
 	-report_every 100 \

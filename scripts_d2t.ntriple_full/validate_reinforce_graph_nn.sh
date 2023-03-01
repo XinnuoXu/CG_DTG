@@ -28,3 +28,4 @@ python train.py \
 	-batch_size 200 \
 	-max_tgt_len 250 \
 	-visible_gpus 0 \
+        -reinforce_strong_baseline False \

@@ -1,11 +1,12 @@
 #!/bin/bash
 
-ntriple=$1
+ntriple=$1 #[2,3,4,7]
+tokenizer=$2 #[t5-small, t5-base, t5-large]
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.spectral_with_sample/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.spectral_with_sample/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
+MODEL_PATH=${BASE_PATH}/model.re.nn.strongbase.${tokenizer}/
+LOG_PATH=${BASE_PATH}/logs.re.nn.strongbase.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -27,3 +28,4 @@ python train.py \
 	-batch_size 200 \
 	-max_tgt_len 250 \
 	-visible_gpus 0 \
+        -reinforce_strong_baseline True \

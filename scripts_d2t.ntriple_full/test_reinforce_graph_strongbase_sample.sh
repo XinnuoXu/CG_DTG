@@ -8,8 +8,8 @@ selection_threshold=$5
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-MODEL_PATH=${BASE_PATH}/model.re.nn.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.nn.${tokenizer}/
+MODEL_PATH=${BASE_PATH}/model.re.nn.strongbase.${tokenizer}/
+LOG_PATH=${BASE_PATH}/logs.re.nn.strongbase_sample.${tokenizer}/
 
 if [ "$test_unseen" = false ]; then
 	OUTPUT_FILE=${LOG_PATH}/test.res
@@ -17,10 +17,11 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-# ntriple=2; test_from=4000; test_graph_selection_threshold=0.06
-# ntriple=3; test_from=4000; test_graph_selection_threshold=0.66
-# ntriple=4; test_from=4000; test_graph_selection_threshold=0.48
-# ntriple=7; test_from=4000; test_graph_selection_threshold=0.40
+# [New] strongbaseline training; sample in inference
+# ntriple=2; test_from=6000; test_graph_selection_threshold=
+# ntriple=3; test_from=8000; test_graph_selection_threshold=
+# ntriple=4; test_from=6000; test_graph_selection_threshold=
+# ntriple=7; test_from=8000; test_graph_selection_threshold=
 
 mkdir -p ${LOG_PATH}
 
@@ -50,3 +51,5 @@ python train.py \
         -test_min_length 5 \
 	-beam_size 3 \
 	-visible_gpus 0 \
+        -reinforce_strong_baseline True \
+	

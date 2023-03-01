@@ -27,9 +27,9 @@ do
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
 
-	python ./tool/nli_preprocess.py ${path_prefix}
-	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
-	python tool/nli_postprocess.py
+	#python ./tool/nli_preprocess.py ${path_prefix}
+	#python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
+	#python tool/nli_postprocess.py
 done
 echo ''
 

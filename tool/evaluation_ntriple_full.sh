@@ -1,23 +1,24 @@
 #/bin/bash
 
 test_type=$1
+tokenizer='t5-small'
 
 
 ################
 # Baseline
 ################
 
-ntriple_list=(2 3 4 5 6 7)
-test_from_list=(1000 2000 2000 3000 3000 3000)
+ntriple_list=(2 3 4 7)
+test_from_list=(3000 4000 6000 7000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.encdec_partial/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.encdec_partial.${tokenizer}/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.encdec_partial/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.encdec_partial.${tokenizer}/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' Baseline]; ntriple='${ntriple}
@@ -37,17 +38,17 @@ echo ''
 # Random
 ################
 
-ntriple_list=(2 3 4 5 6 7)
-test_from_list=(1000 2000 2000 3000 3000 3000)
+ntriple_list=(2 3 4 7)
+test_from_list=(3000 4000 6000 7000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.random/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.random.${tokenizer}/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.random/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.random.${tokenizer}/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' Random]; ntriple='${ntriple}
@@ -67,17 +68,17 @@ echo ''
 # Numerical
 ################
 
-ntriple_list=(2 3 4 5 6 7)
-test_from_list=(1000 2000 2000 3000 3000 3000)
+ntriple_list=(2 3 4 7)
+test_from_list=(3000 4000 6000 7000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.discriministic/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.discriministic.${tokenizer}/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.discriministic/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.discriministic.${tokenizer}/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' Numerical]; ntriple='${ntriple}
@@ -97,17 +98,17 @@ echo ''
 # FFN
 ################
 
-ntriple_list=(2 3 4 5 6 7)
-test_from_list=(2000 2000 2000 3000 2000 3000)
+ntriple_list=(2 3 4 7)
+test_from_list=(4000 4000 4000 4000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.nn/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.${tokenizer}/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.nn/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.${tokenizer}/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' FFN]; ntriple='${ntriple}
@@ -123,6 +124,7 @@ do
 done
 echo ''
 
+'''
 ################
 # FFN Reinforce
 ################
@@ -133,11 +135,11 @@ for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.nn.spectral/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.spectral/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.nn.spectral/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.spectral/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' FFN Reinforce]; ntriple='${ntriple}
@@ -163,11 +165,11 @@ for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
         test_from=${test_from_list[i]}
-	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+	base_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 	if [ "$1" = "seen" ]; then
-		path_prefix=${base_path}/short_single.logs.re.nn.spectral_with_sample/test.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.spectral_with_sample/test.res.${test_from}
 	else
-		path_prefix=${base_path}/short_single.logs.re.nn.spectral_with_sample/test_unseen.res.${test_from}
+		path_prefix=${base_path}/logs.re.nn.spectral_with_sample/test_unseen.res.${test_from}
 	fi
 
 	echo '['${test_type}' FFN Reinforce sample]; ntriple='${ntriple}
@@ -181,3 +183,4 @@ do
 	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
 	python tool/nli_postprocess.py
 done
+'''

@@ -347,6 +347,18 @@ class SpectralReinforce(nn.Module):
         self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
         self.cls_loss = torch.nn.BCELoss(reduction='none')
 
+        if self.args.reinforce_strong_baseline:
+            self.baseline_predicate_graph = PairClassification(len(self.tokenizer),
+                                                      pad_id,
+                                                      self.args.nn_graph_d_model,
+                                                      self.args.nn_graph_d_ff,
+                                                      self.args.nn_graph_heads,
+                                                      self.args.nn_graph_dropout,
+                                                      num_inter_layers=self.args.nn_graph_nlayers)
+            self.baseline_predicate_graph.load_state_dict(self.predicate_graph.state_dict())
+            for param in self.baseline_predicate_graph.parameters():
+                param.requires_grad = False
+
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
@@ -359,18 +371,6 @@ class SpectralReinforce(nn.Module):
                     nn.init.normal_(p.data, mean=-0.0, std=0.3)
         if args.pretrain_encoder_decoder:
             self.predicate_graph.requires_grad = False
-
-        if self.args.reinforce_strong_baseline:
-            self.baseline_predicate_graph = PairClassification(len(self.tokenizer),
-                                                      pad_id,
-                                                      self.args.nn_graph_d_model,
-                                                      self.args.nn_graph_d_ff,
-                                                      self.args.nn_graph_heads,
-                                                      self.args.nn_graph_dropout,
-                                                      num_inter_layers=self.args.nn_graph_nlayers)
-            self.baseline_predicate_graph.load_state_dict(self.predicate_graph.state_dict())
-            for param in self.baseline_predicate_graph.parameters():
-                param.requires_grad = False
 
         self.to(device)
 
@@ -420,11 +420,13 @@ class SpectralReinforce(nn.Module):
         return res
 
 
-    def _get_adjacency_matrix(self, predicate_graph, predicates, pred_token, pred_token_mask):
+    def _get_adjacency_matrix(self, predicate_graph, predicates, 
+                              pred_token, pred_token_mask):
         # get symmetric adjacency matrix
         linear_ajacency_matrix = predicate_graph(pred_token, pred_token_mask)
         adja = linear_ajacency_matrix.view(len(predicates), -1)
         symmatric_ajda = (torch.transpose(adja, 0, 1) + adja)/2
+
         return symmatric_ajda
 
 
@@ -435,14 +437,6 @@ class SpectralReinforce(nn.Module):
 
         if len(predicates) == 1:
             return [0]
-
-        # during testing, using the entity link bias to constrain the clustering 
-        for i, head_1 in enumerate(predicates):
-            for j, head_2 in enumerate(predicates):
-                if self.args.test_entity_link and \
-                        src_str is not None and \
-                        (not self._examine_src_pairs(src_str[i], src_str[j])):
-                    symmatric_ajda[i][j] = 0
 
         if run_bernoulli:
             # sample edge and make it symmetric and fully connected
@@ -459,14 +453,16 @@ class SpectralReinforce(nn.Module):
             adjacency_matrix = symmatric_ajda
             adjacency_matrix[adjacency_matrix < adja_threshold] = 0.0
 
-        '''
-        print ('NN', n_clusters)
-        print (pred_str)
-        print (ajacency_matrix)
-        print ('\n')
-        '''
-
         adjacency_matrix_numpy = adjacency_matrix.cpu().detach().numpy()
+
+        # during testing, using the entity link bias to constrain the clustering 
+        for i, head_1 in enumerate(predicates):
+            for j, head_2 in enumerate(predicates):
+                if self.args.test_entity_link and \
+                        src_str is not None and \
+                        (not self._examine_src_pairs(src_str[i], src_str[j])):
+                    adjacency_matrix_numpy[i][j] = 0
+
         clustering = SpectralClustering(n_clusters=n_clusters,
                                         assign_labels='discretize',
                                         eigen_solver='arpack',
@@ -592,6 +588,8 @@ class SpectralReinforce(nn.Module):
         
         if mode == 'spectral_baseline':
             adjacency_matrix = self._get_adjacency_matrix(self.baseline_predicate_graph, preds, pred_token, pred_token_mask)
+            if n_clusters == 1:
+                mode = 'random'
             #print ('[BASELINE]', adjacency_matrix, adjacency_matrix.requires_grad)
         else:
             adjacency_matrix = self._get_adjacency_matrix(self.predicate_graph, preds, pred_token, pred_token_mask)
