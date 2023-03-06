@@ -1,14 +1,15 @@
 #!/bin/bash
 
-ntriple=$1
-test_from=$2
-test_unseen=$3
-selection_threshold=$4
+ntriple=$1 #[2,3,4,7]
+tokenizer=$2 #[t5-small, t5-base, t5-large]
+test_from=$3
+test_unseen=$4
+selection_threshold=$5
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.strongbase/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.strongbase_threshold/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
+MODEL_PATH=${BASE_PATH}/model.re.nn.thresholdbase.${tokenizer}/
+LOG_PATH=${BASE_PATH}/logs.re.nn.thresholdbase_threshold.${tokenizer}/
 
 if [ "$test_unseen" = false ]; then
 	OUTPUT_FILE=${LOG_PATH}/test.res
@@ -16,15 +17,13 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-mkdir -p ${LOG_PATH}
-
-# [New] strongbaseline training; no sample but with threshold
-# ntriple=2; test_from=7000; test_graph_selection_threshold=
-# ntriple=3; test_from=3000; test_graph_selection_threshold=
+# [New] thresholdbaseline training; no sample but with threshold
+# ntriple=2; test_from=6000; test_graph_selection_threshold=
+# ntriple=3; test_from=7000; test_graph_selection_threshold=
 # ntriple=4; test_from=6000; test_graph_selection_threshold=
-# ntriple=5; test_from=5000; test_graph_selection_threshold=
-# ntriple=6; test_from=4000; test_graph_selection_threshold=
 # ntriple=7; test_from=8000; test_graph_selection_threshold=
+
+mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode test \
@@ -53,4 +52,3 @@ python train.py \
         -test_min_length 5 \
 	-beam_size 3 \
 	-visible_gpus 0 \
-        -reinforce_strong_baseline True \

@@ -6,16 +6,11 @@ train_from=$2
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
 PREVIOUS_MODEL_PATH=${BASE_PATH}/short_single.model.re.nn/
 DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
-MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.spectral_with_sample/
-LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.spectral_with_sample/
-
-# ntriple=2; test_from=2000
-# ntriple=4; test_from=1000
-# ntriple=5; test_from=1000
-# ntriple=6; test_from=1000
-# ntriple=7; test_from=3000
+MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.thresholdbase/
+LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.thresholdbase/
 
 mkdir -p ${MODEL_PATH}
+rm -rf ${MODEL_PATH}/*
 mkdir -p ${LOG_PATH}
 
 python train.py  \
@@ -30,14 +25,16 @@ python train.py  \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-nn_graph True \
-	-gold_random_ratio 0.4 \
-	-spectral_ratio 0.1 \
-	-spectral_with_sample True \
+        -reinforce_threshold_baseline True \
+        -reinforce_baseline_adja_threshold 0.5 \
+	-gold_random_ratio 0.1 \
+	-spectral_ratio 0.9 \
+        -nn_graph_dropout 0.1 \
+	-reinforce_bernoulli_temp 1.5 \
 	-reset_optimizer True \
-	-train_steps 5000 \
-	-save_checkpoint_steps 500 \
-	-warmup_steps_reinforce 4500 \
-	-warmup_steps 2000 \
+	-train_steps 8000 \
+	-save_checkpoint_steps 1000 \
+	-warmup_steps 1000 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \
@@ -45,13 +42,5 @@ python train.py  \
 	-lr 3e-6 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
-	-accum_count 2 \
+	-accum_count 5 \
 	-visible_gpus 0
-
-	#-gold_random_ratio 0.4 \
-	#-spectral_ratio 0.4 \
-	#-spectral_with_sample True \
-
-	#-gold_random_ratio 0.3 \
-	#-spectral_ratio 0.2 \
-	#-spectral_with_sample True \

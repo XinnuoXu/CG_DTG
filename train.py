@@ -74,12 +74,15 @@ if __name__ == '__main__':
     parser.add_argument("-from_scratch", type=str2bool, default=False)
     parser.add_argument("-spectral_with_sample", type=str2bool, default=False)
     parser.add_argument("-reinforce_strong_baseline", type=str2bool, default=False)
+    parser.add_argument("-reinforce_threshold_baseline", type=str2bool, default=False)
+    parser.add_argument("-reinforce_baseline_adja_threshold", default=-1, type=float)
+    parser.add_argument("-reinforce_bernoulli_temp", default=2.0, type=float)
     parser.add_argument("-nn_graph", type=str2bool, default=False)
     parser.add_argument("-nn_graph_d_model", default=128, type=int)
     parser.add_argument("-nn_graph_d_ff", default=256, type=int)
     parser.add_argument("-nn_graph_heads", default=4, type=int)
     parser.add_argument("-nn_graph_nlayers", default=2, type=int)
-    parser.add_argument("-nn_graph_dropout", default=0.1, type=int)
+    parser.add_argument("-nn_graph_dropout", default=0.1, type=float)
     parser.add_argument("-test_alignment_type", type=str, default='spectral', choices=['gold', 'spectral', 'discriministic', 'full_src', 'random_test'])
     parser.add_argument("-test_given_nclusters", type=str2bool, default=True)
     parser.add_argument("-test_graph_selection_threshold", default=1.0, type=float)
@@ -89,11 +92,10 @@ if __name__ == '__main__':
     parser.add_argument("-test_run_bernoulli", type=str2bool, default=True)
     parser.add_argument("-test_adja_threshold", default=-1, type=float)
 
-
     # generation parameters
     parser.add_argument("-label_smoothing", default=0.1, type=float)
     parser.add_argument("-generator_shard_size", default=32, type=int)
-    parser.add_argument("-alpha",  default=0.6, type=float)
+    parser.add_argument("-alpha", default=0.6, type=float)
     parser.add_argument("-beam_size", default=5, type=int)
 
     # traning parameters
@@ -112,7 +114,6 @@ if __name__ == '__main__':
     parser.add_argument("-warmup_steps", default=8000, type=int)
     parser.add_argument("-warmup_steps_planner", default=8000, type=int)
     parser.add_argument("-warmup_steps_encdec", default=8000, type=int)
-    parser.add_argument("-warmup_steps_reinforce", default=8000, type=int)
     parser.add_argument("-report_every", default=1, type=int)
     parser.add_argument("-train_steps", default=1000, type=int)
     parser.add_argument("-save_checkpoint_steps", default=5, type=int)

@@ -11,6 +11,7 @@ MODEL_PATH=${BASE_PATH}/model.re.nn.spectral.${tokenizer}/
 LOG_PATH=${BASE_PATH}/logs.re.nn.spectral.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
+rm -rf ${MODEL_PATH}/*
 mkdir -p ${LOG_PATH}
 
 python train.py  \
@@ -27,11 +28,12 @@ python train.py  \
 	-nn_graph True \
 	-gold_random_ratio 0.1 \
 	-spectral_ratio 0.9 \
+        -nn_graph_dropout 0.1 \
+	-reinforce_bernoulli_temp 1.5 \
 	-reset_optimizer True \
 	-train_steps 8000 \
 	-save_checkpoint_steps 1000 \
-	-warmup_steps_reinforce 7000 \
-	-warmup_steps 2000 \
+	-warmup_steps 1000 \
 	-batch_size 3 \
 	-report_every 100 \
 	-max_pos 250 \

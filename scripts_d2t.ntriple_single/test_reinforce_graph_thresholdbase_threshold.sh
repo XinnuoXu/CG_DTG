@@ -1,15 +1,14 @@
 #!/bin/bash
 
-ntriple=$1 #[2,3,4,7]
-tokenizer=$2 #[t5-small, t5-base, t5-large]
-test_from=$3
-test_unseen=$4
-selection_threshold=$5
+ntriple=$1
+test_from=$2
+test_unseen=$3
+selection_threshold=$4
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-MODEL_PATH=${BASE_PATH}/model.re.nn.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.nn.${tokenizer}/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
+DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
+MODEL_PATH=${BASE_PATH}/short_single.model.re.nn.thresholdbase/
+LOG_PATH=${BASE_PATH}/short_single.logs.re.nn.thresholdbase_threshold/
 
 if [ "$test_unseen" = false ]; then
 	OUTPUT_FILE=${LOG_PATH}/test.res
@@ -17,12 +16,15 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-# ntriple=2; test_from=4000; test_graph_selection_threshold=0.06
-# ntriple=3; test_from=4000; test_graph_selection_threshold=0.66
-# ntriple=4; test_from=4000; test_graph_selection_threshold=0.48
-# ntriple=7; test_from=4000; test_graph_selection_threshold=0.40
-
 mkdir -p ${LOG_PATH}
+
+# [New] thresholdbaseline training; no sample in inference
+# ntriple=2; test_from=4000; test_graph_selection_threshold=
+# ntriple=3; test_from=2000; test_graph_selection_threshold=
+# ntriple=4; test_from=5000; test_graph_selection_threshold=
+# ntriple=5; test_from=8000; test_graph_selection_threshold=
+# ntriple=6; test_from=6000; test_graph_selection_threshold=
+# ntriple=7; test_from=8000; test_graph_selection_threshold=
 
 python train.py \
 	-mode test \
@@ -39,7 +41,8 @@ python train.py \
 	-test_entity_link True \
 	-test_no_single_pred_score True \
 	-calculate_graph_prob_method min \
-	-test_run_bernoulli True \
+        -test_run_bernoulli False \
+        -test_adja_threshold ${selection_threshold} \
 	-test_graph_selection_threshold ${selection_threshold} \
 	-nn_graph True \
 	-shuffle_src False \

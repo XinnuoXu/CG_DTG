@@ -157,28 +157,22 @@ class Trainer(object):
 
             else:
                 # conditional log likelihood
-                if step < self.args.warmup_steps_reinforce:
-                    sampled_num = random.random()
-                    if sampled_num <= self.args.gold_random_ratio:
-                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
-                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, pred_tokens, pred_mask_tokens, 
-                                                                p2s, nsent, mode='gold')
-                    elif sampled_num >= 1 - self.args.spectral_ratio:
-                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
-                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, pred_tokens, pred_mask_tokens, 
-                                                                p2s, nsent, mode='spectral')
-                    else:
-                        cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
-                                                                ctgt, mask_ctgt, mask_ctgt_loss, 
-                                                                preds, pred_tokens, pred_mask_tokens, 
-                                                                p2s, nsent, mode='random')
-                else:
+                sampled_num = random.random()
+                if sampled_num <= self.args.gold_random_ratio:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                            ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                            preds, pred_tokens, pred_mask_tokens, 
+                                                            p2s, nsent, mode='gold')
+                elif sampled_num >= 1 - self.args.spectral_ratio:
                     cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
                                                             p2s, nsent, mode='spectral')
+                else:
+                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                                                            ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                            preds, pred_tokens, pred_mask_tokens, 
+                                                            p2s, nsent, mode='random')
 
                 # baseline
                 if self.args.reinforce_strong_baseline:
@@ -186,6 +180,11 @@ class Trainer(object):
                                                     ctgt, mask_ctgt, mask_ctgt_loss, 
                                                     preds, pred_tokens, pred_mask_tokens, 
                                                     p2s, nsent, mode='spectral_baseline') # baseline
+                elif self.args.reinforce_threshold_baseline:
+                    baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
+                                                    ctgt, mask_ctgt, mask_ctgt_loss, 
+                                                    preds, pred_tokens, pred_mask_tokens, 
+                                                    p2s, nsent, mode='threshold_baseline')
                 else:
                     baseline_cll, _, _ = self.model(src, tgt, mask_tgt, 
                                                     ctgt, mask_ctgt, mask_ctgt_loss, 

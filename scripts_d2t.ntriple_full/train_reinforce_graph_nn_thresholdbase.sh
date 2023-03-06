@@ -7,8 +7,8 @@ train_from=$3
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 PREVIOUS_MODEL_PATH=${BASE_PATH}/model.re.nn.${tokenizer}/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-MODEL_PATH=${BASE_PATH}/model.re.nn.strongbase.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.nn.strongbase.${tokenizer}/
+MODEL_PATH=${BASE_PATH}/model.re.nn.thresholdbase.${tokenizer}/
+LOG_PATH=${BASE_PATH}/logs.re.nn.thresholdbase.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
 rm -rf ${MODEL_PATH}/*
@@ -26,7 +26,8 @@ python train.py  \
 	-train_predicate_graph_only True \
 	-conditional_decoder True \
 	-nn_graph True \
-        -reinforce_strong_baseline True \
+        -reinforce_threshold_baseline True \
+        -reinforce_baseline_adja_threshold 0.5 \
 	-gold_random_ratio 0.1 \
 	-spectral_ratio 0.9 \
         -nn_graph_dropout 0.1 \

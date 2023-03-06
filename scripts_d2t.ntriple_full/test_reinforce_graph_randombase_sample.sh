@@ -21,10 +21,10 @@ fi
 # ntriple=7; test_from=4000; test_graph_selection_threshold=0.015
 
 # [New] strongbaseline training; sample in inference
-# ntriple=2; test_from=8000; test_graph_selection_threshold=
-# ntriple=3; test_from=3000; test_graph_selection_threshold=
-# ntriple=4; test_from=7000; test_graph_selection_threshold=
-# ntriple=7; test_from=5000; test_graph_selection_threshold=
+# ntriple=2; test_from=4000; test_graph_selection_threshold=
+# ntriple=3; test_from=7000; test_graph_selection_threshold=
+# ntriple=4; test_from=3000; test_graph_selection_threshold=
+# ntriple=7; test_from=4000; test_graph_selection_threshold=
 
 mkdir -p ${LOG_PATH}
 
