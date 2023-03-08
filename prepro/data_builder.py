@@ -14,7 +14,7 @@ from os.path import join as pjoin
 import torch
 import numpy as np
 from multiprocess import Pool
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, M2M100Tokenizer
 
 from models.logging import logger
 
@@ -24,9 +24,12 @@ class DataCreator():
 
         self.args = args
 
-        self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
+        if args.tokenizer == 'facebook/m2m100_418M':
+            self.tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M", src_lang="en", tgt_lang=args.tgt_lang)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
-        if args.tokenizer.startswith('t5-'):
+        if args.tokenizer.startswith('t5-') or args.tokenizer == "facebook/m2m100_418M":
             special_tokens_dict = {"cls_token": "<s>", "bos_token": "<s>"}
             self.tokenizer.add_special_tokens(special_tokens_dict)
 
@@ -77,21 +80,30 @@ class DataCreator():
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
         source_tokens = tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_length)['input_ids']
+        #print (src_txt, source_tokens)
 
         return source_tokens, src
 
 
     def preprocess_tgt(self, tgt, max_tgt_length):
 
-        tgt_txt = ' '.join(tgt)
+        if self.args.tokenizer == 'facebook/m2m100_418M':
+            tgt_txt = ' '.join(tgt)
+            with self.tokenizer.as_target_tokenizer():
+                target_tokens = self.tokenizer(tgt_txt,
+                                               padding='do_not_pad', 
+                                               truncation=True, 
+                                               max_length=max_tgt_length)['input_ids']
+            #print (tgt_txt, target_tokens)
+        else:
+            tgt_txt = ' '.join(tgt)
+            if self.args.tokenizer.startswith('t5-'):
+                tgt_txt = self.bos_token + ' ' + tgt_txt
 
-        if self.args.tokenizer.startswith('t5-'):
-            tgt_txt = self.bos_token + ' ' + tgt_txt
-
-        target_tokens = self.tokenizer(tgt_txt, 
-                                       padding='do_not_pad', 
-                                       truncation=True, 
-                                       max_length=max_tgt_length)['input_ids']
+            target_tokens = self.tokenizer(tgt_txt, 
+                                           padding='do_not_pad', 
+                                           truncation=True, 
+                                           max_length=max_tgt_length)['input_ids']
 
         return target_tokens, tgt_txt
 

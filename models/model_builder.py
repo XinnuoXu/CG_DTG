@@ -346,6 +346,18 @@ class SpectralReinforce(nn.Module):
         self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
         self.cls_loss = torch.nn.BCELoss(reduction='none')
 
+        if self.args.reinforce_strong_baseline:
+            self.baseline_predicate_graph = PairClassification(len(self.tokenizer),
+                                                      pad_id,
+                                                      self.args.nn_graph_d_model,
+                                                      self.args.nn_graph_d_ff,
+                                                      self.args.nn_graph_heads,
+                                                      self.args.nn_graph_dropout,
+                                                      num_inter_layers=self.args.nn_graph_nlayers)
+            self.baseline_predicate_graph.load_state_dict(self.predicate_graph.state_dict())
+            for param in self.baseline_predicate_graph.parameters():
+                param.requires_grad = False
+
         if checkpoint is not None:
             print ('Load parameters from checkpoint...')
             self.load_state_dict(checkpoint['model'], strict=True)
@@ -358,18 +370,6 @@ class SpectralReinforce(nn.Module):
                     nn.init.normal_(p.data, mean=-0.0, std=0.3)
         if args.pretrain_encoder_decoder:
             self.predicate_graph.requires_grad = False
-
-        if self.args.reinforce_strong_baseline:
-            self.baseline_predicate_graph = PairClassification(len(self.tokenizer),
-                                                      pad_id,
-                                                      self.args.nn_graph_d_model,
-                                                      self.args.nn_graph_d_ff,
-                                                      self.args.nn_graph_heads,
-                                                      self.args.nn_graph_dropout,
-                                                      num_inter_layers=self.args.nn_graph_nlayers)
-            self.baseline_predicate_graph.load_state_dict(self.predicate_graph.state_dict())
-            for param in self.baseline_predicate_graph.parameters():
-                param.requires_grad = False
 
         self.to(device)
 
@@ -459,7 +459,6 @@ class SpectralReinforce(nn.Module):
             return np.array([0]), symmatric_ajda
 
         if run_bernoulli:
-            '''
             # sample edge and make it symmetric and fully connected
             sampled_edges = torch.bernoulli(symmatric_ajda)
             triu_index_i, triu_index_j = torch.triu_indices(len(predicates), len(predicates))
@@ -474,6 +473,7 @@ class SpectralReinforce(nn.Module):
             m = RelaxedBernoulli(torch.tensor([self.args.reinforce_bernoulli_temp], device=self.device), symmatric_ajda)
             adjacency_matrix = m.rsample()
             adjacency_matrix = (torch.transpose(adjacency_matrix, 0, 1) + adjacency_matrix)/2
+            '''
         else:
             adjacency_matrix = symmatric_ajda
             adjacency_matrix[adjacency_matrix < adja_threshold] = 0.0
@@ -605,11 +605,11 @@ class SpectralReinforce(nn.Module):
                     in_prob = min(in_prob)
                     log_prob = torch.log(in_prob)
                 else:
-                    #in_prob = sum(in_prob)
-                    #out_prob = sum(out_prob)
-                    #log_prob = torch.log(in_prob/out_prob)
+                    in_prob = sum(in_prob)
+                    out_prob = sum(out_prob)
+                    log_prob = torch.log(in_prob/out_prob)
 
-                    log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
+                    #log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
 
                     #log_in_prob = sum([torch.log(item) for item in in_prob])
                     #log_out_prob = sum([torch.log(item) for item in out_prob])
@@ -763,10 +763,13 @@ class SpectralReinforce(nn.Module):
         elif mode == 'random_test':
             graph_prob = [0.0 for i in range(n_clusters)]
         else:
+            '''
             if sample_matrix is not None:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, sample_matrix)
             else:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
+            '''
+            graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
             #graph_prob = self.calculate_graph_prob(labels, adjacency_matrix)
 
         '''
