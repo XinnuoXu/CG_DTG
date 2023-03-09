@@ -605,11 +605,11 @@ class SpectralReinforce(nn.Module):
                     in_prob = min(in_prob)
                     log_prob = torch.log(in_prob)
                 else:
-                    in_prob = sum(in_prob)
-                    out_prob = sum(out_prob)
-                    log_prob = torch.log(in_prob/out_prob)
+                    #in_prob = sum(in_prob)
+                    #out_prob = sum(out_prob)
+                    #log_prob = torch.log(in_prob/out_prob)
 
-                    #log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
+                    log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
 
                     #log_in_prob = sum([torch.log(item) for item in in_prob])
                     #log_out_prob = sum([torch.log(item) for item in out_prob])
@@ -763,13 +763,11 @@ class SpectralReinforce(nn.Module):
         elif mode == 'random_test':
             graph_prob = [0.0 for i in range(n_clusters)]
         else:
-            '''
             if sample_matrix is not None:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, sample_matrix)
             else:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
-            '''
-            graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
+            #§graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
             #graph_prob = self.calculate_graph_prob(labels, adjacency_matrix)
 
         '''
