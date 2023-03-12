@@ -64,7 +64,6 @@ class Translator(object):
         self.device = self.model.device
 
 
-    '''
     def translate(self, data_iter, step, attn_debug=False):
         gold_path = self.args.result_path + '.%d.gold' % step
         can_path = self.args.result_path + '.%d.candidate' % step
@@ -158,7 +157,6 @@ class Translator(object):
             translations.append(translation)
 
         return translations
-    '''
 
 
     def translate_batch(self, batch, fast=False):
@@ -397,6 +395,24 @@ class Translator(object):
             src_features = torch.stack(src_features, 0)
             mask_src = torch.stack(mask_src, 0)
 
+            '''
+            print (current_group_ids)
+            print (src_features[:,1,:3])
+            print (mask_src)
+            print ('\n')
+
+            for i in range(alive_seq.size(0)):
+                print (' '.join(self.tokenizer.convert_ids_to_tokens(tmp_src[i])).replace('<pad> ', ''))
+                #print (tmp_src[i])
+                #print (mask_src[i])
+                print ('***')
+                print (' '.join(self.tokenizer.convert_ids_to_tokens(alive_seq[i])))
+                print ('--------------------------')
+            print (current_group_ids)
+            print (current_sent_length)
+            print ('\n')
+            '''
+
             # run decoder
             decoder_input = alive_seq
             decoder_outputs = self.model.abs_model.decoder(input_ids=decoder_input,
@@ -555,7 +571,6 @@ class Translator(object):
         # run encoding
         src_features_for_each_example, mask_src_for_each_example, src_for_each_example = self._run_encoder(src, mask_src, ngroups)
         
-        '''
         # run decoding
         results = self._run_conditioned_text_generation(src, mask_src, src_examples,
                                                         pred_clusters, pred_str_clusters, 
@@ -564,89 +579,6 @@ class Translator(object):
                                                         mask_src_for_each_example,
                                                         src_for_each_example,
                                                         max_length, min_length, batch=batch)
-        '''
-
-        batch_size = batch.batch_size
-        results = {}
-
-        results["predictions"] = [[] for _ in range(batch_size)]
-        results["scores"] = [[] for _ in range(batch_size)]
-        results["batch"] = batch
-
-        outputs = self.model.abs_model(src, tgt, mask_src, mask_tgt, run_decoder=False)
-        for i in range(outputs.size(0)):
-            results["predictions"][i].append(outputs[i])
-            results["scores"][i].append(0.0)
-
         return results
 
 
-    def from_batch(self, translation_batch):
-        batch = translation_batch["batch"]
-        assert (len(translation_batch["scores"]) == len(translation_batch["predictions"]))
-        batch_size = batch.batch_size
-        preds = translation_batch["predictions"]
-        pred_score = translation_batch["scores"]
-
-        src_str = batch.src_str
-        tgt_str = batch.tgt_str
-        src = batch.src
-        eid = batch.eid
-
-        translations = []
-        for b in range(batch_size):
-            token_ids = preds[b][0]
-
-            pred_sent = self.tokenizer.decode(token_ids, skip_special_tokens=True)
-            pred_sent = pred_sent.replace(self.cls_token, '<q>')
-            gold_sent = ' '.join(tgt_str[b]).replace('<s> ', '')
-            src_list = src_str[b]
-            #raw_src = self.tokenizer.decode(src[b], skip_special_tokens=False)
-            raw_src = ' '.join(src_list)
-
-            translation = (pred_sent,
-                           gold_sent,
-                           raw_src,
-                           src_list,
-                           eid[b])
-
-            translations.append(translation)
-
-        return translations
-
-
-    def translate(self, data_iter, step, attn_debug=False):
-        gold_path = self.args.result_path + '.%d.gold' % step
-        can_path = self.args.result_path + '.%d.candidate' % step
-        raw_src_path = self.args.result_path + '.%d.raw_src' % step
-        eid_path = self.args.result_path + '.%d.eid' % step
-
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
-        self.eid_out_file = codecs.open(eid_path, 'w', 'utf-8')
-
-        self.model.eval()
-        with torch.no_grad():
-            for batch in data_iter:
-                # pridiction
-                batch_data = self.translate_batch(batch)
-                # prepare output data
-                translations = self.from_batch(batch_data)
-
-                for trans in translations:
-                    pred_str, gold_str, src_str, src_list, eid = trans
-                    self.can_out_file.write(pred_str.strip() + '\n')
-                    self.gold_out_file.write(gold_str.strip() + '\n')
-                    self.src_out_file.write(src_str.strip() + '\n')
-                    self.eid_out_file.write(eid + '\n')
-
-                self.can_out_file.flush()
-                self.gold_out_file.flush()
-                self.src_out_file.flush()
-                self.eid_out_file.flush()
-
-        self.can_out_file.close()
-        self.gold_out_file.close()
-        self.src_out_file.close()
-        self.eid_out_file.close()

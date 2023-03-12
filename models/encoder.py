@@ -318,10 +318,13 @@ class PairClassification(nn.Module):
 
         x = self.layer_norm(x)
         top_vec = x[:,0,:]
-        sent_scores = self.sigmoid(self.wo(top_vec))
-        sent_scores = sent_scores.squeeze(-1)
+        pair_scores = self.wo(top_vec)
+        pair_probs = self.sigmoid(pair_scores)
 
-        return sent_scores
+        pair_scores = pair_scores.squeeze(-1)
+        pair_probs = pair_probs.squeeze(-1)
+
+        return pair_probs, pair_scores
 
 
 

@@ -343,6 +343,7 @@ class SpectralReinforce(nn.Module):
             self.predicate_graph = nn.Parameter(torch.full((self.vocab_size, self.vocab_size), -7.0, device=self.device))
 
         self.sigmoid = torch.nn.Sigmoid()
+        self.softmax = torch.nn.Softmax(dim=1)
         self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
         self.cls_loss = torch.nn.BCELoss(reduction='none')
 
@@ -440,14 +441,25 @@ class SpectralReinforce(nn.Module):
     def _get_adjacency_matrix(self, predicate_graph, predicates, 
                               pred_token, pred_token_mask):
         # get symmetric adjacency matrix
-        linear_ajacency_matrix = predicate_graph(pred_token, pred_token_mask)
+        linear_prob_matrix, linear_score_matrix = predicate_graph(pred_token, pred_token_mask)
+
+        '''
+        linear_ajacency_matrix = linear_prob_matrix
         adja = linear_ajacency_matrix.view(len(predicates), -1)
+
         if self.args.nn_graph_dropout > 0.0:
             symmatric_ajda = (torch.transpose(adja, 0, 1) + adja)/2
         else:
             symmatric_ajda = adja
 
         return symmatric_ajda
+        '''
+
+        linear_ajacency_matrix = linear_score_matrix
+        linear_ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
+        adja = self.softmax(linear_ajacency_matrix)
+
+        return adja
 
 
     def run_spectral(self, predicates, symmatric_ajda, n_clusters, 
@@ -459,6 +471,7 @@ class SpectralReinforce(nn.Module):
             return np.array([0]), symmatric_ajda
 
         if run_bernoulli:
+            '''
             # sample edge and make it symmetric and fully connected
             sampled_edges = torch.bernoulli(symmatric_ajda)
             triu_index_i, triu_index_j = torch.triu_indices(len(predicates), len(predicates))
@@ -473,7 +486,6 @@ class SpectralReinforce(nn.Module):
             m = RelaxedBernoulli(torch.tensor([self.args.reinforce_bernoulli_temp], device=self.device), symmatric_ajda)
             adjacency_matrix = m.rsample()
             adjacency_matrix = (torch.transpose(adjacency_matrix, 0, 1) + adjacency_matrix)/2
-            '''
         else:
             adjacency_matrix = symmatric_ajda
             adjacency_matrix[adjacency_matrix < adja_threshold] = 0.0
@@ -949,7 +961,7 @@ class SpectralReinforce(nn.Module):
         masks = torch.cat(pred_mask_tokens)
         labels = torch.cat([item.unsqueeze(1) for item in aggregation_labels]).squeeze(-1)
 
-        sent_scores = self.predicate_graph(tokens, masks)
+        sent_scores, _ = self.predicate_graph(tokens, masks)
         loss = self.cls_loss(sent_scores, labels.float())
 
         logging_info = self._log_classification_stats(sent_scores, labels) # log_info
