@@ -721,7 +721,7 @@ class SpectralReinforce(nn.Module):
 
         elif mode == 'discriministic':
             labels = self.run_discriministic(src_str, pred_str, n_clusters)
-            labels = labels.tolist()
+            #labels = labels.tolist()
 
         else:
             if mode == 'spectral_baseline':
