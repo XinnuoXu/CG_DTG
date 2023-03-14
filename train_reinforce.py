@@ -262,6 +262,7 @@ def test_re(args, device_id, pt, step):
                                               shuffle=False, is_test=True)
 
     checkpoint = torch.load(test_from, map_location=lambda storage, loc: storage)
+
     opt = vars(checkpoint['opt'])
     for k in opt.keys():
         if (k in model_flags):
