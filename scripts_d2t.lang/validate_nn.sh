@@ -1,12 +1,11 @@
 #!/bin/bash
 
-ntriple=$1 #[2,3,4,7]
-tokenizer=$2 #[t5-small, t5-base, t5-large]
+lang=$1 #[br, cy, ga, ru]
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-MODEL_PATH=${BASE_PATH}/model.re.nn.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.nn.${tokenizer}/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${lang}triple.full/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
+MODEL_PATH=${BASE_PATH}/model.re.nn/
+LOG_PATH=${BASE_PATH}/logs.re.nn/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
@@ -23,7 +22,7 @@ python train.py \
 	-pretrain_nn_cls True \
 	-pretrain_encoder_decoder False \
 	-train_predicate_graph_only True \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-shuffle_src False \
         -max_pos 250 \
 	-batch_size 200 \

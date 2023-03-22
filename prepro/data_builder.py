@@ -80,7 +80,6 @@ class DataCreator():
         if self.args.tokenizer.startswith('t5-'):
             src_txt = self.cls_token + ' ' + src_txt
         source_tokens = tokenizer(src_txt, padding='do_not_pad', truncation=True, max_length=max_src_length)['input_ids']
-        #print (src_txt, source_tokens)
 
         return source_tokens, src
 

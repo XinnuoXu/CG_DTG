@@ -7,8 +7,8 @@ tokenizer=$1 #[t5-small, t5-base, t5-large]
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/baselines/
-#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_plms/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_data/
+#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg_plms/
 JSON_PATH=${BASE_PATH}/jsons/
 LOG_PATH=${BASE_PATH}/logs.data/
 

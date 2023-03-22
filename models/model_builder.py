@@ -15,11 +15,13 @@ from scipy.optimize import linear_sum_assignment
 from scipy.stats import entropy
 from models.optimizers import Optimizer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
-from transformers import LongformerModel, BertModel, T5ForConditionalGeneration
+from transformers import LongformerModel, BertModel, T5ForConditionalGeneration, BartForConditionalGeneration
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier, PairClassification
 from models.slot_attn import SlotAttention, SoftKMeans
 from models.spectral_clustering import SpectralCluser
 from sentence_transformers.models import Pooling
+
+torch.autograd.set_detect_anomaly(True)
 
 def build_optim(args, model, checkpoint, lr=None, warmup_steps=None):
     """ Build optimizer """
@@ -273,7 +275,7 @@ class AbsSummarizer(nn.Module):
             output_sequences = self.model.generate(input_ids=src, 
                                                     attention_mask=mask_src, 
                                                     do_sample=False, 
-                                                    max_length=256, 
+                                                    max_length=128, 
                                                     min_length=5,
                                                     num_beams=5,
                                                     no_repeat_ngram_size=5)
@@ -302,24 +304,22 @@ class AbsSummarizer(nn.Module):
 
 
 class SpectralReinforce(nn.Module):
-    def __init__(self, args, device, pad_id, vocab_size, tokenizer, abs_model=None, checkpoint=None):
+    def __init__(self, args, device, pad_id, vocab_size, tokenizer, checkpoint=None):
         super(SpectralReinforce, self).__init__()
         self.args = args
         self.device = device
-        self.vocab_size = vocab_size
-        self.pad_id = pad_id
+        #self.pad_id = pad_id
+
+        self.abs_model = AutoModelForSeq2SeqLM.from_pretrained(self.args.model_name)
 
         self.tokenizer = tokenizer
-
         self.vocab_size = vocab_size
         self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        print (self.vocab_size, len(self.original_tokenizer))
+        if self.vocab_size > len(self.original_tokenizer):
+            self.abs_model.resize_token_embeddings(self.vocab_size)
+        self.pad_id = self.original_tokenizer.pad_token_id
         self.all_predicates = [i for i in range(len(self.original_tokenizer), self.vocab_size)]
-        
-
-        if abs_model is not None:
-            self.abs_model = abs_model
-        else:
-            self.abs_model = AbsSummarizer(args, device, vocab_size)
 
         self.deterministic_graph = SpectralCluser(method = 'spectral_clustering',
                                                  assign_labels = 'discretize',
@@ -858,8 +858,26 @@ class SpectralReinforce(nn.Module):
             src_groups, pred_groups, graph_probs, _, _, n_clusters = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
 
             # run cluster-to-output_sentence alignment
-            res = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
-            new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = res
+            if mode == 'gold':
+                new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = t, m_t, ct, m_ct, m_ct_l
+            else:
+                res = self.hungrian_alignment(pred_groups, t, m_t, ct, m_ct, m_ct_l, p_s, n_clusters)
+                new_tgt, new_tgt_mask, new_ctgt, new_ctgt_mask, new_mask_ctgt_loss = res
+
+            '''
+            if n_clusters > 1:
+                print (p_s)
+                print ('src', s)
+                print ('tgt', t)
+                print ('pred', p)
+                print ('src_groups', src_groups)
+                print ('new_tgt', new_tgt)
+                print ('new_tgt_mask', new_tgt_mask)
+                print ('new_ctgt', new_ctgt)
+                print ('new_ctgt_mask', new_ctgt_mask)
+                print ('new_mask_ctgt_loss', new_mask_ctgt_loss)
+                print ('\n\n')
+            '''
 
             parallel_src.extend(src_groups)
             parallel_tgt.append(new_tgt)
@@ -870,50 +888,49 @@ class SpectralReinforce(nn.Module):
             parallel_graph_probs.extend(graph_probs)
             ngroups.append(t.size(0))
 
+        # Preparing encoder
         src = torch.tensor(self._pad(parallel_src), device=self.device)
         mask_src = ~(src == self.pad_id)
-        encoder_outputs = self.abs_model.encoder(input_ids=src, attention_mask=mask_src) 
-        top_vec = encoder_outputs.last_hidden_state
 
-        if not run_decoder:
-            return {"encoder_outpus":top_vec, "encoder_attention_mask":mask_src}
-
-        # Decoding
+        # Preparing decoder
         tgt = torch.cat(parallel_tgt)
         mask_tgt = torch.cat(parallel_tgt_mask)
         ctgt = torch.cat(parallel_ctgt)
         mask_ctgt = torch.cat(parallel_ctgt_mask)
         mask_ctgt_loss = torch.cat(parallel_tgt_mask_loss)
-        gtruth = tgt[:, 1:].contiguous().view(-1)
+        gtruth = tgt
+        labels = tgt
 
         if self.args.conditional_decoder:
             tgt = ctgt
             mask_tgt = mask_ctgt
+            labels = tgt * mask_ctgt_loss + self.pad_id * (~ mask_ctgt_loss)
             gtruth = tgt * mask_ctgt_loss + self.pad_id * (~ mask_ctgt_loss)
-            gtruth = gtruth[:, 1:].contiguous().view(-1)
 
-        '''
-        for i in range(src.size(0)):
-            print ('[SRC]:'+' '.join(self.tokenizer.convert_ids_to_tokens(src[i])))
-            print ('[TGT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(tgt[i])))
-            gt = gtruth.view(src.size(0), -1)
-            print ('[GT]:'+' '.join(self.tokenizer.convert_ids_to_tokens(gt[i])))
-            print ('\n')
-        print ('=================')
-        '''
+        gtruth = gtruth[:, 1:].contiguous()
+        labels = labels[:, 1:].contiguous()
+        tgt = tgt[:, :-1].contiguous()
+        mask_tgt = mask_tgt[:, :-1].contiguous()
 
-        decoder_outputs = self.abs_model.decoder(input_ids=tgt, 
-                                                attention_mask=mask_tgt,
-                                                encoder_hidden_states=top_vec,
-                                                encoder_attention_mask=mask_src)
+        labels[labels == self.pad_id] = -100
+        outputs = self.abs_model(input_ids=src, attention_mask=mask_src, 
+                                 decoder_input_ids=tgt,
+                                 decoder_attention_mask=mask_tgt,
+                                 labels=labels)
+        scores = outputs.logits # [batch_size, tgt_length, vocab_size]
 
-        output = decoder_outputs.last_hidden_state
-        output = output[:, :-1, :]
-
-        bottled_output = output.reshape(-1, output.size(2))
-        scores = self.abs_model.generator(bottled_output)
-        log_likelihood = (-1) * self.nll(scores, gtruth)
+        scores = scores.reshape(-1, scores.size(2))
+        gtruth = gtruth.reshape(-1)
         logging_info = self._log_generation_stats(scores, gtruth, src) # log_info
+
+        loss = outputs.loss # single score
+
+        if self.args.pretrain_encoder_decoder:
+            return loss, None, logging_info
+
+        loss_fct = CrossEntropyLoss(ignore_index=self.pad_id, reduce=False)
+        log_neglikelihood = loss_fct(scores, gtruth)
+        log_likelihood = (-1) * log_neglikelihood
 
         # log
         '''
@@ -923,9 +940,6 @@ class SpectralReinforce(nn.Module):
             #print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  ' '.join(self.tokenizer.convert_ids_to_tokens(gtruth[i])))
             print (' '.join(self.tokenizer.convert_ids_to_tokens(src[i])), '|||||||',  self.tokenizer.decode(gtruth[i], skip_special_tokens=True))
         '''
-
-        if self.args.pretrain_encoder_decoder:
-            return log_likelihood, None, logging_info
 
         log_likelihood = log_likelihood.view(tgt.size(0),-1)
         log_likelihood = torch.mean(log_likelihood, dim=1)

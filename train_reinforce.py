@@ -20,7 +20,7 @@ from models.data_reinforce import load_dataset
 from models.loss import abs_loss 
 from models.model_builder import AbsSummarizer, SpectralReinforce
 from models.trainer_reinforce import build_trainer
-from models.predictor_aggragation import build_predictor
+from models.predictor_aggragation import Translator
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 
@@ -157,15 +157,8 @@ def train_abs_single(args, device_id):
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    # Load generator
-    abs_checkpoint = None
-    if args.load_from_abs != '':
-        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
-        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
-
     # Load model
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model, checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, checkpoint)
     logger.info(model)
 
     # Load optimizer
@@ -228,13 +221,7 @@ def validate(args, device_id, pt, step):
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    abs_checkpoint = None
-    if args.load_from_abs != '':
-        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
-        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
-
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model=abs_model, checkpoint=checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, checkpoint=checkpoint)
     model.eval()
 
     trainer = build_trainer(args, device_id, model, None, tokenizer.pad_token_id)
@@ -270,17 +257,10 @@ def test_re(args, device_id, pt, step):
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
-    abs_checkpoint = None
-    if args.load_from_abs != '':
-        logger.info('Loading ABS checkpoint from %s' % args.load_from_abs)
-        abs_checkpoint = torch.load(args.load_from_abs, map_location=lambda storage, loc: storage)
-    abs_model = AbsSummarizer(args, device, len(tokenizer), abs_checkpoint)
-
-    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, abs_model=abs_model, checkpoint=checkpoint)
+    model = SpectralReinforce(args, device, tokenizer.pad_token_id, len(tokenizer), tokenizer, checkpoint=checkpoint)
     model.eval()
 
-    predictor = build_predictor(args, tokenizer, model, logger)
-
+    predictor = Translator(args, model, tokenizer, logger=logger)
     predictor.translate(test_iter, step)
 
 

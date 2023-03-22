@@ -1,27 +1,20 @@
 #!/bin/bash
 
-ntriple=$1 #[2,3,4,7]
-tokenizer=$2 #[t5-small, t5-base, t5-large]
-test_from=$3
-test_unseen=$4
-selection_threshold=$5
+lang=$1 #[br, cy, ga, ru]
+test_from=$2
+selection_threshold=$3
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
-DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_full/webnlg_data.manual_align/train.jsonl
-MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.${tokenizer}/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.discriministic.${tokenizer}/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${lang}triple.full/
+DETERMINISTIC_PATH=../Plan_while_Generate/D2T_data/multiL_${lang}/webnlg_data.manual_align/train.jsonl
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
+DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
+LOG_PATH=${BASE_PATH}/logs.re.discriministic/
 
-if [ "$test_unseen" = false ]; then
-        OUTPUT_FILE=${LOG_PATH}/test.res
-else
-        OUTPUT_FILE=${LOG_PATH}/test_unseen.res
-fi
+# ntriple=br; test_from=5000; 1
+# ntriple=cy; test_from=5000; 1
+# ntriple=ga; test_from=8000; 1
+# ntriple=ru; test_from=7000; 4
 
-# ntriple=2; test_from=3000; test_graph_selection_threshold=1
-# ntriple=3; test_from=4000; test_graph_selection_threshold=5
-# ntriple=4; test_from=6000; test_graph_selection_threshold=14
-# ntriple=7; test_from=7000; test_graph_selection_threshold=20
 
 mkdir -p ${LOG_PATH}
 
@@ -31,21 +24,22 @@ python train.py \
 	-deterministic_graph_path ${DETERMINISTIC_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_${test_from}.pt \
-	-test_unseen ${test_unseen} \
-	-result_path ${OUTPUT_FILE} \
+	-test_unseen False \
+	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+	-test_lang ${lang} \
+	-nn_graph True \
+	-conditional_decoder False \
 	-test_alignment_type discriministic \
 	-test_given_nclusters False \
-	-shuffle_src False \
-        -nn_graph True \
 	-test_graph_selection_threshold ${selection_threshold} \
-	-block_trigram true \
+	-shuffle_src False \
+        -test_no_repeat_ngram_size 4 \
 	-max_pos 250 \
-	-batch_size 3000 \
+	-batch_size 3 \
         -test_min_length 5 \
         -test_max_length 150 \
 	-beam_size 3 \
 	-visible_gpus 0 \
-
+	-master_port 10005 \

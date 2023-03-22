@@ -1,11 +1,19 @@
 #!/bin/bash
 
 tokenizer=$1 #[t5-small, t5-base, t5-large]
+test_from=$2
+test_unseen=$3
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/baselines/
 DATA_PATH=${BASE_PATH}/data.${tokenizer}/
 MODEL_PATH=${BASE_PATH}/model.${tokenizer}/
 LOG_PATH=${BASE_PATH}/logs.${tokenizer}/
+
+if [ "$test_unseen" = false ]; then
+	OUTPUT_FILE=${LOG_PATH}/test.res
+else
+	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
+fi
 
 mkdir -p ${LOG_PATH}
 
@@ -13,8 +21,9 @@ python train.py \
 	-mode test \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
-	-test_from ${MODEL_PATH}/model_step_10000.pt \
-	-result_path ${LOG_PATH}/test.res \
+	-test_from ${MODEL_PATH}/model_step_${test_from}.pt \
+        -test_unseen ${test_unseen} \
+	-result_path ${OUTPUT_FILE} \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs abs \
 	-block_trigram true \

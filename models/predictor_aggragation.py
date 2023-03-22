@@ -118,7 +118,6 @@ class Translator(object):
         batch_size = batch.batch_size
 
         preds = translation_batch["predictions"]
-        pred_score = translation_batch["scores"]
         pred_clusters = translation_batch["pred_clusters"]
         pred_str_clusters = translation_batch["pred_str_clusters"]
         src_clusters = translation_batch["src_clusters"]
@@ -326,98 +325,9 @@ class Translator(object):
         return src, mask_src, parallel_src_example, parallel_pred, parallel_pred_str, parallel_graph_probs, ngroups
 
 
-    def _run_encoder(self, src, mask_src, ngroups):
-
-        encoder_outputs = self.model.abs_model.encoder(input_ids=src, attention_mask=mask_src)
-        src_features = encoder_outputs.last_hidden_state
-
-        src_features_for_each_example = []
-        mask_src_for_each_example = []
-        src_for_each_example = []
-        sid = 0
-        for example_group_number in ngroups:
-            eid = sid + example_group_number
-            src_features_for_each_example.append(src_features[sid:eid])
-            mask_src_for_each_example.append(mask_src[sid:eid])
-            src_for_each_example.append(src[sid:eid])
-            sid = sid + example_group_number
-
-        return src_features_for_each_example, mask_src_for_each_example, src_for_each_example
-
-
-    def _run_conditioned_text_generation(self, src_features, mask_src_features):
-
-        model = self.model.abs_model.model
-        beam_size = self.beam_size
-
-        input_ids = torch.full([1, 1], self.start_token_id, device=self.device, dtype=torch.long)
-
-        scores = []
-        for i in range(src_features.size(0)):
-            input_ids = input_ids.repeat_interleave(beam_size, dim=0)
-
-            s_features = src_features[i]
-            s_features = s_features.unsqueeze(0)
-            s_features = s_features.repeat_interleave(beam_size, dim=0)
-
-            mask_s_features = mask_src_features[i]
-            mask_s_features = mask_s_features.unsqueeze(0)
-            mask_s_features = mask_s_features.repeat_interleave(beam_size, dim=0)
-
-            beam_scorer = BeamSearchScorer(batch_size=1, 
-                                       num_beams=self.beam_size, 
-                                       device=self.device)
-
-            stopping_criteria = model._get_stopping_criteria(max_length=self.max_length, 
-                                                         max_time=None, 
-                                                         stopping_criteria=StoppingCriteriaList())
-
-            logits_processor = model._get_logits_processor(repetition_penalty=model.config.repetition_penalty,
-                                            no_repeat_ngram_size=5,
-                                            encoder_no_repeat_ngram_size=model.config.encoder_no_repeat_ngram_size,
-                                            input_ids_seq_length=input_ids.shape[-1],
-                                            encoder_input_ids=input_ids,
-                                            bad_words_ids=model.config.bad_words_ids,
-                                            min_length=self.min_length,
-                                            max_length=self.max_length,
-                                            eos_token_id=self.end_token_id,
-                                            forced_bos_token_id=model.config.forced_bos_token_id,
-                                            forced_eos_token_id=model.config.forced_eos_token_id,
-                                            prefix_allowed_tokens_fn=None,
-                                            num_beams=beam_size,
-                                            num_beam_groups=None,
-                                            diversity_penalty=None,
-                                            remove_invalid_values=model.config.remove_invalid_values,
-                                            exponential_decay_length_penalty=model.config.exponential_decay_length_penalty,
-                                            logits_processor=LogitsProcessorList())
-
-            results = model.beam_search(input_ids,
-                          beam_scorer,
-                          logits_processor=logits_processor,
-                          stopping_criteria=stopping_criteria,
-                          pad_token_id=self.pad_token_id,
-                          eos_token_id=self.end_token_id,
-                          output_scores=True,
-                          return_dict_in_generate=True,
-                          synced_gpus=False,
-                          encoder_outputs=[s_features],
-                          attention_mask=mask_s_features)
-
-            # /home/hpcxu1/miniconda3/envs/Plan/lib/python3.6/site-packages/transformers//generation_utils.py
-
-            input_ids = results['sequences']
-            scores.append(results['sequences_scores'])
-
-        return input_ids[0], sum(scores)
-
-
     def _fast_translate_batch(self, batch):
 
         src = batch.src
-        tgt = batch.tgt
-        mask_tgt = batch.mask_tgt
-        ctgt = batch.ctgt
-        mask_ctgt = batch.mask_ctgt
         preds = batch.pred
         pred_tokens = batch.pred_tokens
         pred_mask_tokens = batch.pred_mask_tokens
@@ -430,15 +340,10 @@ class Translator(object):
         ret = self._run_clustering(src, preds, p2s, pred_tokens, pred_mask_tokens, src_str, pred_str, eids)
         src, mask_src, src_examples, pred_clusters, pred_str_clusters, cluster_probs, ngroups = ret
 
-        # run encoding
-        ret = self._run_encoder(src, mask_src, ngroups)
-        src_features_for_each_example, mask_src_for_each_example, src_for_each_example = ret
-        
         # run decoding
         batch_size = batch.batch_size
         results = {}
         results["predictions"] = [[] for _ in range(batch_size)]
-        results["scores"] = [[] for _ in range(batch_size)]
         results["batch"] = batch
         results["pred_clusters"] = pred_clusters
         results["pred_str_clusters"] = pred_str_clusters
@@ -446,30 +351,32 @@ class Translator(object):
         results["cluster_probs"] = [sum(item) for item in cluster_probs]
         results["ngroups"] = ngroups
 
-        # temp solution: run decoder one by one
-        for batch_id in range(batch_size):
-            src_features = src_features_for_each_example[batch_id]
-            mask_src_features = mask_src_for_each_example[batch_id]
-            prediction, score = self._run_conditioned_text_generation(src_features, mask_src_features)
-            results["predictions"][batch_id].append(prediction)
-            results["scores"][batch_id].append(score)
+        if self.args.test_lang == 'en': 
+            outputs = self.model.abs_model.generate(input_ids=src,
+                                                attention_mask=mask_src,
+                                                do_sample=False,
+                                                max_length=self.max_length,
+                                                min_length=self.min_length,
+                                                num_beams=self.beam_size,
+                                                decoder_start_token_id=self.start_token_id)
+        else:
+            outputs = self.model.abs_model.generate(input_ids=src,
+                                                attention_mask=mask_src,
+                                                do_sample=False,
+                                                max_length=self.max_length,
+                                                min_length=self.min_length,
+                                                num_beams=self.beam_size,
+                                                decoder_start_token_id=self.start_token_id,
+                                                forced_bos_token_id=self.tokenizer.get_lang_id(self.args.test_lang),
+                                                no_repeat_ngram_size=self.args.test_no_repeat_ngram_size,
+                                                length_penalty=self.args.test_length_penalty)
+
+        # assamble results
+        sid = 0
+        for i, example_group_number in enumerate(ngroups):
+            eid = sid + example_group_number
+            results["predictions"][i].append(outputs[sid:eid].view(-1))
+            sid = sid + example_group_number
 
         return results
-
-        '''
-        batch_size = batch.batch_size
-        results = {}
-
-        results["predictions"] = [[] for _ in range(batch_size)]
-        results["scores"] = [[] for _ in range(batch_size)]
-        results["batch"] = batch
-
-        outputs = self.model.abs_model(src, tgt, mask_src, mask_tgt, run_decoder=False)
-        print (self.model.abs_model.model.config.decoder_start_token_id, self.start_token_id)
-        for i in range(outputs.size(0)):
-            results["predictions"][i].append(outputs[i])
-            results["scores"][i].append(0.0)
-        '''
-
-
 

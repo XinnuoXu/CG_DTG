@@ -131,8 +131,8 @@ if __name__ == '__main__':
     random_clustering = False
     spectual_clustering = False
 
-    #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/validation_multi.jsonl'
-    gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_seen.jsonl'
+    gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/validation_multi.jsonl'
+    #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_seen.jsonl'
     #gold_path = '../Plan_while_Generate/D2T_data/webnlg_data/test_unseen.jsonl'
     #gold_path = '../Plan_while_Generate/D2T_data/fewshot_webnlg.manual_align//test.jsonl'
     #gold_path = '../Plan_while_Generate/D2T_data/fewshot_webnlg.manual_align//validation_multi.jsonl'

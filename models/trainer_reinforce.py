@@ -148,11 +148,11 @@ class Trainer(object):
                 (loss/loss.numel()).backward()
 
             elif self.args.pretrain_encoder_decoder:
-                cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                loss, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                         ctgt, mask_ctgt, mask_ctgt_loss, 
                                                         preds, pred_tokens, pred_mask_tokens, 
                                                         p2s, nsent, mode='gold')
-                loss = -cll.sum()
+                #loss = -cll.sum()
                 loss.backward()
 
             else:
@@ -265,11 +265,11 @@ class Trainer(object):
                     loss = loss/loss.numel()
 
                 elif self.args.pretrain_encoder_decoder:
-                    cll, weights, logging_info = self.model(src, tgt, mask_tgt, 
+                    loss, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
                                                             p2s, nsent, mode='gold')
-                    loss = -cll.sum()
+                    #loss = -cll.sum()
 
                 else:
                     cll, weights, logging_info = self.model(src, tgt, mask_tgt, 

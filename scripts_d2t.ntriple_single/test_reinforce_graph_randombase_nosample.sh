@@ -27,12 +27,20 @@ mkdir -p ${LOG_PATH}
 # ntriple=7; test_from=3000; test_graph_selection_threshold=0.52 --> 57.41
 
 # [New] no sample in inference
-# ntriple=2; test_from=7000; test_graph_selection_threshold=
-# ntriple=3; test_from=2000; test_graph_selection_threshold=
-# ntriple=4; test_from=7000; test_graph_selection_threshold=
-# ntriple=5; test_from=6000; test_graph_selection_threshold=
-# ntriple=6; test_from=5000; test_graph_selection_threshold=
-# ntriple=7; test_from=8000; test_graph_selection_threshold=
+# ntriple=2; test_from=6000; test_graph_selection_threshold=0.5
+# ntriple=3; test_from=5000; test_graph_selection_threshold=0.54
+# ntriple=4; test_from=8000; test_graph_selection_threshold=0.76
+# ntriple=5; test_from=4000; test_graph_selection_threshold=0.52
+# ntriple=6; test_from=7000; test_graph_selection_threshold=0.56
+# ntriple=7; test_from=8000; test_graph_selection_threshold=0.58
+
+# [Ori] no sample in inference
+# ntriple=2; test_from=8000; test_graph_selection_threshold=0.54
+# ntriple=3; test_from=7000; test_graph_selection_threshold=0.02
+# ntriple=4; test_from=8000; test_graph_selection_threshold=0.34
+# ntriple=5; test_from=4000; test_graph_selection_threshold=0.48
+# ntriple=6; test_from=7000; test_graph_selection_threshold=0.42
+# ntriple=7; test_from=2000; test_graph_selection_threshold=0.50
 
 python train.py \
 	-mode test \
@@ -62,4 +70,5 @@ python train.py \
         -test_min_length 5 \
 	-beam_size 3 \
 	-visible_gpus 0 \
+        -seed 666 \
         -reinforce_strong_baseline False \

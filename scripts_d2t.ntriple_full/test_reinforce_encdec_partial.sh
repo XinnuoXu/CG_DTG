@@ -16,20 +16,10 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-# t5-small; ntriple=2; test_from=3000
-# t5-small; ntriple=3; test_from=4000
-# t5-small; ntriple=4; test_from=6000
-# t5-small; ntriple=7; test_from=7000
-
-# t5-base; ntriple=2; test_from=5000
-# t5-base; ntriple=3; test_from=5000
-# t5-base; ntriple=4; test_from=5000
-# t5-base; ntriple=7; test_from=10000
-
-# t5-large; ntriple=2; test_from=5000
-# t5-large; ntriple=3; test_from=5000
-# t5-large; ntriple=4; test_from=10000
-# t5-large; ntriple=7; test_from=10000/1000
+# t5-base; ntriple=2; test_from=10000
+# t5-base; ntriple=3; test_from=10000
+# t5-base; ntriple=4; test_from=15000
+# t5-base; ntriple=7; test_from=30000
 
 mkdir -p ${LOG_PATH}
 
@@ -43,7 +33,7 @@ python train.py \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
 	-nn_graph True \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-test_alignment_type full_src \
 	-test_given_nclusters True \
 	-shuffle_src False \

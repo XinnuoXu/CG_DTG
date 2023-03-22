@@ -8,10 +8,10 @@ DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
 MODEL_PATH=${BASE_PATH}/model.re.nn/
 LOG_PATH=${BASE_PATH}/logs.re.nn/
 
-# percent=0.005; test_from=400; test_graph_selection_threshold=0.14
-# percent=0.01; test_from=1200; test_graph_selection_threshold=0.02
-# percent=0.05; test_from=3500; test_graph_selection_threshold=0.56
-# percent=0.1; test_from=5000; test_graph_selection_threshold=0.6
+# percent=0.005; test_from=500; test_graph_selection_threshold=0.2
+# percent=0.01; test_from=500; test_graph_selection_threshold=0.3
+# percent=0.05; test_from=500; test_graph_selection_threshold=0.25
+# percent=0.1; test_from=1000; test_graph_selection_threshold=0.1
 
 mkdir -p ${LOG_PATH}
 
@@ -24,7 +24,7 @@ python train.py \
 	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-test_alignment_type spectral \
 	-test_given_nclusters False \
 	-test_entity_link True \
@@ -33,11 +33,11 @@ python train.py \
 	-test_graph_selection_threshold $3 \
 	-nn_graph True \
 	-shuffle_src False \
-	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 3000 \
         -test_max_length 150 \
         -test_min_length 5 \
-	-beam_size 3 \
+	-beam_size 5 \
 	-visible_gpus 0 \
+        -master_port 10003 \
 

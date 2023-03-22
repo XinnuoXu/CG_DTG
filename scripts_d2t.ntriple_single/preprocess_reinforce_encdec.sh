@@ -7,7 +7,8 @@ ntriple=$1
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.single/
-RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.merge.rule_based/
+#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.merge.rule_based/
+RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_oneshot/webnlg_data.no_align/
 JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 
@@ -37,7 +38,8 @@ LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
-rm -rf ${DATA_PATH}/test.*
+#rm -rf ${DATA_PATH}/test.*
+rm -rf ${DATA_PATH}/*
 
 python preprocess.py \
 	-mode format_sentence_level \
@@ -51,7 +53,7 @@ python preprocess.py \
 	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \
-	-tokenizer t5-small \
+	-tokenizer t5-base \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log

@@ -1,16 +1,15 @@
 #/bin/bash
 
 test_type=$1
-tokenizer='t5-small'
+tokenizer='t5-base'
 
 
-'''
 ################
 # Baseline
 ################
 
 ntriple_list=(2 3 4 7)
-test_from_list=(3000 4000 6000 7000)
+test_from_list=(10000 10000 15000 30000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
@@ -40,7 +39,7 @@ echo ''
 ################
 
 ntriple_list=(2 3 4 7)
-test_from_list=(3000 4000 6000 7000)
+test_from_list=(10000 10000 15000 30000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
@@ -70,7 +69,8 @@ echo ''
 ################
 
 ntriple_list=(2 3 4 7)
-test_from_list=(3000 4000 6000 7000)
+test_from_list=(10000 10000 15000 30000)
+
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
@@ -94,7 +94,6 @@ do
 	python tool/nli_postprocess.py
 done
 echo ''
-'''
 
 
 ################
@@ -103,7 +102,7 @@ echo ''
 
 echo 'FFN'
 ntriple_list=(2 3 4 7)
-test_from_list=(4000 4000 4000 4000)
+test_from_list=(500 1500 2000 5500)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
@@ -128,6 +127,7 @@ do
 done
 echo ''
 
+'''
 
 ################
 # FFN Reinforce
@@ -135,7 +135,7 @@ echo ''
 
 echo 'Random Baseline'
 ntriple_list=(2 3 4 7)
-test_from_list=(8000 7000 7000 4000)
+test_from_list=(4000 6000 3000 6000)
 for i in "${!ntriple_list[@]}"
 do
 	ntriple=${ntriple_list[i]}
@@ -161,7 +161,6 @@ done
 echo ''
 
 
-'''
 ################
 # FFN Reinforce
 ################
@@ -187,9 +186,9 @@ do
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
 
-	#python ./tool/nli_preprocess.py ${path_prefix}
-	#python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
-	#python tool/nli_postprocess.py
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
+	python tool/nli_postprocess.py
 done
 echo ''
 
@@ -219,9 +218,9 @@ do
 	python ./tool/parent_data.py ${path_prefix}
 	python -m tool.PARENT.table_text_eval --references ${path_prefix}.parent_ref --generations ${path_prefix}.parent_pred --tables ${path_prefix}.parent_table --lambda_weight 0.5
 
-	#python ./tool/nli_preprocess.py ${path_prefix}
-	#python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
-	#python tool/nli_postprocess.py
+	python ./tool/nli_preprocess.py ${path_prefix}
+	python ./tool/nli_eval.py --type webnlg ${path_prefix}.nli ./tool/output.json
+	python tool/nli_postprocess.py
 done
 echo ''
 

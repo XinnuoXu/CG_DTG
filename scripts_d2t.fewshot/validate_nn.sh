@@ -12,6 +12,7 @@ mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode validate \
+        -model_name facebook/bart-base \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
@@ -22,7 +23,7 @@ python train.py \
 	-pretrain_nn_cls True \
 	-pretrain_encoder_decoder False \
 	-train_predicate_graph_only True \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-shuffle_src False \
         -max_pos 250 \
 	-batch_size 200 \

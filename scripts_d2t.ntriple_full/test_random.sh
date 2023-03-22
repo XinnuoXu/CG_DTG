@@ -32,12 +32,11 @@ python train.py \
 	-result_path ${OUTPUT_FILE} \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+        -nn_graph True \
+	-conditional_decoder False \
 	-test_alignment_type random_test \
 	-test_given_nclusters False \
 	-shuffle_src False \
-        -nn_graph True \
-	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 3000 \
         -test_min_length 5 \

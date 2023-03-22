@@ -22,7 +22,7 @@ python train.py \
 	-pretrain_nn_cls True \
 	-pretrain_encoder_decoder False \
 	-train_predicate_graph_only True \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-shuffle_src False \
         -max_pos 250 \
 	-batch_size 200 \

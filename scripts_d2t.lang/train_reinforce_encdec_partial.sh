@@ -9,6 +9,7 @@ LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
+rm ${MODEL_PATH}/*
 
 python train.py  \
 	-mode train \
@@ -20,18 +21,18 @@ python train.py  \
 	-ext_or_abs reinforce \
 	-nn_graph True \
 	-pretrain_encoder_decoder True \
-	-conditional_decoder True \
-	-shuffle_src True \
-	-train_steps 50000 \
-	-save_checkpoint_steps 5000 \
-	-warmup_steps 5000 \
-	-batch_size 30 \
+	-conditional_decoder False \
+	-train_steps 15000 \
+	-save_checkpoint_steps 1000 \
+	-warmup_steps 1000 \
+	-batch_size 32 \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 5e-4 \
+	-lr 3e-5 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
-	-accum_count 5 \
+	-accum_count 1 \
 	-visible_gpus 0
 
+	#-shuffle_src True \

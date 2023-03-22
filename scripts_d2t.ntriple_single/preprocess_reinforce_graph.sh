@@ -51,7 +51,7 @@ python preprocess.py \
 	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \
-	-tokenizer t5-small \
+	-tokenizer t5-base \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log

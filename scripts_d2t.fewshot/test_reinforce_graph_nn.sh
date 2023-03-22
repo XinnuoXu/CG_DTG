@@ -58,7 +58,7 @@ python train.py \
 	-batch_size 3000 \
         -test_max_length 150 \
         -test_min_length 5 \
-	-beam_size 3 \
+	-beam_size 5 \
 	-visible_gpus 0 \
 
 	#-test_unseen True \

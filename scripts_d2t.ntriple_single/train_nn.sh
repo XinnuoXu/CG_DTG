@@ -9,18 +9,20 @@ DATA_PATH=${BASE_PATH}/short_single.data.re.align.tokenized_preds/
 MODEL_PATH=${BASE_PATH}/short_single.model.re.nn/
 LOG_PATH=${BASE_PATH}/short_single.logs.re.nn/
 
-# ntriple=2; test_from=1000
-# ntriple=4; test_from=2000
-# ntriple=5; test_from=3000
-# ntriple=6; test_from=3000
-# ntriple=7; test_from=3000
+# ntriple=2; test_from=2000
+# ntriple=3; test_from=3000
+# ntriple=4; test_from=4000
+# ntriple=5; test_from=5000
+# ntriple=6; test_from=6000
+# ntriple=7; test_from=8000
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
+rm ${MODEL_PATH}/*
 
 python train.py  \
 	-mode train \
-	-model_name t5-small \
+	-model_name t5-base \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
 	-train_from ${ENCDEC_PATH}/model_step_${train_from}.pt \
@@ -35,10 +37,10 @@ python train.py  \
 	-nn_cls_add_negative_samples 3 \
 	-reset_optimizer True \
 	-train_steps 6000 \
-	-save_checkpoint_steps 1000 \
-	-warmup_steps 2000 \
-	-lr 1e-2 \
-	-batch_size 3000 \
+	-save_checkpoint_steps 500 \
+	-warmup_steps 100 \
+	-batch_size 150 \
+	-lr 1e-3 \
 	-report_every 30 \
 	-max_pos 250 \
 	-max_tgt_len 250 \

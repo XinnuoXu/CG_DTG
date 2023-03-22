@@ -4,7 +4,7 @@ test_from=$3
 test_unseen=false
 
 log_path=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/logs.re.nn.ffn_nosample.${tokenizer}/test.res.${test_from}
-for i in $(seq 0.0 .02 0.9)
+for i in $(seq 0.0 .005 0.035)
 #for i in $(seq 0.005 .005 0.02)
 do
 	sh ./scripts_d2t.ntriple_full/test_ffn_nosample.sh  ${ntriple} ${tokenizer} ${test_from} ${test_unseen} ${i}

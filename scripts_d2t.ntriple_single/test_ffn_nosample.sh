@@ -18,12 +18,12 @@ else
 fi
 
 # v2: new negtive sample, do it on all examples [CHOOSE]
-# ntriple=2; test_from=2000; test_graph_selection_threshold=0.26 --> 44.64
-# ntriple=3; test_from=2000; test_graph_selection_threshold=0.72 --> 52.42
-# ntriple=4; test_from=2000; test_graph_selection_threshold=0.56 --> 55.04
-# ntriple=5; test_from=3000; test_graph_selection_threshold=0.5 --> 58.40
-# ntriple=6; test_from=2000; test_graph_selection_threshold=0.48 --> 58.27
-# ntriple=7; test_from=3000; test_graph_selection_threshold=0.54 --> 57.51
+# ntriple=2; test_from=500; test_graph_selection_threshold=0.005
+# ntriple=3; test_from=500; test_graph_selection_threshold=0.035
+# ntriple=4; test_from=500; test_graph_selection_threshold=0.030
+# ntriple=5; test_from=1000; test_graph_selection_threshold=0.015
+# ntriple=6; test_from=2000; test_graph_selection_threshold=0.005
+# ntriple=7; test_from=2000; test_graph_selection_threshold=0.005
 
 mkdir -p ${LOG_PATH}
 
@@ -36,7 +36,7 @@ python train.py \
 	-result_path ${OUTPUT_FILE} \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-test_alignment_type spectral \
 	-test_given_nclusters False \
 	-test_entity_link True \
@@ -47,10 +47,10 @@ python train.py \
 	-test_graph_selection_threshold ${selection_threshold} \
 	-nn_graph True \
 	-shuffle_src False \
-	-block_trigram true \
 	-max_pos 250 \
 	-batch_size 3000 \
         -test_max_length 150 \
         -test_min_length 5 \
 	-beam_size 3 \
 	-visible_gpus 0 \
+        -master_port 10002 \

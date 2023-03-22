@@ -4,22 +4,23 @@ percent=$1
 train_from=$2
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
-ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial.blarge/
+ENCDEC_PATH=${BASE_PATH}/model.re.encdec_partial/
 DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds/
 MODEL_PATH=${BASE_PATH}/model.re.nn/
 LOG_PATH=${BASE_PATH}/logs.re.nn/
 
 # ntriple=0.005; test_from=500
-# ntriple=0.01; test_from=1500
+# ntriple=0.01; test_from=500
 # ntriple=0.05; test_from=2500
-# ntriple=0.1; test_from=4000
+# ntriple=0.1; test_from=4500
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
+rm ${MODEL_PATH}/*
 
 python train.py  \
 	-mode train \
-	-model_name facebook/bart-large \
+	-model_name facebook/bart-base \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
 	-train_from ${ENCDEC_PATH}/model_step_${train_from}.pt \
@@ -30,14 +31,13 @@ python train.py  \
 	-nn_graph True \
 	-pretrain_nn_cls True \
 	-train_predicate_graph_only True \
-	-conditional_decoder True \
 	-nn_cls_add_negative_samples 3 \
 	-reset_optimizer True \
 	-train_steps 6000 \
 	-save_checkpoint_steps 500 \
 	-warmup_steps 100 \
 	-batch_size 150 \
-	-lr 2e-3 \
+	-lr 1e-3 \
 	-report_every 30 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
@@ -66,6 +66,7 @@ python train.py  \
 	#-batch_size 50 \
 	#-lr 2e-3 \
 
+        # 0.1
 	#-train_steps 6000 \
 	#-save_checkpoint_steps 500 \
 	#-warmup_steps 100 \

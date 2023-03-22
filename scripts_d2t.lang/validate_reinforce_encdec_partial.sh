@@ -1,18 +1,18 @@
 #!/bin/bash
 
-ntriple=$1 #[2,3,4,7]
-tokenizer=$2 #[t5-small, t5-base, t5-large]
+lang=$1 #[br, cy, ga, ru]
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
-MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.${tokenizer}/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.${tokenizer}/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${lang}triple.full/
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+LOG_PATH=${BASE_PATH}/logs.re.encdec_partial/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
 
 python train.py \
 	-mode validate \
+	-model_name "facebook/m2m100_418M" \
 	-input_path ${DATA_PATH} \
 	-model_path ${MODEL_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \

@@ -9,6 +9,7 @@ LOG_PATH=${BASE_PATH}/logs.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
+rm ${MODEL_PATH}/*
 
 python train.py  \
 	-mode train \
@@ -18,8 +19,8 @@ python train.py  \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-log_file ${LOG_PATH}/train.log \
 	-ext_or_abs abs \
-	-train_steps 12000 \
-	-save_checkpoint_steps 1000 \
+	-train_steps 100000 \
+	-save_checkpoint_steps 5000 \
 	-warmup_steps 1000 \
 	-batch_size 8 \
 	-report_every 100 \

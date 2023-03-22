@@ -17,10 +17,10 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-# ntriple=2; test_from=4000; test_graph_selection_threshold=0.06
-# ntriple=3; test_from=4000; test_graph_selection_threshold=0.66
-# ntriple=4; test_from=4000; test_graph_selection_threshold=0.48
-# ntriple=7; test_from=4000; test_graph_selection_threshold=0.40
+# ntriple=2; test_from=500; test_graph_selection_threshold=0.005
+# ntriple=3; test_from=1500; test_graph_selection_threshold=0.01
+# ntriple=4; test_from=2000; test_graph_selection_threshold=0.01
+# ntriple=7; test_from=5500; test_graph_selection_threshold=0.005
 
 mkdir -p ${LOG_PATH}
 
@@ -33,7 +33,7 @@ python train.py \
 	-result_path ${OUTPUT_FILE} \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+	-conditional_decoder False \
 	-test_alignment_type spectral \
 	-test_given_nclusters False \
 	-test_entity_link True \
@@ -51,3 +51,4 @@ python train.py \
         -test_min_length 5 \
 	-beam_size 3 \
 	-visible_gpus 0 \
+        -master_port 10001 \

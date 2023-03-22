@@ -117,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument("-report_every", default=1, type=int)
     parser.add_argument("-train_steps", default=1000, type=int)
     parser.add_argument("-save_checkpoint_steps", default=5, type=int)
-    parser.add_argument('-seed', default=666, type=int)
+    parser.add_argument('-seed', default=42, type=int) # used to be 666
     parser.add_argument('-visible_gpus', default='-1', type=str)
     parser.add_argument('-gpu_ranks', default='0', type=str)
     parser.add_argument('-master_port', default='10000', type=str)
@@ -136,6 +136,9 @@ if __name__ == '__main__':
     parser.add_argument("-test_data_source", default='test', type=str, choices=['train', 'validation', 'test'])
     parser.add_argument("-test_min_length", default=10, type=int)
     parser.add_argument("-test_max_length", default=60, type=int)
+    parser.add_argument("-test_lang", default='en', type=str)
+    parser.add_argument("-test_no_repeat_ngram_size", default=0, type=int)
+    parser.add_argument("-test_length_penalty", default=1.0, type=float)
 
     args = parser.parse_args()
     args.gpu_ranks = [int(i) for i in range(len(args.visible_gpus.split(',')))]

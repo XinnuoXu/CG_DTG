@@ -37,8 +37,8 @@ LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
-rm -rf ${DATA_PATH}/*
-#rm -rf ${DATA_PATH}/test.*
+#rm -rf ${DATA_PATH}/*
+rm -rf ${DATA_PATH}/test.*
 
 python preprocess.py \
 	-mode format_sentence_level \
@@ -53,7 +53,7 @@ python preprocess.py \
 	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \
-	-tokenizer facebook/bart-large \
+	-tokenizer facebook/bart-base \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log

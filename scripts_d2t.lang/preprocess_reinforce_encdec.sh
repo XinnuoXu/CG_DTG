@@ -7,7 +7,8 @@ lang=$1 #[br, cy, ga, ru]
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${lang}triple.full/
-RAW_PATH=../Plan_while_Generate/D2T_data/multiL_${lang}/webnlg_data.merge.rule_based/
+#RAW_PATH=../Plan_while_Generate/D2T_data/multiL_${lang}/webnlg_data.merge.rule_based/
+RAW_PATH=../Plan_while_Generate/D2T_data/multiL_${lang}/webnlg_data/
 JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 

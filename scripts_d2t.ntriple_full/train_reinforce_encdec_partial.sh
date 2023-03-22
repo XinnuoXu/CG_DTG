@@ -10,8 +10,9 @@ LOG_PATH=${BASE_PATH}/logs.re.encdec_partial.${tokenizer}/
 
 mkdir -p ${MODEL_PATH}
 mkdir -p ${LOG_PATH}
+rm ${MODEL_PATH}/*
 
-python train.py  \
+CUDA_LAUNCH_BLOCKING=1 python train.py  \
 	-mode train \
 	-model_name ${tokenizer} \
 	-input_path ${DATA_PATH} \
@@ -22,17 +23,17 @@ python train.py  \
 	-nn_graph True \
 	-pretrain_encoder_decoder True \
 	-conditional_decoder True \
-	-shuffle_src True \
-	-train_steps 10000 \
-	-save_checkpoint_steps 1000 \
+	-train_steps 60000 \
+	-save_checkpoint_steps 5000 \
 	-warmup_steps 1000 \
-	-batch_size 500 \
+	-batch_size 32 \
 	-report_every 100 \
 	-max_pos 250 \
 	-max_tgt_len 250 \
-	-lr 5e-4 \
+	-lr 3e-5 \
 	-label_smoothing 0.0 \
         -decay_method linear_warmup \
-	-accum_count 2 \
-	-visible_gpus 0,1,2
+	-accum_count 1 \
+	-visible_gpus 0
 
+	#-shuffle_src True \

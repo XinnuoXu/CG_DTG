@@ -7,7 +7,8 @@ percent=$1
 ###############################################
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
-RAW_PATH=../Plan_while_Generate/D2T_data/fewshot_webnlg_percent_${percent}/fewshot_webnlg.merge.rule_based/
+#RAW_PATH=../Plan_while_Generate/D2T_data/fewshot_webnlg_percent_${percent}/fewshot_webnlg.merge.rule_based/
+RAW_PATH=../Plan_while_Generate/D2T_data/fewshot_webnlg_percent_${percent}/fewshot_webnlg.no_align/
 JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 
@@ -32,15 +33,13 @@ python preprocess.py \
 ADD_TOKEN_PATH=../Plan_while_Generate/D2T_data/fewshot_webnlg/predicates.txt
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/webnlg_percent_${percent}/
 JSON_PATH=${BASE_PATH}/jsons.re.merge.rule_based/
-#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.bbase/
-#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.blarge/
-#DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.t5large/
-DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds.t5small/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
 LOG_PATH=${BASE_PATH}/logs.data/
 
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
-rm -rf ${DATA_PATH}/test.*
+rm -rf ${DATA_PATH}/*
+#rm -rf ${DATA_PATH}/test.*
 
 python preprocess.py \
 	-mode format_sentence_level \
@@ -54,12 +53,11 @@ python preprocess.py \
 	-tokenize_src_predicate True \
 	-multi_ref_test True \
 	-n_cpus 32 \
-	-tokenizer t5-small \
+	-tokenizer facebook/bart-base \
         -max_src_ntokens 1024 \
         -max_tgt_ntokens 250 \
 	-log_file ${LOG_PATH}/preprocess.log
 
-	#-tokenizer facebook/bart-base \
 	#-tokenizer facebook/bart-large \
 	#-tokenizer t5-large \
 	#-tokenizer t5-small \

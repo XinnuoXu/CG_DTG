@@ -1,25 +1,17 @@
 #!/bin/bash
 
-ntriple=$1 #[2,3,4,7]
-tokenizer=$2 #[t5-small, t5-base, t5-large]
-test_from=$3
-test_unseen=$4
+lang=$1 #[br, cy, ga, ru]
+test_from=$2
 
-BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
-MODEL_PATH=${BASE_PATH}/model.re.encdec_partial.${tokenizer}/
-DATA_PATH=${BASE_PATH}/data.re.align.tokenized_preds.${tokenizer}/
-LOG_PATH=${BASE_PATH}/logs.re.random.${tokenizer}/
+BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${lang}triple.full/
+MODEL_PATH=${BASE_PATH}/model.re.encdec_partial/
+DATA_PATH=${BASE_PATH}/data.re.merge.tokenized_preds/
+LOG_PATH=${BASE_PATH}/logs.re.random/
 
-if [ "$test_unseen" = false ]; then
-        OUTPUT_FILE=${LOG_PATH}/test.res
-else
-        OUTPUT_FILE=${LOG_PATH}/test_unseen.res
-fi
-
-# ntriple=2; test_from=3000
-# ntriple=3; test_from=4000
-# ntriple=4; test_from=6000
-# ntriple=7; test_from=7000
+# ntriple=br; test_from=5000
+# ntriple=cy; test_from=5000
+# ntriple=ga; test_from=8000
+# ntriple=ru; test_from=7000
 
 mkdir -p ${LOG_PATH}
 
@@ -28,18 +20,19 @@ python train.py \
 	-input_path ${DATA_PATH} \
         -tokenizer_path ${DATA_PATH}/tokenizer.pt \
 	-test_from ${MODEL_PATH}/model_step_${test_from}.pt \
-	-test_unseen ${test_unseen} \
-	-result_path ${OUTPUT_FILE} \
+	-test_unseen false \
+	-result_path ${LOG_PATH}/test.res \
 	-log_file ${LOG_PATH}/test.log \
 	-ext_or_abs reinforce \
-	-conditional_decoder True \
+	-test_lang ${lang} \
+        -nn_graph True \
+	-conditional_decoder False \
 	-test_alignment_type random_test \
 	-test_given_nclusters False \
 	-shuffle_src False \
-        -nn_graph True \
-	-block_trigram true \
+        -test_no_repeat_ngram_size 4 \
 	-max_pos 250 \
-	-batch_size 3000 \
+	-batch_size 3 \
         -test_min_length 5 \
         -test_max_length 150 \
 	-beam_size 3 \
