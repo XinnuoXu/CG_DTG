@@ -43,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument("-plan_generation", type=str2bool, default=False)
     parser.add_argument("-no_bos_for_tgt", type=str2bool, default=False)
     parser.add_argument("-shuffle_src", type=str2bool, default=False)
+    parser.add_argument("-shuffle_datapoints", type=str2bool, default=False)
     parser.add_argument("-multi_ref_test", type=str2bool, default=False)
     parser.add_argument("-tokenize_src_predicate", type=str2bool, default=False)
     parser.add_argument("-tgt_lang", type=str, default='en')

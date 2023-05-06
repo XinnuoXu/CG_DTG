@@ -165,7 +165,7 @@ class Translator(object):
 
     
     def _order_groups(self, input_args):
-        src_groups, pred_groups, graph_probs, src_str_groups, pred_str_groups, _ = input_args
+        src_groups, pred_groups, graph_probs, src_str_groups, pred_str_groups, _, _ = input_args
         '''
         print (src_groups)
         print (pred_groups)

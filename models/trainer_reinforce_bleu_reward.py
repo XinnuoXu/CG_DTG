@@ -6,6 +6,7 @@ import torch
 
 import distributed
 from models.reporter_abs import ReportMgr, Statistics
+from models.reporter_rl import ReportMgr_rl, Statistics_rl
 from models.logging import logger
 from tool.debug_tool import parameter_reporter
 
@@ -47,7 +48,12 @@ class Trainer(object):
         self.gpu_rank = gpu_rank
         self.pad_id = pad_id
 
-        self.report_manager = ReportMgr(args.report_every, start_time=-1)
+        if self.args.pretrain_nn_cls or self.args.pretrain_encoder_decoder:
+            self.report_manager = ReportMgr(args.report_every, start_time=-1)
+            self.Statistics = Statistics
+        else:
+            self.report_manager = ReportMgr_rl(args.report_every, start_time=-1)
+            self.Statistics = Statistics_rl
 
         if args.log_gradient == '':
             self.log_gradient = None
@@ -71,8 +77,8 @@ class Trainer(object):
         normalization = 0
         train_iter = train_iter_fct()
 
-        total_stats = Statistics()
-        report_stats = Statistics()
+        total_stats = self.Statistics()
+        report_stats = self.Statistics()
         self._start_report_manager(start_time=total_stats.start_time)
 
         while step <= train_steps:
@@ -135,6 +141,7 @@ class Trainer(object):
             pred_mask_tokens = batch.pred_mask_tokens
             aggregation_labels = batch.aggregation_labels
             p2s = batch.p2s
+            tgt_str = batch.tgt_str
             nsent = batch.nsent
 
             if self.args.pretrain_nn_cls:
@@ -147,63 +154,70 @@ class Trainer(object):
                 loss = loss.sum()
                 (loss/loss.numel()).backward()
 
+                batch_stats = self.Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                batch_stats.n_docs = logging_info['n_docs']
+
             elif self.args.pretrain_encoder_decoder:
-                loss, weights, _, logging_info = self.model(src, tgt, mask_tgt, 
+                loss, weights, logging_info = self.model(src, tgt, mask_tgt, 
                                                         ctgt, mask_ctgt, mask_ctgt_loss, 
                                                         preds, pred_tokens, pred_mask_tokens, 
                                                         p2s, nsent, mode='gold')
                 #loss = -cll.sum()
                 loss.backward()
+                batch_stats = self.Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                batch_stats.n_docs = logging_info['n_docs']
 
             else:
                 # conditional log likelihood
                 sampled_num = random.random()
                 if sampled_num <= self.args.gold_random_ratio:
-                    cll, weights, bias, logging_info = self.model(src, tgt, mask_tgt, 
+                    sampled_policy, rewards, bias = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
-                                                            p2s, nsent, mode='gold')
+                                                            p2s, nsent, tgt_str=tgt_str,
+                                                            mode='reinforce_gold')
                 elif sampled_num >= 1 - self.args.spectral_ratio:
-                    cll, weights, bias, logging_info = self.model(src, tgt, mask_tgt, 
+                    sampled_policy, rewards, bias = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
-                                                            p2s, nsent, mode='spectral')
+                                                            p2s, nsent, tgt_str=tgt_str,
+                                                            mode='reinforce_spectral')
                 else:
-                    cll, weights, bias, logging_info = self.model(src, tgt, mask_tgt, 
+                    sampled_policy, rewards, bias = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
-                                                            p2s, nsent, mode='random')
+                                                            p2s, nsent, tgt_str=tgt_str,
+                                                            mode='reinforce_random')
 
                 # baseline
                 if self.args.reinforce_strong_baseline:
-                    baseline_cll, _, _, _ = self.model(src, tgt, mask_tgt, 
+                    _, base_rewards, _ = self.model(src, tgt, mask_tgt, 
                                                     ctgt, mask_ctgt, mask_ctgt_loss, 
                                                     preds, pred_tokens, pred_mask_tokens, 
-                                                    p2s, nsent, mode='spectral_baseline') # baseline
+                                                    p2s, nsent, tgt_str=tgt_str,
+                                                    mode='reinforce_spectral_baseline') # baseline
                 elif self.args.reinforce_threshold_baseline:
-                    baseline_cll, _, _, _ = self.model(src, tgt, mask_tgt, 
+                    _, base_rewards, _ = self.model(src, tgt, mask_tgt, 
                                                     ctgt, mask_ctgt, mask_ctgt_loss, 
                                                     preds, pred_tokens, pred_mask_tokens, 
-                                                    p2s, nsent, mode='threshold_baseline')
+                                                    p2s, nsent, tgt_str=tgt_str,
+                                                    mode='reinforce_threshold_baseline')
                 else:
-                    baseline_cll, _, _, _ = self.model(src, tgt, mask_tgt, 
+                    _, base_rewards, _ = self.model(src, tgt, mask_tgt, 
                                                     ctgt, mask_ctgt, mask_ctgt_loss, 
                                                     preds, pred_tokens, pred_mask_tokens, 
-                                                    p2s, nsent, mode='random') # baseline
+                                                    p2s, nsent, tgt_str=tgt_str,
+                                                    mode='reinforce_random') # baseline
 
                 # calculte loss
-                rec = (weights * (cll - baseline_cll))
+                rec = (sampled_policy * (rewards - base_rewards))
                 loss = -rec
-                loss = loss.sum() + sum(bias) * 0.1
+                loss = loss.sum()
+                loss = loss + sum(bias) * 0.01
                 loss.backward()
+                batch_stats = self.Statistics(loss.clone().item(), rewards.sum(), (rewards - base_rewards).sum(), sampled_policy.sum(), sum(bias),  len(nsent))
 
             #parameter_reporter(self.model.abs_model)
-
-            batch_stats = Statistics(loss.clone().item(), 
-                                     logging_info['num_non_padding'], 
-                                     logging_info['num_correct'],
-                                     bias = sum(bias).clone().item()/len(bias))
-            batch_stats.n_docs = logging_info['n_docs']
 
             total_stats.update(batch_stats)
             report_stats.update(batch_stats)
@@ -237,7 +251,7 @@ class Trainer(object):
         """
         # Set model in validating mode.
         self.model.eval()
-        stats = Statistics()
+        stats = self.Statistics()
 
         with torch.no_grad():
             for batch in valid_iter:
@@ -253,6 +267,7 @@ class Trainer(object):
                 pred_mask_tokens = batch.pred_mask_tokens
                 aggregation_labels = batch.aggregation_labels
                 p2s = batch.p2s
+                tgt_str = batch.tgt_str
                 nsent = batch.nsent
 
                 if self.args.pretrain_nn_cls:
@@ -264,6 +279,8 @@ class Trainer(object):
                                                     mode='nn')
                     loss = loss.sum()
                     loss = loss/loss.numel()
+                    batch_stats = self.Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                    batch_stats.n_docs = logging_info['n_docs']
 
                 elif self.args.pretrain_encoder_decoder:
                     loss, weights, logging_info = self.model(src, tgt, mask_tgt, 
@@ -271,16 +288,22 @@ class Trainer(object):
                                                             preds, pred_tokens, pred_mask_tokens, 
                                                             p2s, nsent, mode='gold')
                     #loss = -cll.sum()
+                    batch_stats = self.Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
+                    batch_stats.n_docs = logging_info['n_docs']
 
                 else:
-                    cll, weights, bias, logging_info = self.model(src, tgt, mask_tgt, 
+                    sampled_policy, rewards, bias = self.model(src, tgt, mask_tgt, 
                                                             ctgt, mask_ctgt, mask_ctgt_loss, 
                                                             preds, pred_tokens, pred_mask_tokens, 
-                                                            p2s, nsent, mode='spectral')
-                    loss = -cll.sum()
+                                                            p2s, nsent, tgt_str=tgt_str,
+                                                            mode='reinforce_spectral',
+                                                            run_bernoulli=False)
+                    #rec = sampled_policy * rewards
+                    rec = rewards
+                    loss = -rec
+                    loss = loss.sum()
+                    batch_stats = self.Statistics(loss.clone().item(), reward=rewards.sum(), n_docs=len(nsent))
 
-                batch_stats = Statistics(loss.clone().item(), logging_info['num_non_padding'], logging_info['num_correct'])
-                batch_stats.n_docs = logging_info['n_docs']
                 stats.update(batch_stats)
 
             self._report_step(0, step, valid_stats=stats)
@@ -332,7 +355,7 @@ class Trainer(object):
             stat: the updated (or unchanged) stat object
         """
         if stat is not None and self.n_gpu > 1:
-            return Statistics.all_gather_stats(stat)
+            return self.Statistics.all_gather_stats(stat)
         return stat
 
     def _maybe_report_training(self, report_manager, step, num_steps, learning_rate,

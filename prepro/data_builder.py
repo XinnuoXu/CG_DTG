@@ -121,6 +121,8 @@ def split_shard(args):
         json_objs = []
         for line in open(input_path):
             json_objs.append(json.loads(line.strip()))
+        if args.shuffle_datapoints:
+            random.shuffle(json_objs)
 
         dataset = []; p_ct = 0
         for d in json_objs:
@@ -242,6 +244,11 @@ def _process_sentence_level(params):
 
         if args.remove_single_triple_datapoints and (not corpus_type.startswith('test')):
             if len(src) < 2:
+                continue
+
+        if not corpus_type.startswith('test'):
+            if len(d['gold_segs']) > len(d['predicates']):
+                print (d['gold_segs'], d['predicates'])
                 continue
 
         source_tokens = []

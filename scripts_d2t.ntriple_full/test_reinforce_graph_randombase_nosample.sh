@@ -17,16 +17,10 @@ else
 	OUTPUT_FILE=${LOG_PATH}/test_unseen.res
 fi
 
-# ntriple=2; test_from=4000; test_graph_selection_threshold=0.06
-# ntriple=3; test_from=4000; test_graph_selection_threshold=0.66
-# ntriple=4; test_from=4000; test_graph_selection_threshold=0.48
-# ntriple=7; test_from=4000; test_graph_selection_threshold=0.40
-
-# [New] 
-# ntriple=2; test_from=8000; test_graph_selection_threshold=0.24
-# ntriple=3; test_from=7000; test_graph_selection_threshold=0.16
-# ntriple=4; test_from=7000; test_graph_selection_threshold=0.14
-# ntriple=7; test_from=4000; test_graph_selection_threshold=0.015
+# ntriple=2; test_from=1000; test_graph_selection_threshold=0.16
+# ntriple=3; test_from=6000; test_graph_selection_threshold=0.52
+# ntriple=4; test_from=3000; test_graph_selection_threshold=0.28
+# ntriple=7; test_from=6000; test_graph_selection_threshold=0.02
 
 mkdir -p ${LOG_PATH}
 

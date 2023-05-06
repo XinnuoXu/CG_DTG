@@ -19,7 +19,7 @@ def build_report_manager(opt):
     else:
         writer = None
 
-    report_mgr = ReportMgr(opt.report_every, start_time=-1,
+    report_mgr = ReportMgr_rl(opt.report_every, start_time=-1,
                            tensorboard_writer=writer)
     return report_mgr
 
@@ -68,13 +68,13 @@ class ReportMgrBase(object):
                                 (set 'start_time' or use 'start()'""")
 
         if multigpu:
-            report_stats = Statistics.all_gather_stats(report_stats)
+            report_stats = Statistics_rl.all_gather_stats(report_stats)
 
         if step % self.report_every == 0:
             self._report_training(
                 step, num_steps, learning_rate, report_stats)
             self.progress_step += 1
-        return Statistics()
+        return Statistics_rl()
 
     def _report_training(self, *args, **kwargs):
         """ To be overridden """
@@ -96,7 +96,7 @@ class ReportMgrBase(object):
         raise NotImplementedError()
 
 
-class ReportMgr(ReportMgrBase):
+class ReportMgr_rl(ReportMgrBase):
     def __init__(self, report_every, start_time=-1., tensorboard_writer=None):
         """
         A report manager that writes statistics on standard output as well as
@@ -107,7 +107,7 @@ class ReportMgr(ReportMgrBase):
             tensorboard_writer(:obj:`tensorboard.SummaryWriter`):
                 The TensorBoard Summary writer to use or None
         """
-        super(ReportMgr, self).__init__(report_every, start_time)
+        super(ReportMgr_rl, self).__init__(report_every, start_time)
         self.tensorboard_writer = tensorboard_writer
 
     def maybe_log_tensorboard(self, stats, prefix, learning_rate, step):
@@ -128,7 +128,7 @@ class ReportMgr(ReportMgrBase):
                                    "progress",
                                    learning_rate,
                                    step)
-        report_stats = Statistics()
+        report_stats = Statistics_rl()
 
         return report_stats
 
@@ -146,8 +146,7 @@ class ReportMgr(ReportMgrBase):
                                        step)
 
         if valid_stats is not None:
-            self.log('Validation perplexity: %g' % valid_stats.ppl())
-            self.log('Validation accuracy: %g' % valid_stats.accuracy())
+            self.log('Validation rewards: %g' % valid_stats.reward)
 
             self.maybe_log_tensorboard(valid_stats,
                                        "valid",
@@ -155,7 +154,7 @@ class ReportMgr(ReportMgrBase):
                                        step)
 
 
-class Statistics(object):
+class Statistics_rl(object):
     """
     Accumulator for loss statistics.
     Currently calculates:
@@ -165,13 +164,13 @@ class Statistics(object):
     * elapsed time
     """
 
-    def __init__(self, loss=0, n_words=0, n_correct=0, bias=0.0):
+    def __init__(self, loss=0, reward=0.0, reward_with_baseline=0.0, sampled_policy=0.0, bias=0.0, n_docs=0):
         self.loss = loss
+        self.reward = reward
+        self.reward_with_baseline = reward_with_baseline
+        self.sampled_policy = sampled_policy
         self.bias = bias
-        self.n_words = n_words
-        self.n_docs = 0
-        self.n_correct = n_correct
-        self.n_src_words = 0
+        self.n_docs = n_docs
         self.start_time = time.time()
 
     @staticmethod
@@ -187,7 +186,7 @@ class Statistics(object):
         Returns:
             `Statistics`, the update stats object
         """
-        stats = Statistics.all_gather_stats_list([stat], max_size=max_size)
+        stats = Statistics_rl.all_gather_stats_list([stat], max_size=max_size)
         return stats[0]
 
     @staticmethod
@@ -228,25 +227,17 @@ class Statistics(object):
 
         """
         self.loss += stat.loss
+        self.reward += stat.reward
+        self.reward_with_baseline += stat.reward_with_baseline
+        self.sampled_policy += stat.sampled_policy
         self.bias += stat.bias
-        self.n_words += stat.n_words
-        self.n_correct += stat.n_correct
         self.n_docs += stat.n_docs
 
         if update_n_src_words:
             self.n_src_words += stat.n_src_words
 
-    def accuracy(self):
-        """ compute accuracy """
-        return 100 * (self.n_correct / self.n_words)
-
     def xent(self):
-        """ compute cross entropy """
-        return self.loss / self.n_words
-
-    def ppl(self):
-        """ compute perplexity """
-        return math.exp(min(self.loss / self.n_words, 100))
+        return -self.reward/self.n_docs
 
     def elapsed_time(self):
         """ compute elapsed time """
@@ -263,18 +254,15 @@ class Statistics(object):
         t = self.elapsed_time()
         learning_rate = '/'.join([("%7.8f")%lr for lr in learning_rate])
         logger.info(
-            ("Step %2d/%5d; acc: %6.2f; ppl: %5.2f; loss: %4.2f; xent: %4.2f; matrix_bias: %4.2f; " +
-             "lr: %s; %3.0f/%3.0f tok/s; %6.0f sec")
+            ("Step %2d/%5d; loss: %4.2f; reward: %4.2f; reward_with_baseline: %4.2f;, policy: %4.2f, bias: %4.2f;" +
+             "lr: %s")
             % (step, num_steps,
-               self.accuracy(),
-               self.ppl(),
                self.loss,
-               self.xent(),
-               self.bias,
-               learning_rate,
-               self.n_src_words / (t + 1e-5),
-               self.n_words / (t + 1e-5),
-               time.time() - start))
+               self.reward/self.n_docs,
+               self.reward_with_baseline/self.n_docs,
+               self.sampled_policy / self.n_docs,
+               self.bias/self.n_docs,
+               learning_rate))
         sys.stdout.flush()
 
     def log_tensorboard(self, prefix, writer, learning_rate, step):

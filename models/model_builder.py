@@ -1,6 +1,11 @@
 import copy, random
-
 import math
+import numpy as np
+import nltk
+from sklearn.cluster import SpectralClustering
+from scipy.optimize import linear_sum_assignment
+from scipy.stats import entropy
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,17 +14,13 @@ from torch.nn.parameter import Parameter
 from torch.nn.init import xavier_uniform_
 from torch.nn.init import zeros_
 from torch.distributions import RelaxedBernoulli
-import numpy as np
-from sklearn.cluster import SpectralClustering
-from scipy.optimize import linear_sum_assignment
-from scipy.stats import entropy
-from models.optimizers import Optimizer
+
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSequenceClassification
 from transformers import LongformerModel, BertModel, T5ForConditionalGeneration, BartForConditionalGeneration
+from models.optimizers import Optimizer
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier, PairClassification
 from models.slot_attn import SlotAttention, SoftKMeans
 from models.spectral_clustering import SpectralCluser
-from sentence_transformers.models import Pooling
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -344,7 +345,7 @@ class SpectralReinforce(nn.Module):
 
         self.sigmoid = torch.nn.Sigmoid()
         self.softmax = torch.nn.Softmax(dim=1)
-        self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduce=False)
+        self.nll = nn.NLLLoss(ignore_index=self.pad_id, reduction='none')
         self.cls_loss = torch.nn.BCELoss(reduction='none')
 
         if self.args.reinforce_strong_baseline:
@@ -457,7 +458,8 @@ class SpectralReinforce(nn.Module):
 
         linear_ajacency_matrix = linear_score_matrix
         linear_ajacency_matrix = linear_ajacency_matrix.view(len(predicates), -1)
-        adja = self.softmax(linear_ajacency_matrix)
+        #adja = self.softmax(linear_ajacency_matrix)
+        adja = self.sigmoid(linear_ajacency_matrix)
 
         return adja
 
@@ -488,6 +490,7 @@ class SpectralReinforce(nn.Module):
             adjacency_matrix = (torch.transpose(adjacency_matrix, 0, 1) + adjacency_matrix)/2
         else:
             adjacency_matrix = symmatric_ajda
+            adjacency_matrix = (torch.transpose(adjacency_matrix, 0, 1) + adjacency_matrix)/2
             adjacency_matrix[adjacency_matrix < adja_threshold] = 0.0
 
         adjacency_matrix_numpy = adjacency_matrix.cpu().detach().numpy()
@@ -506,6 +509,9 @@ class SpectralReinforce(nn.Module):
                                         affinity='precomputed').fit(adjacency_matrix_numpy)
         #print (adjacency_matrix)
         #print (clustering.labels_)
+        adjacency_matrix = symmatric_ajda
+        adjacency_matrix = (torch.transpose(adjacency_matrix, 0, 1) + adjacency_matrix)/2
+        #print (adjacency_matrix)
         return clustering.labels_, adjacency_matrix
 
 
@@ -621,7 +627,8 @@ class SpectralReinforce(nn.Module):
                     #out_prob = sum(out_prob)
                     #log_prob = torch.log(in_prob/out_prob)
 
-                    log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
+                    #log_prob = sum([torch.log(in_p) for in_p in in_prob]) + sum([torch.log(1-out_p) for out_p in out_prob])
+                    log_prob = sum([torch.log(in_p) for in_p in in_prob])/len(in_prob) + sum([torch.log(1-out_p) for out_p in out_prob])/len(out_prob)
 
                     #log_in_prob = sum([torch.log(item) for item in in_prob])
                     #log_out_prob = sum([torch.log(item) for item in out_prob])
@@ -673,7 +680,7 @@ class SpectralReinforce(nn.Module):
                        src_str=None, pred_str=None, 
                        run_bernoulli=True,
                        adja_threshold=-1):
-        
+
         if mode == 'spectral_baseline':
             adjacency_matrix = self._get_adjacency_matrix(self.baseline_predicate_graph, preds, pred_token, pred_token_mask)
             if n_clusters == 1:
@@ -764,7 +771,6 @@ class SpectralReinforce(nn.Module):
                 pred_str_groups[label].append(pred_str[i])
                 src_str_groups[label].append(src_str[i])
 
-
         ##########################################################
         # calculate graph probability
         ##########################################################
@@ -774,12 +780,14 @@ class SpectralReinforce(nn.Module):
             graph_prob = [0.0]
         elif mode == 'random_test':
             graph_prob = [0.0 for i in range(n_clusters)]
+        elif mode == 'gold':
+            graph_prob = [0.0 for i in range(n_clusters)]
         else:
             if sample_matrix is not None:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, sample_matrix)
             else:
                 graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
-            #§graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
+            #graph_prob = self.calculate_graph_prob(pred_groups, preds, adjacency_matrix)
             #graph_prob = self.calculate_graph_prob(labels, adjacency_matrix)
 
         '''
@@ -794,7 +802,7 @@ class SpectralReinforce(nn.Module):
         print (pred_str_groups)
         print ('')
         '''
-        return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups, n_clusters
+        return src_groups, pred_groups, graph_prob, src_str_groups, pred_str_groups, n_clusters, adjacency_matrix
 
 
     def hungrian_alignment(self, pred_groups, tgt, mask_tgt, ctgt, mask_ctgt, mask_ctgt_loss, p2s, n_clusters):
@@ -835,6 +843,7 @@ class SpectralReinforce(nn.Module):
         parallel_ctgt = []
         parallel_ctgt_mask = []
         parallel_graph_probs = []
+        parallel_adjacency_matrix = []
         ngroups = []
 
         for i in range(len(preds)):
@@ -855,7 +864,8 @@ class SpectralReinforce(nn.Module):
                 n_clusters = 1
 
             # run clustering
-            src_groups, pred_groups, graph_probs, _, _, n_clusters = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
+            ret = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode)
+            src_groups, pred_groups, graph_probs, _, _, n_clusters, adjacency_matrix = ret
 
             # run cluster-to-output_sentence alignment
             if mode == 'gold':
@@ -886,6 +896,7 @@ class SpectralReinforce(nn.Module):
             parallel_ctgt_mask.append(new_ctgt_mask)
             parallel_tgt_mask_loss.append(new_mask_ctgt_loss)
             parallel_graph_probs.extend(graph_probs)
+            parallel_adjacency_matrix.append(adjacency_matrix)
             ngroups.append(t.size(0))
 
         # Preparing encoder
@@ -954,19 +965,21 @@ class SpectralReinforce(nn.Module):
             cur_id += nline
         log_likelihood = torch.stack(processed_log_likelihood)
 
-        if weights.size() == sum(nsent):
-            cur_id = 0
-            processed_weights = []
-            for nline in nsent:
-                processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
-                cur_id += nline
-            weights = torch.stack(processed_weights)
+        #if weights.size() == sum(nsent):
+        cur_id = 0
+        processed_weights = []
+        for nline in nsent:
+            processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
+            cur_id += nline
+        weights = torch.stack(processed_weights)
+
+        bias = [adjacency_matrix.square().mean() for adjacency_matrix in parallel_adjacency_matrix]
 
         # log
         #print (log_likelihood, weights)
         #print ('\n')
 
-        return log_likelihood, weights, logging_info
+        return log_likelihood, weights, bias, logging_info
 
 
     def forward_cls(self, pred_tokens, pred_mask_tokens, aggregation_labels, nsents):
@@ -983,14 +996,160 @@ class SpectralReinforce(nn.Module):
         return loss, logging_info
 
 
+    def forward_reinforce(self, src, tgt, p2s, preds, pred_tokens, pred_mask_tokens, nsent,
+                          tgt_str=None, mode='spectral', run_bernoulli=True):
+
+        def cluster_and_prepare_src(src, preds, p2s, pred_tokens, pred_mask_tokens, tgt):
+            parallel_src = []
+            parallel_graph_probs = []
+            ngroups = []
+            adjacency_matrixes = []
+
+            for i in range(len(preds)):
+                s = src[i] # src sentences
+                p = preds[i]
+                p_s = p2s[i]
+                p_tok = pred_tokens[i]
+                p_tok_m = pred_mask_tokens[i]
+                n_clusters = tgt[i].size(0)
+
+                # run clustering
+                ret = self.run_clustering(s, p, n_clusters, p_s, p_tok, p_tok_m, mode=mode, run_bernoulli=run_bernoulli)
+                src_groups, pred_groups, graph_probs, _, _, n_clusters, adjacency_matrix = ret
+
+                parallel_src.extend(src_groups)
+                parallel_graph_probs.extend(graph_probs)
+                ngroups.append(n_clusters)
+                adjacency_matrixes.append(adjacency_matrix)
+
+            # Preparing encoder
+            src = torch.tensor(self._pad(parallel_src), device=self.device)
+            mask_src = ~(src == self.pad_id)
+
+            return src, mask_src, parallel_graph_probs, adjacency_matrixes
+
+
+        def run_decoder(src, mask_src):
+            outputs = self.abs_model.generate(input_ids=src,
+                                                attention_mask=mask_src,
+                                                do_sample=False,
+                                                num_beams=1,
+                                                num_beam_groups=1,
+                                                constraints=None,
+                                                force_words_ids=None,
+                                                max_length=self.args.max_tgt_len,
+                                                min_length=self.args.min_tgt_len,
+                                                decoder_start_token_id=self.tokenizer.bos_token_id)
+
+            # Preparing decoder
+            tgt = outputs
+            mask_tgt = ~(tgt == self.pad_id)
+            gtruth = tgt
+            labels = tgt
+            gtruth = gtruth[:, 1:].contiguous()
+            labels = labels[:, 1:].contiguous()
+
+            tgt = tgt[:, :-1].contiguous()
+            mask_tgt = mask_tgt[:, :-1].contiguous()
+
+            labels[labels == self.pad_id] = -100
+            res = self.abs_model(input_ids=src, attention_mask=mask_src, 
+                                 decoder_input_ids=tgt,
+                                 decoder_attention_mask=mask_tgt,
+                                 labels=labels)
+            scores = res.logits # [batch_size, tgt_length, vocab_size]
+            scores = scores.reshape(-1, scores.size(2))
+            gtruth = gtruth.reshape(-1)
+
+            #loss_fct = CrossEntropyLoss(ignore_index=self.pad_id, reduce=False)
+            loss_fct = CrossEntropyLoss(ignore_index=self.pad_id, reduction='none')
+            log_neglikelihood = loss_fct(scores, gtruth)
+            log_likelihood = (-1) * log_neglikelihood
+
+            log_likelihood = log_likelihood.view(tgt.size(0),-1)
+            log_likelihood = torch.mean(log_likelihood, dim=1)
+
+            return log_likelihood, outputs
+
+
+        def get_rewards(outputs, nsent, tgt_str, mode):
+            cur_id = 0
+            bleu_scores = []
+            for i, nline in enumerate(nsent):
+                one_example = outputs[cur_id:(cur_id+nline)]
+                hypothesises = [self.tokenizer.decode(one_sent, skip_special_tokens=True) for one_sent in one_example]
+                references = tgt_str[i]
+                tok_hyps = [nltk.tokenize.word_tokenize(hypothesis) for hypothesis in hypothesises]
+                tok_refs = [nltk.tokenize.word_tokenize(reference) for reference in references]
+                chencherry = nltk.translate.bleu_score.SmoothingFunction()
+                sentence_match_scores = []
+                for tok_hyp in tok_hyps:
+                    for tok_ref in tok_refs:
+                        b_res = nltk.translate.bleu_score.sentence_bleu([tok_ref], tok_hyp, smoothing_function=chencherry.method2)
+                        sentence_match_scores.append(b_res)
+                bleu_res = min(sentence_match_scores)
+                print ('[hypothesis]', hypothesises)
+                print ('[reference]', references)
+                print (bleu_res)
+                bleu_scores.append(bleu_res)
+                cur_id += nline
+                # compare out_str to tgt_str
+            return torch.tensor(bleu_scores, device=self.device)
+
+
+        # Run cluser and prepare src data
+        src, mask_src, graph_probs, adjacency_matrixes = cluster_and_prepare_src(src, preds, p2s, pred_tokens, pred_mask_tokens, tgt)
+        # Run encoder-decoder and get the log likelihood of the generation
+        log_likelihood, outputs = run_decoder(src, mask_src) # number of subgraphs
+
+        # Prepare graph_probs
+        weights = torch.stack(graph_probs) # number of subgraphs
+        # Prepare bias
+        bias = [adjacency_matrix.square().mean() for adjacency_matrix in adjacency_matrixes]
+
+        # Calculate log likelihood
+        cur_id = 0
+        processed_log_likelihood = []
+        for nline in nsent:
+            processed_log_likelihood.append(log_likelihood[cur_id:(cur_id+nline)].sum())
+            cur_id += nline
+        log_likelihood = torch.stack(processed_log_likelihood)
+
+        cur_id = 0
+        processed_weights = []
+        for nline in nsent:
+            processed_weights.append(weights[cur_id:(cur_id+nline)].sum())
+            cur_id += nline
+        weights = torch.stack(processed_weights)
+
+        merged_log_likelihood = log_likelihood + weights # number of examples
+        #merged_log_likelihood = weights # number of examples
+
+        # Calculate rewards
+        rewards = get_rewards(outputs, nsent, tgt_str, mode)
+
+        return merged_log_likelihood, rewards, bias
+        #return log_likelihood, rewards
+
+
     def forward(self, src, tgt, mask_tgt,
                 ctgt, mask_ctgt, mask_ctgt_loss, 
                 preds, pred_tokens, pred_mask_tokens, 
                 p2s, nsent, aggregation_labels=None,
-                run_decoder=True, mode='spectral'):
+                run_decoder=True, tgt_str=None, 
+                mode='spectral',
+                run_bernoulli=True):
 
         if mode == 'nn':
             ret = self.forward_cls(pred_tokens, pred_mask_tokens, aggregation_labels, nsent)
+
+        elif mode.startswith('reinforce_'):
+            ret = self.forward_reinforce(src, tgt, p2s,
+                                         preds, pred_tokens, 
+                                         pred_mask_tokens, 
+                                         nsent, tgt_str=tgt_str,
+                                         mode=mode.replace('reinforce_', ''),
+                                         run_bernoulli=run_bernoulli)
         else:
             ret = self.forward_generator(src, tgt, mask_tgt, ctgt,
                                          mask_ctgt, mask_ctgt_loss,

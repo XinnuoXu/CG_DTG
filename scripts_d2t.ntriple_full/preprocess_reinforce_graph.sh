@@ -9,6 +9,7 @@ tokenizer=$2 #[t5-small, t5-base, t5-large]
 
 BASE_PATH=/rds/user/hpcxu1/hpc-work/outputs.webnlg/${ntriple}triple.full/
 RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_full/webnlg_data.manual_align/
+#RAW_PATH=../Plan_while_Generate/D2T_data/webnlg.${ntriple}triple_full/test/
 JSON_PATH=${BASE_PATH}/jsons.re.align.rule_based/
 LOG_PATH=${BASE_PATH}/logs.data/
 
@@ -21,6 +22,7 @@ python preprocess.py \
         -raw_path ${RAW_PATH} \
         -save_path ${JSON_PATH} \
         -oracle_topn 1000 \
+        -shuffle_datapoints True \
         -n_cpus 30 \
         -log_file ${LOG_PATH}/preprocess_shard.log
 
@@ -39,6 +41,7 @@ LOG_PATH=${BASE_PATH}/logs.data/
 mkdir -p ${LOG_PATH}
 mkdir -p ${DATA_PATH}
 rm -rf ${DATA_PATH}/test.*
+#rm -rf ${DATA_PATH}/*
 
 python preprocess.py \
 	-mode format_sentence_level \

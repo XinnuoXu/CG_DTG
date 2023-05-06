@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument("-batch_size", default=140, type=int)
     parser.add_argument("-max_pos", default=1024, type=int)
     parser.add_argument("-max_tgt_len", default=250, type=int)
+    parser.add_argument("-min_tgt_len", default=5, type=int)
     parser.add_argument("-max_src_nsent", default=2000, type=int)
 
     # parameters for extractive models and tmt
