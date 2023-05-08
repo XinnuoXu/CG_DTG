@@ -19,7 +19,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForSeque
 from transformers import LongformerModel, BertModel, T5ForConditionalGeneration, BartForConditionalGeneration
 from models.optimizers import Optimizer
 from models.encoder import SentenceClassification, ClusterClassification, TransformerEncoder, Classifier, PairClassification
-from models.slot_attn import SlotAttention, SoftKMeans
 from models.spectral_clustering import SpectralCluser
 
 torch.autograd.set_detect_anomaly(True)
@@ -145,75 +144,6 @@ def get_generator(vocab_size, dec_hidden_size, device, pre_trained_generator=Non
 
     generator.to(device)
     return generator
-
-
-
-class AbsSummarizerNewVersion(nn.Module):
-    def __init__(self, args, device, vocab_size, checkpoint=None):
-        super(AbsSummarizerNewVersion, self).__init__()
-        self.args = args
-        self.device = device
-
-        self.model = T5ForConditionalGeneration.from_pretrained(self.args.model_name)
-
-        self.vocab_size = vocab_size
-        self.original_tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        print (self.vocab_size, len(self.original_tokenizer))
-        if self.vocab_size > len(self.original_tokenizer):
-            self.model.resize_token_embeddings(self.vocab_size)
-        self.pad_id = self.original_tokenizer.pad_token_id
-
-        self.encoder = self.model.get_encoder()
-        self.decoder = self.model.get_decoder()
-        self.generator = get_generator(self.vocab_size, 
-                                        self.model.config.hidden_size, 
-                                        device, 
-                                        pre_trained_generator=self.model.lm_head)
-
-        if checkpoint is not None:
-            print ('Load parameters from checkpoint...')
-            self.load_state_dict(checkpoint['model'], strict=True)
-
-        else:
-            print ('Initialize parameters for generator...')
-
-        self.to(device)
-
-
-    def _log_generation_stats(self, scores, target, src):
-        pred = scores.max(2)[1]
-        non_padding = target.ne(self.pad_id)
-        num_correct = pred.eq(target) \
-                          .masked_select(non_padding) \
-                          .sum() \
-                          .item()
-        num_non_padding = non_padding.sum().item()
-        log_info = {'num_non_padding':num_non_padding, 'num_correct':num_correct, 'n_docs':int(src.size(0))}
-        return log_info
-
-
-    def forward(self, src, tgt, mask_src, mask_tgt, run_decoder=True):
-
-        labels = tgt[:,1:].contiguous()
-        labels[labels == self.pad_id] = -100
-
-        if not run_decoder:
-            output_sequences = self.model.generate(input_ids=src, 
-                                                    attention_mask=mask_src, 
-                                                    do_sample=False, 
-                                                    max_length=256, 
-                                                    min_length=5,
-                                                    num_beams=5,
-                                                    no_repeat_ngram_size=5)
-            return output_sequences
-        else:
-            outputs = self.model(src, attention_mask=mask_src, labels=labels)
-
-        loss = outputs[0]; lm_logits = outputs[1]
-        logging_info = self._log_generation_stats(lm_logits, tgt[:,1:], src)
-
-        return loss, logging_info
-
 
 
 class AbsSummarizer(nn.Module):
@@ -525,46 +455,6 @@ class SpectralReinforce(nn.Module):
         return labels
 
 
-    def calculate_graph_prob_v0(self, pred_groups, predicates, adjacency_matrix):
-
-        linear_ajacency_matrix = adjacency_matrix.reshape(-1)
-
-        sub_graph = {}; idx = 0
-        for i, head_i in enumerate(predicates):
-            sub_graph[head_i] = {}
-            for j, head_j in enumerate(predicates):
-                sub_graph[head_i][head_j] = linear_ajacency_matrix[idx]
-                idx += 1
-
-        probs = []
-        for group in pred_groups:
-            in_log_prob = []
-            for i, head_1 in enumerate(group):
-                for j, head_2 in enumerate(group):
-                    if head_1 != head_2:
-                        likelihood = sub_graph[head_1][head_2]
-                        #print (head_1, head_2, likelihood)
-                        log_likelihood = torch.log(likelihood)
-                        in_log_prob.append(log_likelihood)
-
-                    elif len(group) == 1:
-                        likelihood = sub_graph[head_1][head_2]
-                        if self.args.test_no_single_pred_score:
-                            likelihood = torch.tensor(1.0, device=self.device)
-                        log_likelihood = torch.log(likelihood)
-                        in_log_prob.append(log_likelihood)
-
-            if len(in_log_prob) > 0:
-                if self.args.calculate_graph_prob_method == 'min':
-                    in_log_prob = min(in_log_prob)
-                else:
-                    in_log_prob = sum(in_log_prob)/len(in_log_prob)
-                    
-                probs.append(in_log_prob)
-
-        return probs
-
-
     def calculate_graph_prob(self, pred_groups, predicates, adjacency_matrix):
 
         #print (adjacency_matrix)
@@ -639,39 +529,6 @@ class SpectralReinforce(nn.Module):
        # print ('\n\n')
 
         return probs
-
-
-    def calculate_graph_prob_v2(self, labels, adjacency_matrix):
-        #mean, var = torch.var_mean(adjacency_matrix)
-        #if adjacency_matrix.size(0) > 1:
-        #    print (adjacency_matrix)
-        #    print ('Sta:', float(torch.min(adjacency_matrix)), float(torch.max(adjacency_matrix)), float(mean), float(var))
-        #    print ('\n')
-
-        selection_matrix = self._label_to_descrete_adjacency(labels)
-        LL_graph = []
-        for i in range(len(labels)):
-            for j in range(len(labels)):
-                A_ij = selection_matrix[i][j]
-                P_ij = adjacency_matrix[i][j]
-                LL = A_ij * torch.log(P_ij) + (1-A_ij) * torch.log(1-P_ij)
-                LL_graph.append(LL)
-        sum_LL = sum(LL_graph)
-
-        if self.args.calculate_graph_prob_method == 'min':
-            if self.args.test_no_single_pred_score:
-                adjacency_matrix.fill_diagonal_(1)
-            selected_edges_index = selection_matrix.nonzero(as_tuple=True)
-            selected_edges = adjacency_matrix[selected_edges_index]
-            group_num = len(set(labels))
-            #print (adjacency_matrix)
-            #print (labels)
-            #print (selection_matrix)
-            #print (min(selected_edges))
-            #print ('\n')
-            return [min(selected_edges) for i in range(group_num)]
-
-        return [sum_LL]
 
 
     def run_clustering(self, src, preds, n_clusters, p2s, 

@@ -5,7 +5,6 @@ import torch
 
 import distributed
 from models.reporter_abs import ReportMgr, Statistics
-from models.reporter_ext import ReportMgrExt, StatisticsExt
 from models.logging import logger
 from tool.debug_tool import parameter_reporter
 
@@ -51,7 +50,6 @@ class Trainer(object):
         self.ext_loss = ext_loss
 
         self.report_manager = ReportMgr(args.report_every, start_time=-1)
-        self.report_manager_ext = ReportMgrExt(args.report_every, start_time=-1)
 
         if args.log_gradient == '':
             self.log_gradient = None
@@ -234,12 +232,6 @@ class Trainer(object):
                 self.report_manager.start()
             else:
                 self.report_manager.start_time = start_time
-
-        if self.report_manager_ext is not None:
-            if start_time is None:
-                self.report_manager_ext.start()
-            else:
-                self.report_manager_ext.start_time = start_time
 
 
     def _maybe_gather_stats(self, stat):
