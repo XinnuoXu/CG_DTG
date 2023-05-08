@@ -18,10 +18,9 @@ from transformers import AutoTokenizer
 from models import data_loader, model_builder
 from models.data_loader import load_dataset
 from models.loss import abs_loss 
-from models.model_builder import AbsSummarizer, AbsSummarizerNewVersion
+from models.model_builder import AbsSummarizer
 from models.trainer_abs import build_trainer
 from models.predictor import build_predictor
-from models.predictor_tgt_prefix import build_prefix_predictor
 from models.logging import logger, init_logger
 
 model_flags = ['model_name', 'ext_or_abs', 'tokenizer_path', 
@@ -165,7 +164,6 @@ def train_abs_single(args, device_id):
 
     # Load model
     model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
-    #model = AbsSummarizerNewVersion(args, device, len(tokenizer), checkpoint)
 
     # Load optimizer
     optim = [model_builder.build_optim(args, model, checkpoint)]
@@ -229,7 +227,6 @@ def validate(args, device_id, pt, step):
     symbols = {'PAD': tokenizer.pad_token_id}
 
     model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
-    #model = AbsSummarizerNewVersion(args, device, len(tokenizer), checkpoint)
     model.eval()
 
     valid_loss = abs_loss(model.generator, model.vocab_size, 
@@ -268,13 +265,9 @@ def test_abs(args, device_id, pt, step):
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
 
     model = AbsSummarizer(args, device, len(tokenizer), checkpoint)
-    #model = AbsSummarizerNewVersion(args, device, len(tokenizer), checkpoint)
     model.eval()
 
-    if args.prefix_tgt_training:
-        predictor = build_prefix_predictor(args, tokenizer, model, logger)
-    else:
-        predictor = build_predictor(args, tokenizer, model, logger)
+    predictor = build_predictor(args, tokenizer, model, logger)
     predictor.translate(test_iter, step)
 
 

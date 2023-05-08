@@ -126,7 +126,6 @@ if __name__ == '__main__':
     parser.add_argument("-reset_optimizer", type=str2bool, default=False)
     parser.add_argument("-load_from_ext", default='')
     parser.add_argument("-load_from_abs", default='')
-    parser.add_argument("-prefix_tgt_training", type=str2bool, nargs='?', default=False)
 
     # test parameters
     parser.add_argument("-test_from", default='')
