@@ -9,6 +9,7 @@ test_type="seen"
 
 lang_list=(br cy ga ru)
 test_from_list=(5000 5000 8000 7000)
+#test_from_list=(10000 10000 8000 7000)
 for i in "${!lang_list[@]}"
 do
 	lang=${lang_list[i]}
@@ -33,6 +34,7 @@ do
 done
 echo ''
 
+'''
 ################
 # Random
 ################
@@ -124,4 +126,4 @@ do
 	#python tool/nli_postprocess.py
 done
 echo ''
-
+'''

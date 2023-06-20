@@ -137,6 +137,7 @@ class Trainer(object):
             p2s = batch.p2s
             nsent = batch.nsent
 
+            bias = 0.0
             if self.args.pretrain_nn_cls:
                 loss, logging_info = self.model(src, tgt, mask_tgt, 
                                                 ctgt, mask_ctgt, mask_ctgt_loss, 
@@ -197,12 +198,15 @@ class Trainer(object):
                 loss = loss.sum() + sum(bias) * 0.1
                 loss.backward()
 
+                bias_log = sum(bias).clone().item()/len(bias)
+
             #parameter_reporter(self.model.abs_model)
+
 
             batch_stats = Statistics(loss.clone().item(), 
                                      logging_info['num_non_padding'], 
                                      logging_info['num_correct'],
-                                     bias = sum(bias).clone().item()/len(bias))
+                                     bias = bias_log)
             batch_stats.n_docs = logging_info['n_docs']
 
             total_stats.update(batch_stats)

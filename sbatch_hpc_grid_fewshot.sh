@@ -35,6 +35,11 @@ echo "Creating directory to save model weights"
 #sh tool/grid_search_fewshot_nn.sh 0.005 500 > tool/grid.res.fewshot/nn.grid.res.0.005
 #sh tool/grid_search_fewshot_nn.sh 0.01 500 > tool/grid.res.fewshot/nn.grid.res.0.01
 #sh tool/grid_search_fewshot_nn.sh 0.05 500 > tool/grid.res.fewshot/nn.grid.res.0.05
-sh tool/grid_search_fewshot_nn.sh 0.1 1000 > tool/grid.res.fewshot/nn.grid.res.0.1
+#sh tool/grid_search_fewshot_nn.sh 0.1 1000 > tool/grid.res.fewshot/nn.grid.res.0.1
+
+#sh tool/grid_search_fewshot_randombase_nosample.sh 0.005 1500 > tool/grid.res.fewshot/rl.grid.res.0.005
+#sh tool/grid_search_fewshot_randombase_nosample.sh 0.01 1000 > tool/grid.res.fewshot/rl.grid.res.0.01
+#sh tool/grid_search_fewshot_randombase_nosample.sh 0.05 2500 > tool/grid.res.fewshot/rl.grid.res.0.05
+sh tool/grid_search_fewshot_randombase_nosample.sh 0.1 1000 > tool/grid.res.fewshot/rl.grid.res.0.1
 
 echo "Job ${SLURM_JOB_ID} is done!"

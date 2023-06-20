@@ -32,14 +32,10 @@ source /home/hpcxu1/miniconda3/bin/activate Plan
 # ====================
 echo "Creating directory to save model weights"
 
-#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 7 t5-base
-#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 4 t5-base
-#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 3 t5-base
-#sh ./scripts_d2t.ntriple_full/train_reinforce_encdec_partial.sh 2 t5-base
+#sh ./scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.005 500
+#sh ./scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.01 500
+#sh ./scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.05 500
+sh ./scripts_d2t.fewshot/train_reinforce_graph_nn.sh 0.1 1000
 
-#sh ./scripts_d2t.ntriple_full/train_reinforce_graph_nn.sh 7 t5-base 5500
-#sh ./scripts_d2t.ntriple_full/train_reinforce_graph_nn.sh 4 t5-base 2000
-sh ./scripts_d2t.ntriple_full/train_reinforce_graph_nn.sh 3 t5-base 1500 
-#sh ./scripts_d2t.ntriple_full/train_reinforce_graph_nn.sh 2 t5-base 500
 
 echo "Job ${SLURM_JOB_ID} is done!"
